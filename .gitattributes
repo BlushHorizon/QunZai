@@ -1,0 +1,16 @@
+# PowerShell 脚本必须保留 UTF-8 BOM：
+# Windows PowerShell 5.1 在没有 BOM 时按系统 ANSI 代码页（简中 = GBK）读取脚本，
+# 中文注释会把多字节字符切坏、导致语法错误，脚本根本跑不起来（v1.4.12 前踩过）。
+# -text 关掉换行/BOM 转换，让文件按字节原样进出仓库。
+*.ps1 -text
+
+# 批处理同样要 CRLF，否则 cmd 解析行尾出错
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 安装包与图标按二进制处理
+*.exe binary
+*.ico binary
+*.png binary
+*.jpg binary
+*.webp binary

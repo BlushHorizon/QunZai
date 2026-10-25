@@ -807,11 +807,34 @@ async function checkUpdate(manual = true) {
       return false;
     }
 
-    if (el) { el.textContent = `状态：正在下载 v${r.latest}…`; el.className = 'ds-status warn'; }
-    const d = await api('/api/update/download', { method: 'POST', body: '{}' });
+    if (el) { el.textContent = `状态：正在下载 v${r.latest}…（优先镜像，失败自动回退官方源）`; el.className = 'ds-status warn'; }
+
+    // 下载期间轮询进度：多线程下载能跑几 MB/s，让用户看得见
+    let pollTimer = null;
+    const stopPoll = () => { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } };
+    if (el) {
+      pollTimer = setInterval(async () => {
+        try {
+          const p = await api('/api/update/progress');
+          if (!p || !p.downloading) return;
+          const mb = (n) => (n / 1024 / 1024).toFixed(1);
+          const speed = p.speed > 1024 * 1024 ? `${(p.speed / 1024 / 1024).toFixed(1)} MB/s` : `${Math.round(p.speed / 1024)} KB/s`;
+          el.textContent = `状态：正在下载 v${r.latest}… ${p.percent}% ｜ ${mb(p.downloaded)}/${mb(p.total)} MB ｜ ${speed} ｜ ${p.connections} 线程`;
+        } catch { /* 进度接口失败不影响下载本身 */ }
+      }, 500);
+    }
+
+    let d;
+    try {
+      d = await api('/api/update/download', { method: 'POST', body: '{}' });
+    } finally {
+      stopPoll();
+    }
     if (!d.ok) throw new Error(d.error || '下载失败');
     if (el) {
-      el.textContent = `状态：v${r.latest} 已下载，SHA256 校验通过（${Math.round((d.bytes || 0) / 1024)} KB）`;
+      const via = d.via === 'mirror' ? '镜像加速' : '官方源';
+      const thr = d.sequential ? '单线程' : `${d.connections} 线程`;
+      el.textContent = `状态：v${r.latest} 已下载（${via}，${thr}），SHA256 校验通过（${(d.bytes / 1024 / 1024).toFixed(1)} MB）`;
       el.className = 'ds-status ok';
     }
     if (await uiConfirm(`v${r.latest} 已下载完成，是否立即安装？\n\n安装程序会打开，按提示完成即可；安装器会先结束旧版本，并在完成后启动新版本。`, { title: '安装更新', okText: '立即安装', cancelText: '稍后安装', type: 'warn' })) {

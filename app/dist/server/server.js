@@ -562,6 +562,11 @@ async function handleApi(req, res, url) {
     }
   }
 
+  // 下载进度（前端轮询）：只暴露百分比和速度，不暴露地址
+  if (p === '/api/update/progress' && req.method === 'GET') {
+    return sendJson(res, 200, { ok: true, ...(updater.progress || { downloading: false }) });
+  }
+
   if (p === '/api/update/install' && req.method === 'POST') {
     return sendJson(res, 200, updater.install());
   }

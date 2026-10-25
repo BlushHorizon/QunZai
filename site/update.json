@@ -1,13 +1,13 @@
 {
-  "version": "1.4.11",
-  "notes": "群崽 v1.4.11：把 QQ 内核的管理面板直接搬进群崽里。以前点「打开它的管理面板」会跳浏览器新标签，现在直接在群崽窗口内打开一个全屏面板，顶部有「刷新」「在浏览器打开」「✕ 关闭」，按 Esc 或点面板外空白处也能关。关闭时会卸载 iframe（about:blank），不会让后台页面空跑；加载超过 12 秒会给出可读提示，不会一直白屏。先核实过可以嵌入：NapCat 面板的响应头里没有 X-Frame-Options、没有 CSP frame-ancestors，前端代码里也没有防嵌套检测；实测基础信息、网络配置、猫猫日志三个页面在面板里都能正常打开并显示数据。另外本版延续 v1.4.10 的修复：启动时不再闪出黑色命令行窗口（内置 NapCat 的 worker 子进程用 stdio inherit 却没设 windowsHide，Windows 会给它新建控制台；现在用 NODE_OPTIONS=--require server/no-console.cjs 给 child_process 统一补 windowsHide，engine.js 的 _fromBat() 也能从 launcher.bat 抠出真正的 node 命令直接跑，避免 cmd /c 起 shell）。覆盖安装保留 data/ 与 config.json，不用重新扫码。安装包已通过隐私闸门与内容复核，不含真实配置、accessToken、WebUI 令牌、二维码或 QQ 账号。",
+  "version": "1.4.12",
+  "notes": "群崽 v1.4.12：把更新下载从龟速改成多线程飞起。以前是单连接顺序下载，国内直连 GitHub 只有 10~30 KB/s，80 MB 的包要下一个多小时。现在移植了 PCL2 的自适应分段下载：先用 Range 探测服务器是否真支持分段（不支持就整体退回单连接，不影响功能），再把文件切成 8 MB 左右的段、开 6 条连接同时下；某条连接持续低于其他连接中位数的 1/4 就把它的剩余区间再劈成两半丢回队列重排——这是 PCL 提速的关键一招；单段失败最多重试 2 次并指数退避，遇 429 全局降并发。边下边算 SHA256，校验不过自动删掉 .part 并回退下一个源。实测 80.6 MB 安装包走 ghfast.top 镜像 40.3 秒下完，6 线程动态切成 15 段，峰值 15.9 MB/s。更新时状态栏会实时显示百分比、已下载/总大小、速度和线程数，新增只读接口 /api/update/progress（只暴露进度，不暴露下载地址）。更新清单新增可选 mirror 字段，下载时先走镜像、失败自动回退官方源，用户无感。另外本版修掉一个藏了很久的致命 bug：launcher.ps1 在仓库里是 UTF-8 无 BOM，而 Windows PowerShell 5.1 没 BOM 时按系统 ANSI 代码页（简中 = GBK）读脚本，中文注释把多字节字符切坏直接语法报错，导致这个文件从来没成功运行过一次（data/launcher.log 至今不存在），所有走它的入口（停止服务、守护重启、嵌入模式启动）都会失败。已加回 BOM，并新增 .gitattributes 用 *.ps1 -text 禁止 Git 再做换行/BOM 转换，防止复发。覆盖安装保留 data/ 与 config.json，不用重新扫码。安装包已通过隐私闸门与内容复核，不含真实配置、accessToken、WebUI 令牌、二维码或 QQ 账号。",
   "pubDate": "2026-10-25",
   "files": [
     {
       "url": "https://blushhorizon.github.io/QunZai/assets/%E7%BE%A4%E5%B4%BDQunZai%E5%AE%89%E8%A3%85%E5%8C%85.exe",
-      "sha256": "b9a78a24989862cb47860b95806c64710bebfd31ae98044e07ce7090dae7a407",
-      "size": 84471269,
-      "mirror": "https://ghfast.top/https://github.com/BlushHorizon/QunZai/releases/download/v1.4.11/QunZai-v1.4.11-win-x64.exe"
+      "sha256": "2d6d3612fc3d6d6d237e0256671b28b8db5c8babb51476d09c300f605aebb448",
+      "size": 84471172,
+      "mirror": "https://ghfast.top/https://github.com/BlushHorizon/QunZai/releases/download/v1.4.12/QunZai-v1.4.12-win-x64.exe"
     }
   ]
 }

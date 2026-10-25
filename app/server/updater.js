@@ -12,9 +12,9 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const https = require('https');
-const crypto = require('crypto');
 const { spawn } = require('child_process');
-const { pathToFileURL, fileURLToPath } = require('url');
+const { pathToFileURL } = require('url');
+const fastDownload = require('./fast-download');
 
 function cmpVersion(a, b) {
   const pa = String(a || '0').replace(/^v/i, '').split(/[.+-]/).map((x) => parseInt(x, 10) || 0);
@@ -54,60 +54,16 @@ function fetchText(url, timeoutMs = 8000) {
   });
 }
 
-function downloadFile(url, dest, expectedSha256, expectedSize) {
-  return new Promise((resolve, reject) => {
-    fs.mkdirSync(path.dirname(dest), { recursive: true });
-    const part = dest + '.part';
-    try { fs.rmSync(part, { force: true }); } catch { /* noop */ }
-
-    const onDone = () => {
-      try {
-        const buf = fs.readFileSync(part);
-        if (expectedSize && buf.length !== Number(expectedSize)) {
-          fs.rmSync(part, { force: true });
-          return reject(new Error(`文件大小不一致（期望 ${expectedSize}，实际 ${buf.length}）`));
-        }
-        const hash = crypto.createHash('sha256').update(buf).digest('hex');
-        if (expectedSha256 && hash.toLowerCase() !== String(expectedSha256).toLowerCase()) {
-          fs.rmSync(part, { force: true });
-          return reject(new Error('SHA256 校验失败，已删除下载文件'));
-        }
-        fs.renameSync(part, dest);
-        resolve({ file: dest, bytes: buf.length, sha256: hash });
-      } catch (err) {
-        try { fs.rmSync(part, { force: true }); } catch { /* noop */ }
-        reject(err);
-      }
-    };
-
-    if (/^file:\/\//i.test(url)) {
-      try {
-        fs.copyFileSync(fileURLToPath(url), part);
-        return onDone();
-      } catch (err) { return reject(err); }
-    }
-    if (!/^https?:\/\//i.test(url)) return reject(new Error('只支持 http / https / file 下载地址'));
-
-    const lib = /^https:/i.test(url) ? https : http;
-    const req = lib.get(url, { timeout: 30000, headers: { 'User-Agent': 'QunZai-Updater' } }, (res) => {
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        res.resume();
-        return downloadFile(new URL(res.headers.location, url).toString(), dest, expectedSha256, expectedSize).then(resolve, reject);
-      }
-      if (res.statusCode !== 200) {
-        res.resume();
-        return reject(new Error(`下载失败：HTTP ${res.statusCode}`));
-      }
-      const out = fs.createWriteStream(part);
-      let bytes = 0;
-      res.on('data', (c) => { bytes += c.length; if (bytes > 250 * 1024 * 1024) req.destroy(new Error('文件超过 250MB，已中止')); });
-      res.pipe(out);
-      out.on('finish', onDone);
-      out.on('error', reject);
-      res.on('error', reject);
-    });
-    req.on('timeout', () => req.destroy(new Error('下载超时')));
-    req.on('error', reject);
+/**
+ * 下载一个文件到 dest（先写 .part，校验通过才改名）。
+ * 真正的下载交给 fast-download.js：多线程分段 + 慢连接自动劈段，
+ * 单连接被限速时能叠加到几 MB/s；服务器不支持 Range 会自动退回顺序下载。
+ */
+function downloadFile(url, dest, expectedSha256, expectedSize, opts = {}) {
+  return fastDownload.downloadFile(url, dest, {
+    expectedSha256: expectedSha256 || '',
+    expectedSize: Number(expectedSize) || 0,
+    onProgress: opts.onProgress || null
   });
 }
 
@@ -119,6 +75,8 @@ class Updater {
     this.updatesDir = path.join(this.root, 'data', 'updates');
     this.last = null;
     this.lastDownload = null;
+    // 前端轮询用的进度快照（不含下载地址等敏感信息）
+    this.progress = { downloading: false, downloaded: 0, total: 0, speed: 0, percent: 0, connections: 0 };
   }
 
   _manifestSource() {
@@ -174,6 +132,11 @@ class Updater {
     if (file && file.url) {
       try { downloadUrl = this._resolveFileUrl(loaded.source, file.url); } catch { /* 下面标记不完整 */ }
     }
+    // 可选镜像：清单里给 mirror 就走它（国内直连 GitHub 太慢），失败自动回退主地址
+    let mirrorUrl = '';
+    if (file && file.mirror) {
+      try { mirrorUrl = this._resolveFileUrl(loaded.source, file.mirror); } catch { /* 忽略坏镜像 */ }
+    }
     this.last = {
       ok: true,
       configured: true,
@@ -185,6 +148,7 @@ class Updater {
       pubDate: m.pubDate || '',
       file: file ? {
         url: downloadUrl,
+        mirror: mirrorUrl,
         sha256: String(file.sha256 || ''),
         size: Number(file.size) || 0
       } : null,
@@ -201,9 +165,37 @@ class Updater {
     if (!checked.file.sha256) throw new Error('更新清单缺少 SHA256，拒绝下载未校验的文件');
     const safeVersion = checked.latest.replace(/[^0-9A-Za-z._-]/g, '_');
     const dest = path.join(this.updatesDir, `QunZai-${safeVersion}-setup.exe`);
-    const got = await downloadFile(checked.file.url, dest, checked.file.sha256, checked.file.size);
-    this.lastDownload = { ...got, version: checked.latest };
-    return { ok: true, ...this.lastDownload };
+
+    // 先镜像、后主地址：镜像挂了或校验不过，自动回退，用户不用管
+    const urls = [];
+    if (checked.file.mirror) urls.push({ url: checked.file.mirror, via: 'mirror' });
+    urls.push({ url: checked.file.url, via: 'direct' });
+
+    const onProgress = (p) => {
+      this.progress = {
+        downloading: true,
+        downloaded: p.downloaded || 0,
+        total: p.total || checked.file.size || 0,
+        speed: p.speed || 0,
+        connections: p.connections || 0,
+        percent: p.total > 0 ? Math.min(100, Math.round((p.downloaded / p.total) * 1000) / 10) : 0
+      };
+    };
+
+    let lastErr = null;
+    for (const item of urls) {
+      try {
+        const got = await downloadFile(item.url, dest, checked.file.sha256, checked.file.size, { onProgress });
+        this.progress = { downloading: false, downloaded: got.bytes, total: got.bytes, speed: 0, connections: 0, percent: 100 };
+        this.lastDownload = { ...got, version: checked.latest, via: item.via };
+        return { ok: true, ...this.lastDownload };
+      } catch (err) {
+        lastErr = err;
+        // 镜像失败就继续试下一个；主地址失败则直接抛
+      }
+    }
+    this.progress = { downloading: false, downloaded: 0, total: 0, speed: 0, connections: 0, percent: 0, error: String(lastErr && lastErr.message || '下载失败') };
+    throw lastErr || new Error('下载失败');
   }
 
   install() {

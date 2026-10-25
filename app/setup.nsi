@@ -14,7 +14,7 @@ SetCompressor /SOLID lzma
 !define REGKEY "Software\QunZai"
 !define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\QunZai"
 !ifndef VERSION
-  !define VERSION "1.4.11"
+  !define VERSION "1.4.12"
 !endif
 
 Name "${APPNAME}"
