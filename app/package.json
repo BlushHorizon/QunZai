@@ -1,6 +1,6 @@
-{
+﻿{
   "name": "qunzai",
-  "version": "1.4.12",
+  "version": "1.4.13",
   "description": "群崽 QunZai — 本地运行的 QQ AI 智能体：网页版 DeepSeek 直连，免 API Key，AI 会自己发表情包",
   "main": "server/server.js",
   "scripts": {

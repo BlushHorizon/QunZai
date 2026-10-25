@@ -1,13 +1,13 @@
 {
-  "version": "1.4.11",
-  "notes": "群崽 v1.4.11：把 QQ 内核的管理面板直接搬进群崽里。以前点「打开它的管理面板」会跳浏览器新标签，现在直接在群崽窗口内打开一个全屏面板，顶部有「刷新」「在浏览器打开」「✕ 关闭」，按 Esc 或点面板外空白处也能关。关闭时会卸载 iframe（about:blank），不会让后台页面空跑；加载超过 12 秒会给出可读提示，不会一直白屏。先核实过可以嵌入：NapCat 面板的响应头里没有 X-Frame-Options、没有 CSP frame-ancestors，前端代码里也没有防嵌套检测；实测基础信息、网络配置、猫猫日志三个页面在面板里都能正常打开并显示数据。另外本版延续 v1.4.10 的修复：启动时不再闪出黑色命令行窗口（内置 NapCat 的 worker 子进程用 stdio inherit 却没设 windowsHide，Windows 会给它新建控制台；现在用 NODE_OPTIONS=--require server/no-console.cjs 给 child_process 统一补 windowsHide，engine.js 的 _fromBat() 也能从 launcher.bat 抠出真正的 node 命令直接跑，避免 cmd /c 起 shell）。覆盖安装保留 data/ 与 config.json，不用重新扫码。安装包已通过隐私闸门与内容复核，不含真实配置、accessToken、WebUI 令牌、二维码或 QQ 账号。",
+  "version": "1.4.13",
+  "notes": "群崽 v1.4.13：安装器现在会自动关掉旧进程再覆盖安装。之前覆盖安装时，内置的 NapCat 监视器还在运行、占用 engine\napcat 里的文件，会报「无法写入 QQNT.dll」让安装中断。现在安装开始前会用自带的停止脚本按安装目录精准结束桌面宿主、主服务和 NapCat/SnowLuma 监视器进程（只杀本目录的，不误伤其他 Node 程序），装完再拉起。另延续 v1.4.12 的多线程下载：80 MB 包国内加速约 1 分半下完。覆盖安装保留 data/ 与 config.json，不用重新扫码。",
   "pubDate": "2026-10-25",
   "files": [
     {
       "url": "https://blushhorizon.github.io/QunZai/assets/%E7%BE%A4%E5%B4%BDQunZai%E5%AE%89%E8%A3%85%E5%8C%85.exe",
-      "sha256": "b9a78a24989862cb47860b95806c64710bebfd31ae98044e07ce7090dae7a407",
-      "size": 84471269,
-      "mirror": "https://ghfast.top/https://github.com/BlushHorizon/QunZai/releases/download/v1.4.11/QunZai-v1.4.11-win-x64.exe"
+      "sha256": "e995345d7bdba7829f77976b0d60432394e972b55fe3acf7f2e65b005b521a62",
+      "size": 84500816,
+      "mirror": "https://ghfast.top/https://github.com/BlushHorizon/QunZai/releases/download/v1.4.13/QunZai-v1.4.13-win-x64.exe"
     }
   ]
 }

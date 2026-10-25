@@ -1,4 +1,4 @@
-# 群崽 QunZai
+﻿# 群崽 QunZai
 
 > 让群热闹，也把群管好 —— 住进 QQ 群的 AI 搭子 · 免 API Key · 自己发表情包
 
@@ -89,7 +89,7 @@
 
 ## 安装与使用
 
-1. 从 [Releases](https://github.com/BlushHorizon/QunZai/releases/latest) 下载最新安装包（当前 v1.4.12，约 80.6 MB，自带监视器与 Node），默认装到 `D:\群崽`，覆盖安装不丢数据
+1. 从 [Releases](https://github.com/BlushHorizon/QunZai/releases/latest) 下载最新安装包（当前 v1.4.13，约 80.6 MB，自带监视器与 Node），默认装到 `D:\群崽`，覆盖安装不丢数据
 2. 打开设置页 →「监视器（QQ 运行时）」，选「内置的」→ 点「启动并同步」，用手机 QQ 扫面板上弹出的二维码登录一次（小号即可）。不用另外下载 NapCat，也不用装 Node.js
 3. 双击桌面「群崽 QunZai」打开监控台 → 点「① 打开该网站」扫码登录一次 DeepSeek 网页版，之后它自己开工；服务启停在窗口右上角
 
