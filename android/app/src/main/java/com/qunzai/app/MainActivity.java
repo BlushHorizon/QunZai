@@ -20,12 +20,26 @@ import androidx.appcompat.app.AppCompatActivity;
  *
  * 这里的 WebView 只做「显示」，所有业务逻辑都在内置 Node 服务端里，
  * 所以面板行为和 Windows 版完全一致，不做两套 UI。
+ *
+ * 启动时序：
+ *   1. 拉起 NodeService（解压运行时 + 拉起服务端，过程写进 qz-status.json）
+ *   2. 本界面轮询 runtime.json 拿端口，并要求 HTTP 200 才算就绪
+ *   3. 就绪后加载面板；期间把解压进度显示在顶部状态条上
+ *
+ * 真机上首次启动要解压近 100MB 运行时，耗时可达几十秒，
+ * 所以等待上限放到 5 分钟，并且每 500ms 刷新一次状态文案，
+ * 避免用户只看到一句没反应的「加载中」。
  */
 public class MainActivity extends AppCompatActivity {
+
+    /** 等待服务端就绪的上限：5 分钟。 */
+    private static final long WAIT_TIMEOUT_MS = 5 * 60 * 1000L;
+    private static final long POLL_INTERVAL_MS = 500L;
 
     private WebView web;
     private TextView status;
     private String serverUrl;
+    private volatile boolean loaded = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,7 +82,13 @@ public class MainActivity extends AppCompatActivity {
         });
 
         // 启动内置服务端
-        NodeService.start(this);
+        // 支持通过 Intent extra 强制 ABI（adb shell am start -n com.qunzai.app/.MainActivity --ez qz_abi arm64），
+        // 用来在 x86_64 模拟器上把真机专属的 arm64 路径也测一遍。
+        String forcedAbi = null;
+        try {
+            if (getIntent() != null) forcedAbi = getIntent().getStringExtra("qz_abi");
+        } catch (Exception ignored) { }
+        NodeService.start(this, forcedAbi);
         waitForServer();
     }
 
@@ -76,26 +96,59 @@ public class MainActivity extends AppCompatActivity {
     private void waitForServer() {
         status.setText("正在启动群崽服务…");
         new Thread(() -> {
+            long deadline = System.currentTimeMillis() + WAIT_TIMEOUT_MS;
             String url = null;
-            for (int i = 0; i < 120; i++) {
+            String lastMsg = "正在启动群崽服务…";
+            while (System.currentTimeMillis() < deadline) {
                 url = NodeHost.readServerUrl(this);
                 // 光有 runtime.json 不够：必须确认这个端口真的在应答，
                 // 否则会拿着还没起来（或已经换掉）的地址去连，白屏一片。
                 if (url != null && ping(url)) break;
                 url = null;
-                try { Thread.sleep(500); } catch (InterruptedException e) { return; }
+
+                // 刷新状态文案：解压进度 / 具体错误
+                String msg = currentStatusMessage(lastMsg);
+                if (!msg.equals(lastMsg)) {
+                    lastMsg = msg;
+                    final String m = msg;
+                    runOnUiThread(() -> status.setText(m));
+                }
+
+                try { Thread.sleep(POLL_INTERVAL_MS); } catch (InterruptedException e) { return; }
             }
             final String finalUrl = url;
+            final String finalMsg = (url == null) ? lastMsg : "群崽服务已就绪";
             runOnUiThread(() -> {
                 if (finalUrl == null) {
-                    status.setText("服务启动失败，请查看通知中的日志");
+                    status.setVisibility(View.VISIBLE);
+                    status.setText(finalMsg);
                     return;
                 }
                 serverUrl = finalUrl;
+                loaded = true;
                 status.setVisibility(View.GONE);
                 web.loadUrl(finalUrl + "/");
             });
         }).start();
+    }
+
+    /** 从服务写下的 qz-status.json 里取一句人话状态。 */
+    private String currentStatusMessage(String fallback) {
+        try {
+            org.json.JSONObject o = NodeHost.readStatus(this);
+            if (o == null) return fallback;
+            String phase = o.optString("phase", "");
+            String msg = o.optString("message", "");
+            String err = o.optString("error", "");
+            if (!err.isEmpty()) {
+                return "启动失败：" + err;
+            }
+            if (!msg.isEmpty()) return msg;
+            if ("running".equals(phase)) return "群崽服务运行中";
+            return fallback;
+        } catch (Exception e) {
+            return fallback;
+        }
     }
 
     /** 探一下面板是否已应答（200 即算活着）。 */
@@ -123,6 +176,15 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         super.onBackPressed();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // 从后台回到前台时，面板可能因为 WebView 被回收而白屏，重载一次
+        if (loaded && serverUrl != null && web != null) {
+            web.loadUrl(serverUrl + "/");
+        }
     }
 
     @Override
