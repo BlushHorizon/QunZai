@@ -34,7 +34,7 @@ app/desktop/bin/
 # 安装包二进制：v1.4.9 起单包涨到 80 MB（内置 NapCat），继续入库会把仓库撑爆。
 # 从 v1.4.9 开始改走「GitHub Release 资产」分发，Git 里只保留 350 KB 级别的历史包。
 # 官网分发副本是个例外：site/assets/ 下那份要随 Pages 部署，仍被追踪。
-releases/群崽QunZai安装包-v1.4.9.exe
+releases/群崽QunZai安装包-v*.exe
 releases/history/
 
 # 浏览器 / 系统杂项

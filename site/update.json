@@ -1,12 +1,12 @@
 {
-  "version": "1.4.9",
-  "notes": "群崽 v1.4.9：安装包自带 QQ 监视器 NapCat 与 Node 运行时（约 80.5 MB），双击即用，不用再自己找 OneBot 下载配置；设置页新增「群崽 QQ 内核」，可一键启动/停止/自动检测，内核首次启动直接在面板里显示扫码二维码，还有「打开它的管理面板」按钮。表情包引擎接上在线图库「梗鲸 · DeepSeek娘」（约 2300 张，每张带一句台词级描述）：AI 写 [表情:关键词] 时先翻群友发过的素材，翻不到再按描述去图库匹配、用到哪张下哪张，只缓存在本机 data/stickers，站点不可达自动跳过不影响聊天；设置页新增图库面板（张数 / 刷新 / 缩略图预览）。同时修正关键词匹配：以前命不中会硬塞一张随机图，现在有关键词就必须真命中，宁可只发文字。延续 v1.4.8 的爱发电入口与 v1.4.7 的停服务后关闭直接退出。安装包已通过隐私闸门与内容复核，不含真实配置、accessToken、WebUI 令牌、二维码或 QQ 账号。",
+  "version": "1.4.11",
+  "notes": "群崽 v1.4.11：把 QQ 内核的管理面板直接搬进群崽里。以前点「打开它的管理面板」会跳浏览器新标签，现在直接在群崽窗口内打开一个全屏面板，顶部有「刷新」「在浏览器打开」「✕ 关闭」，按 Esc 或点面板外空白处也能关。关闭时会卸载 iframe（about:blank），不会让后台页面空跑；加载超过 12 秒会给出可读提示，不会一直白屏。先核实过可以嵌入：NapCat 面板的响应头里没有 X-Frame-Options、没有 CSP frame-ancestors，前端代码里也没有防嵌套检测；实测基础信息、网络配置、猫猫日志三个页面在面板里都能正常打开并显示数据。另外本版延续 v1.4.10 的修复：启动时不再闪出黑色命令行窗口（内置 NapCat 的 worker 子进程用 stdio inherit 却没设 windowsHide，Windows 会给它新建控制台；现在用 NODE_OPTIONS=--require server/no-console.cjs 给 child_process 统一补 windowsHide，engine.js 的 _fromBat() 也能从 launcher.bat 抠出真正的 node 命令直接跑，避免 cmd /c 起 shell）。覆盖安装保留 data/ 与 config.json，不用重新扫码。安装包已通过隐私闸门与内容复核，不含真实配置、accessToken、WebUI 令牌、二维码或 QQ 账号。",
   "pubDate": "2026-10-25",
   "files": [
     {
       "url": "https://blushhorizon.github.io/QunZai/assets/%E7%BE%A4%E5%B4%BDQunZai%E5%AE%89%E8%A3%85%E5%8C%85.exe",
-      "sha256": "ec38348cd48ce066fc9a135734c2ad748dd851b3c7511e8436e43c9028f927f0",
-      "size": 84457054
+      "sha256": "b9a78a24989862cb47860b95806c64710bebfd31ae98044e07ce7090dae7a407",
+      "size": 84471269
     }
   ]
 }

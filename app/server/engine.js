@@ -119,6 +119,34 @@ class QQEngine {
     return path.join(this.root, 'engine');
   }
 
+  /**
+   * 给监视器主进程注入「禁止弹控制台」的预加载脚本。
+   * ------------------------------------------------------------------
+   * NapCat 这类运行时会在内部 fork worker 子进程，且 fork 时不设 windowsHide。
+   * 由于群崽自己是 GUI 程序（没有控制台），worker 带 inherit 的 stdio 就会
+   * 新开一个控制台窗口——也就是用户看到的那黑框。
+   *
+   * 这里通过 NODE_OPTIONS=--require <no-console.cjs>，让监视器主进程一启动就
+   * 把 child_process 的 spawn/fork/execFile/exec 补上 windowsHide: true，
+   * 从进程内部解决问题，不用改第三方源码、也不会因为换版本失效。
+   *
+   * 只对内置/本机 node 入口生效（.bat 入口走 cmd.exe，本来就带窗口，
+   * 但那种情况会走 launcher 分支，另外处理）。
+   */
+  _consoleEnv() {
+    try {
+      const shim = path.join(__dirname, 'no-console.cjs');
+      if (!exists(shim)) return {};
+      const flag = '--require "' + shim.replace(/\\/g, '/') + '"';
+      const prev = String(process.env.NODE_OPTIONS || '').trim();
+      // 已经带过就不重复加（避免重复预加载）
+      if (prev.includes('no-console.cjs')) return {};
+      return { NODE_OPTIONS: prev ? prev + ' ' + flag : flag };
+    } catch {
+      return {};
+    }
+  }
+
   /** 判断某个目录是不是「随包内置」的那一份（注意：必须带分隔符，
    *  否则 app\engine-src 也会被误判成 app\engine 里的东西） */
   _isBundled(dir) {
@@ -278,9 +306,48 @@ class QQEngine {
     }
     if (exists(path.join(dir, 'index.mjs'))) return { cmd: nodeExe, args: ['index.mjs'] };
     if (exists(path.join(dir, 'app.js'))) return { cmd: nodeExe, args: ['app.js'] };
-    if (exists(path.join(dir, 'launcher.bat'))) return { cmd: 'cmd.exe', args: ['/c', 'launcher.bat'] };
-    if (exists(path.join(dir, 'start.bat'))) return { cmd: 'cmd.exe', args: ['/c', 'start.bat'] };
+    // .bat 入口：先试着把里面的 node 命令行抠出来直接跑（见 _fromBat），
+    // 这样既不会弹出 cmd 黑框，也能保住 detached 的独立性。
+    for (const bat of ['launcher.bat', 'start.bat']) {
+      const p = path.join(dir, bat);
+      if (!exists(p)) continue;
+      const direct = this._fromBat(p, dir, nodeExe);
+      if (direct) return direct;
+      // 抠不出来就退回 cmd，但标记 isShell，start() 里不会给它新开控制台
+      return { cmd: 'cmd.exe', args: ['/c', bat], isShell: true };
+    }
     return null;
+  }
+
+  /**
+   * 从 .bat 里找出真正干活的 node 命令。
+   * 很多运行时（SnowLuma 等）的 launcher.bat 只是「检查 Node 版本 → node xxx.mjs」的包装，
+   * 直接跑 cmd 会白开一个控制台窗口；把 node 那行拎出来自己 spawn 就没这问题。
+   * 只认最简单的写法（node [.\/]script），认不出就返回 null 交给调用方回退。
+   */
+  _fromBat(batPath, dir, nodeExe) {
+    let text = '';
+    try { text = fs.readFileSync(batPath, 'utf8'); } catch { return null; }
+    const lines = text.split(/\r?\n/);
+    let hit = null;
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line || /^(::|rem\b|@?echo\b|if\b|set\b|pause\b|title\b|cd\b|chcp\b|exit\b)/i.test(line)) continue;
+      const m = /^(?:"([^"]*node[^"]*)"|([^\s"]*node(?:\.exe)?))\s+(.+)$/i.exec(line);
+      if (!m) continue;
+      const exe = m[1] || m[2] || '';
+      // 只认 node 本体（node、node.exe、.\node.exe、<dir>\node.exe），别把 npm 之类当成 node
+      if (!/(^|[\\/])node(\.exe)?$/i.test(exe.replace(/"/g, ''))) continue;
+      const rest = m[3].replace(/\s*%\*.*$/, '').trim();
+      if (!rest) continue;
+      const args = rest.match(/"[^"]*"|\S+/g).map((s) => s.replace(/^"|"$/g, ''));
+      if (!args.length) continue;
+      const script = args[0].replace(/^\.?[\\/]/, '');
+      if (!/\.(m?js|cjs)$/i.test(script)) continue;
+      if (!exists(path.join(dir, script))) continue;
+      hit = { cmd: nodeExe, args };
+    }
+    return hit;
   }
 
   /**
@@ -670,10 +737,12 @@ class QQEngine {
       try {
         const child = spawn(info.entry.cmd, info.entry.args, {
           cwd: info.dir,
-          detached: true,
+          // .bat 兜底入口（cmd.exe）不能 detached：Windows 上它会另开一个控制台窗口。
+          // 直接跑 node 的入口（绝大多数情况）保持 detached，这样群崽异常退出也不带走监视器。
+          detached: !info.entry.isShell,
           windowsHide: true,
           stdio: 'ignore',
-          env: { ...process.env, NAPCAT_WORKDIR: info.dir }
+          env: { ...process.env, ...this._consoleEnv(), NAPCAT_WORKDIR: info.dir }
         });
         child.unref();
         this.startedProcess = child;

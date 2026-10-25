@@ -717,15 +717,66 @@ async function stopEngine() {
   }
 }
 
+let enginePanelUrl = '';
+
+/** 把内置运行时的管理面板直接嵌进群崽，不用再跳浏览器 */
 async function openEngineWebui() {
+  const panel = $('enginePanel');
+  if (!panel) return;
+  let url = '';
   try {
     const r = await api('/api/engine/status');
-    const url = r.engine?.webuiUrl;
-    if (!url) return uiAlert('没有找到它的管理面板地址。确认它已经启动过一次（首次启动会生成配置）。');
-    window.open(url, '_blank', 'noopener');
+    url = r.engine?.webuiUrl || '';
   } catch (e) {
-    uiAlert('打开失败：' + e.message);
+    return uiAlert('读取内核状态失败：' + e.message);
   }
+  if (!url) {
+    return uiAlert('没有找到它的管理面板地址。确认它已经启动过一次（首次启动会生成配置）。');
+  }
+  enginePanelUrl = url;
+  const frame = $('enginePanelFrame');
+  const loading = $('enginePanelLoading');
+  const dot = $('enginePanelDot');
+  const sub = $('enginePanelSub');
+  if (sub) sub.textContent = url.replace(/\?token=[^&]*/, '');
+  if (dot) dot.classList.add('on');
+  if (loading) {
+    loading.classList.remove('hidden');
+    loading.textContent = '正在加载面板…';
+  }
+  panel.classList.remove('hidden');
+  if (frame) frame.src = url;
+  // 面板是本地服务，正常 1 秒内就出来；超过 12 秒还没 onload 就给个可读提示
+  clearTimeout(openEngineWebui._t);
+  openEngineWebui._t = setTimeout(() => {
+    if (loading && !loading.classList.contains('hidden')) {
+      loading.innerHTML = '面板还没加载出来。<br>可能是内核正在启动，或者端口被占用。<br>点右上角「刷新」再试一次。';
+    }
+  }, 12000);
+}
+
+function closeEnginePanel() {
+  const panel = $('enginePanel');
+  const frame = $('enginePanelFrame');
+  if (frame) frame.src = 'about:blank';
+  if (panel) panel.classList.add('hidden');
+  enginePanelUrl = '';
+}
+
+function reloadEnginePanel() {
+  const frame = $('enginePanelFrame');
+  const loading = $('enginePanelLoading');
+  if (!enginePanelUrl) return openEngineWebui();
+  if (loading) {
+    loading.classList.remove('hidden');
+    loading.textContent = '正在加载面板…';
+  }
+  if (frame) frame.src = enginePanelUrl + (enginePanelUrl.includes('?') ? '&' : '?') + '_t=' + Date.now();
+}
+
+function enginePanelExternal() {
+  if (!enginePanelUrl) return uiAlert('面板地址还没拿到，先点「刷新」。');
+  window.open(enginePanelUrl, '_blank', 'noopener');
 }
 
 async function checkUpdate(manual = true) {
@@ -1001,6 +1052,29 @@ function init() {
   $('btnEngineStart').addEventListener('click', startEngine);
   $('btnEngineStop').addEventListener('click', stopEngine);
   $('btnEngineWebui').addEventListener('click', openEngineWebui);
+  const panelFrame = $('enginePanelFrame');
+  if (panelFrame) {
+    panelFrame.addEventListener('load', () => {
+      const src = panelFrame.getAttribute('src') || '';
+      if (!src || src === 'about:blank') return;
+      const loading = $('enginePanelLoading');
+      if (loading) loading.classList.add('hidden');
+      clearTimeout(openEngineWebui._t);
+    });
+  }
+  if ($('btnEnginePanelClose')) $('btnEnginePanelClose').addEventListener('click', closeEnginePanel);
+  if ($('btnEnginePanelReload')) $('btnEnginePanelReload').addEventListener('click', reloadEnginePanel);
+  if ($('btnEnginePanelExternal')) $('btnEnginePanelExternal').addEventListener('click', enginePanelExternal);
+  if ($('enginePanel')) {
+    $('enginePanel').addEventListener('click', (e) => {
+      if (e.target === $('enginePanel')) closeEnginePanel();
+    });
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && $('enginePanel') && !$('enginePanel').classList.contains('hidden')) {
+      closeEnginePanel();
+    }
+  });
   $('setEngineSource').addEventListener('change', toggleEngineDir);
   $('btnUpdateCheck').addEventListener('click', () => checkUpdate(true));
   $('btnDsExpand').addEventListener('click', showDeepSeekTab);

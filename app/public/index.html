@@ -22,7 +22,7 @@
         <span class="logo">◉</span>
         <span class="title">群崽 <em>QunZai</em></span>
         <span class="subtitle">QQ 智能体监控台</span>
-        <span class="version" id="appVersion">v1.4.9</span>
+        <span class="version" id="appVersion">v1.4.11</span>
       </div>
       <div class="topbar-right">
         <div class="pill" id="qqStatusPill" title="QQ 接入状态">
@@ -319,7 +319,7 @@
 
         <h4>关于与声明</h4>
         <div class="about-box">
-          <p><b>群崽 QunZai</b> <span id="aboutVersion">v1.4.9</span> · MIT 开源 · 创建于 2026 年 10 月 · 玩具级学习作品，非生产级产品</p>
+          <p><b>群崽 QunZai</b> <span id="aboutVersion">v1.4.11</span> · MIT 开源 · 创建于 2026 年 10 月 · 玩具级学习作品，非生产级产品</p>
           <p>· 本项目<b>不是反代、没有第三方中转、没有逆向 DeepSeek 网页</b>；原理是用 Node 连接本机浏览器调试端口（CDP）模拟操作，<b>这与反代一样均违反 DeepSeek 用户协议，账号可能被临时限制或封禁</b>。</p>
           <p>· 它会把 AI 生成的内容<b>自动发到 QQ</b>，无审核无黑名单，<b>请勿用于骚扰、刷屏、恶作剧，建议使用小号</b>。</p>
           <p>· 运行时会自动拉起 Edge 并连接调试端口，<b>可能被杀软误报为木马</b>；源码公开可自行审计，确认为误报请加白名单。</p>
@@ -354,6 +354,28 @@
       <div class="qz-dialog-foot">
         <button class="ghost-btn hidden" id="qzDialogCancel" type="button">取消</button>
         <button class="primary-btn" id="qzDialogOk" type="button">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 内核面板：把内置 NapCat 的 WebUI 直接嵌进来，不用跳浏览器 -->
+  <div class="engine-panel hidden" id="enginePanel" role="dialog" aria-modal="true" aria-labelledby="enginePanelTitle">
+    <div class="engine-panel-card">
+      <div class="engine-panel-head">
+        <div class="engine-panel-title">
+          <span class="engine-panel-dot" id="enginePanelDot"></span>
+          <span id="enginePanelTitle">QQ 内核面板</span>
+          <span class="engine-panel-sub" id="enginePanelSub"></span>
+        </div>
+        <div class="engine-panel-actions">
+          <button class="mini-btn" id="btnEnginePanelReload" type="button">刷新</button>
+          <button class="mini-btn" id="btnEnginePanelExternal" type="button">在浏览器打开</button>
+          <button class="close-btn" id="btnEnginePanelClose" type="button" aria-label="关闭">✕</button>
+        </div>
+      </div>
+      <div class="engine-panel-body">
+        <iframe class="engine-panel-frame" id="enginePanelFrame" title="QQ 内核管理面板" referrerpolicy="no-referrer"></iframe>
+        <div class="engine-panel-loading" id="enginePanelLoading">正在加载面板…</div>
       </div>
     </div>
   </div>

@@ -427,6 +427,74 @@ html.qz-host .ds-slot-fallback {
 .kind-err .feed-text { color: var(--bad); }
 .kind-skip .feed-text { color: var(--text-faint); }
 
+/* ---------------- 内核面板（内嵌 NapCat WebUI） ---------------- */
+.engine-panel {
+  position: fixed; inset: 0;
+  background: rgba(4, 8, 14, 0.72);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 60;
+  backdrop-filter: blur(3px);
+  padding: 16px;
+}
+
+.engine-panel-card {
+  width: min(1280px, 100%);
+  height: 100%;
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.engine-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+
+.engine-panel-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600; letter-spacing: 0.5px;
+  min-width: 0;
+}
+
+.engine-panel-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--text-faint);
+  flex: none;
+}
+.engine-panel-dot.on { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+
+.engine-panel-sub {
+  color: var(--text-faint);
+  font-weight: 400;
+  font-size: 11.5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.engine-panel-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+
+.engine-panel-body { position: relative; flex: 1; min-height: 0; background: var(--bg); }
+
+.engine-panel-frame { width: 100%; height: 100%; border: 0; display: block; background: #fff; }
+
+.engine-panel-loading {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 13px;
+  background: var(--bg);
+}
+.engine-panel-loading.hidden { display: none !important; }
+
 /* ---------------- 弹窗 ---------------- */
 .modal {
   position: fixed; inset: 0;
