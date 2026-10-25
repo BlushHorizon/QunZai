@@ -6,7 +6,8 @@
     {
       "url": "https://blushhorizon.github.io/QunZai/assets/%E7%BE%A4%E5%B4%BDQunZai%E5%AE%89%E8%A3%85%E5%8C%85.exe",
       "sha256": "b9a78a24989862cb47860b95806c64710bebfd31ae98044e07ce7090dae7a407",
-      "size": 84471269
+      "size": 84471269,
+      "mirror": "https://ghfast.top/https://github.com/BlushHorizon/QunZai/releases/download/v1.4.11/QunZai-v1.4.11-win-x64.exe"
     }
   ]
 }
