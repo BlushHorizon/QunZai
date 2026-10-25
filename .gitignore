@@ -37,6 +37,14 @@ app/desktop/bin/
 releases/群崽QunZai安装包-v*.exe
 releases/history/
 
+# 安卓工程：内置的 Termux Node 运行时（arm64 + x86_64，约 190 MB）
+# 与第三方 Node 二进制，不进 Git 仓库。用 android/tools/assemble_assets.py 重新生成。
+android/app/src/main/assets/qz-rt/
+# 安卓构建产物
+android/app/build/
+android/.gradle/
+android/local.properties
+
 # 浏览器 / 系统杂项
 Thumbs.db
 desktop.ini

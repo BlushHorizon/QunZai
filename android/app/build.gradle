@@ -1,0 +1,64 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.qunzai.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.qunzai.app"
+        minSdk 24
+        // targetSdk 必须 <= 28：Android 10 起（targetSdk>=29）SELinux 禁止
+        // 应用执行自己私有目录里的文件（avc: denied { execute_no_trans } on
+        // app_data_file），而群崽的 node 运行时正是从私有目录解压后 exec 的。
+        // Termux 等带解释器的应用同样停在 28。
+        targetSdk 28
+        versionCode 1413
+        versionName "1.4.13"
+        ndk {
+            abiFilters 'arm64-v8a', 'x86_64'
+        }
+    }
+
+    androidResources {
+        noCompress 'so'
+    }
+
+    // AGP 8 起 BuildConfig 默认不生成，用到 BuildConfig.DEBUG 就必须显式打开
+    buildFeatures {
+        buildConfig true
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.debug
+        }
+        debug {
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    // targetSdk 28 是刻意为之（见上），Google Play 的上架要求不适用于本项目
+    lint {
+        disable 'ExpiredTargetSdkVersion'
+        abortOnError false
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging true
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.webkit:webkit:1.11.0'
+}
