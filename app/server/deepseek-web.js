@@ -19,18 +19,13 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { SITES, DEFAULT_SITE, getSite, siteList } = require('./web-sites');
+const { browserCandidates, IS_ANDROID, IS_WIN } = require('./platform');
 
 const DEFAULT_PORT = 9222;
 const PAGE_URL = SITES[DEFAULT_SITE].url;   // 默认站点（DeepSeek 网页版）
 
-const EDGE_CANDIDATES = [
-  `${process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)'}\\Microsoft\\Edge\\Application\\msedge.exe`,
-  `${process.env.ProgramFiles || 'C:\\Program Files'}\\Microsoft\\Edge\\Application\\msedge.exe`,
-  `${process.env.LOCALAPPDATA || ''}\\Microsoft\\Edge\\Application\\msedge.exe`,
-  `${process.env.ProgramFiles || 'C:\\Program Files'}\\Google\\Chrome\\Application\\chrome.exe`,
-  `${process.env['ProgramFiles(x86)'] || ''}\\Google\\Chrome\\Application\\chrome.exe`,
-  `${process.env.LOCALAPPDATA || ''}\\Google\\Chrome\\Application\\chrome.exe`
-];
+/* 浏览器可执行文件候选：Windows 用 Edge/Chrome，Linux/macOS 用发行版包路径 */
+const EDGE_CANDIDATES = browserCandidates();
 
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
@@ -47,6 +42,9 @@ class DeepSeekWeb {
     this.profileDir = opts.profileDir;
     // 桌面宿主内嵌模式：CDP 由 QunZaiHost 的 WebView2 提供，绝不能再拉起外部 Edge
     this.embedded = process.env.QUNZAI_EMBEDDED === '1';
+    // 安卓（APK）里没有 Edge/Chrome，用户也没法装一个带 CDP 的浏览器，
+    // 所以网页版模式在安卓上不可用——由宿主（APK）提示改用 API 模式。
+    this.supported = !IS_ANDROID;
     this.browserPath = opts.browserPath || EDGE_CANDIDATES.find((p) => p && fs.existsSync(p));
     this.onStatus = opts.onStatus || (() => {});
     // 当前站点档案（切换模型 = 换档案，同一套浏览器/CDP 驱动）
@@ -82,7 +80,9 @@ class DeepSeekWeb {
       roundCount: this.roundCount,
       maxRounds: this.maxRounds,
       promptSet: !!String(this.prompt || '').trim(),
-      promptSent: this._promptSent
+      promptSent: this._promptSent,
+      // 安卓上网页版不可用，前端据此提示改用 API 模式
+      supported: this.supported
     };
   }
 
@@ -153,6 +153,12 @@ class DeepSeekWeb {
   /** 启动浏览器（如果 CDP 还没起来） */
   async ensureBrowser() {
     if (await this.isCdpAlive()) return true;
+    if (!this.supported) {
+      this._set('error', IS_ANDROID
+        ? '安卓版不支持网页版 DeepSeek（系统里没有带 CDP 的浏览器），请改用 API 模式'
+        : '当前系统不支持网页版模式，请改用 API 模式');
+      return false;
+    }
     if (this.embedded) {
       // 宿主启动 Node 服务后才创建 WebView2，存在几秒空窗期。
       // 这里必须等宿主 CDP，不能回退启动外部 Edge；否则会跳出网页版 DeepSeek，
@@ -169,7 +175,9 @@ class DeepSeekWeb {
       return false;
     }
     if (!this.browserPath || !fs.existsSync(this.browserPath)) {
-      this._set('error', '未找到 Edge/Chrome 可执行文件，请在设置里指定浏览器路径');
+      this._set('error', IS_WIN
+        ? '未找到 Edge/Chrome 可执行文件，请在设置里指定浏览器路径'
+        : '未找到 Edge/Chrome/Chromium 可执行文件，请在设置里指定浏览器路径');
       return false;
     }
     this._set('launching', '正在启动浏览器…');

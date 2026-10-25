@@ -23,6 +23,7 @@ const net = require('net');
 const http = require('http');
 const { spawn, spawnSync } = require('child_process');
 const { writeFileAtomic } = require('./atomic');
+const { IS_WIN, findNodeExe } = require('./platform');
 
 function exists(p) {
   try { return fs.existsSync(p); } catch { return false; }
@@ -191,7 +192,7 @@ class QQEngine {
       if (process.env.LOCALAPPDATA) add(path.join(process.env.LOCALAPPDATA, 'QunZai', 'engine'));
 
       // 只在常见盘符顶层找“名字像 OneBot 运行时”的目录，不做全盘递归。
-      if (process.platform === 'win32') {
+      if (IS_WIN) {
         for (const drive of ['D:\\', 'E:\\', 'C:\\']) {
           try {
             for (const name of fs.readdirSync(drive)) {
@@ -297,7 +298,7 @@ class QQEngine {
   }
 
   _buildEntry(dir, kind) {
-    const nodeExe = exists(path.join(dir, 'node.exe')) ? path.join(dir, 'node.exe') : 'node';
+    const nodeExe = findNodeExe(dir);
     // NapCat Shell 包：入口 index.js 会自己 import napcat/napcat.mjs
     if (kind === 'napcat') {
       if (exists(path.join(dir, 'index.js'))) return { cmd: nodeExe, args: ['index.js'] };
@@ -308,13 +309,16 @@ class QQEngine {
     if (exists(path.join(dir, 'app.js'))) return { cmd: nodeExe, args: ['app.js'] };
     // .bat 入口：先试着把里面的 node 命令行抠出来直接跑（见 _fromBat），
     // 这样既不会弹出 cmd 黑框，也能保住 detached 的独立性。
-    for (const bat of ['launcher.bat', 'start.bat']) {
-      const p = path.join(dir, bat);
-      if (!exists(p)) continue;
-      const direct = this._fromBat(p, dir, nodeExe);
-      if (direct) return direct;
-      // 抠不出来就退回 cmd，但标记 isShell，start() 里不会给它新开控制台
-      return { cmd: 'cmd.exe', args: ['/c', bat], isShell: true };
+    // .bat / cmd.exe 是 Windows 独有的，别的平台没有这个兜底。
+    if (IS_WIN) {
+      for (const bat of ['launcher.bat', 'start.bat']) {
+        const p = path.join(dir, bat);
+        if (!exists(p)) continue;
+        const direct = this._fromBat(p, dir, nodeExe);
+        if (direct) return direct;
+        // 抠不出来就退回 cmd，但标记 isShell，start() 里不会给它新开控制台
+        return { cmd: 'cmd.exe', args: ['/c', bat], isShell: true };
+      }
     }
     return null;
   }
@@ -801,7 +805,7 @@ class QQEngine {
     }
     const pid = this.startedProcess.pid;
     try {
-      if (process.platform === 'win32') {
+      if (IS_WIN) {
         spawnSync('taskkill.exe', ['/PID', String(pid), '/T', '/F'], { windowsHide: true });
       } else {
         this.startedProcess.kill('SIGTERM');

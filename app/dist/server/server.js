@@ -24,6 +24,7 @@ const { Updater } = require('./updater');
 const { DeepSeekWeb, siteList } = require('./deepseek-web');
 const { StickerLibrary } = require('./stickers');
 const { OnlineGallery } = require('./sticker-gallery');
+const { resolveDataDir, platformInfo } = require('./platform');
 
 /* ---------------- 日志系统：控制台实时显示 + data\app.log 持久落盘（追加、不截断） ---------------- */
 const _tsNow = () => {
@@ -31,7 +32,7 @@ const _tsNow = () => {
   const p = (n) => String(n).padStart(2, '0');
   return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 };
-const _logDir = path.join(__dirname, '..', 'data');
+const _logDir = resolveDataDir(configLib.ROOT);
 const _logFile = path.join(_logDir, 'app.log');
 function _rotateIfNeeded() {
   try {
@@ -74,8 +75,10 @@ const stats = { inMsgs: 0, aiReplies: 0, skips: 0 };
 const cfg = configLib.load();
 const ROOT = configLib.ROOT;
 const PUBLIC_DIR = path.join(ROOT, 'public');
+// 数据目录（会话库 / 表情包缓存 / 日志）：安卓上可能与程序目录分开
+const DATA_DIR = resolveDataDir(ROOT);
 
-const store = new Store(ROOT);
+const store = new Store(ROOT, { dataDir: DATA_DIR });
 
 /* ---------------- SSE 客户端 ---------------- */
 const sseClients = new Set();
@@ -213,7 +216,7 @@ function onAdapterEvent(msg) {
 const preferredCdpPort = Number(process.env.QUNZAI_CDP_PORT || cfg.ai?.cdpPort || 9222) || 9222;
 const deepseek = new DeepSeekWeb({
   port: preferredCdpPort,
-  profileDir: path.join(ROOT, 'data', 'deepseek_profile'),
+  profileDir: path.join(DATA_DIR, 'deepseek_profile'),
   browserPath: cfg.ai?.browserPath || '',
   site: cfg.ai?.webProvider || 'deepseek',   // 网页版站点：当前内置 deepseek
   // 提示词不在这给：等 ai 创建后统一 configure(ai._fullPrompt())——
@@ -228,7 +231,7 @@ const deepseek = new DeepSeekWeb({
 
 /* ---------------- 表情包（内置） ---------------- */
 const stickerLib = new StickerLibrary({
-  dataDir: path.join(ROOT, 'data'),
+  dataDir: DATA_DIR,
   adapter,
   log: (t) => console.log(`[表情包] ${t}`)
 });
@@ -236,7 +239,7 @@ const stickerLib = new StickerLibrary({
 // 在线表情图库（梗鲸 · DeepSeek娘）：群友素材里找不到时按描述现取一张。
 // 目录 7 天缓存一次；站点不可达就静默降级，不影响聊天。
 const gallery = new OnlineGallery({
-  dataDir: path.join(ROOT, 'data'),
+  dataDir: DATA_DIR,
   cacheDir: stickerLib.cacheDir,
   log: (t) => console.log(`[表情图库] ${t}`)
 });
@@ -340,7 +343,9 @@ async function handleApi(req, res, url) {
       ai: ai.status(),
       version: APP_VERSION,
       runtime: ports.readRuntime(ROOT),
-      embedded: process.env.QUNZAI_EMBEDDED === '1'
+      embedded: process.env.QUNZAI_EMBEDDED === '1',
+      // 平台信息：前端据此隐藏不适用的入口（安卓没有网页版/自更新）
+      platform: platformInfo()
     });
   }
 
@@ -451,7 +456,7 @@ async function handleApi(req, res, url) {
       const patch = {};
       if (body.ai) {
         patch.ai = { ...body.ai };
-        if (!body.ai.apiKey || body.ai.apiKey === '********') patch.ai.apiKey = configLib.get().ai.apiKey;
+        if (!body.ai.apiKey || /^\*{3,}$/.test(String(body.ai.apiKey))) patch.ai.apiKey = configLib.get().ai.apiKey;
       }
       if (body.qq) {
         patch.qq = { ...body.qq };
@@ -616,6 +621,22 @@ if (p === '/api/ai/deepseek/new' && req.method === 'POST') {
   return sendJson(res, 200, { ok });
 }
 
+if (p === '/api/ai/api/new' && req.method === 'POST') {
+  /* API 模式「新建对话」：OpenAI 兼容接口本身无状态，每轮都把完整 messages 发过去。
+     所以「新建对话」= 清空喂给模型的上下文记忆，之后不再带上这次之前的聊天记录。
+     选了会话就只清那个会话；不选就清全部。
+     聊天记录本身（会话概览里的消息）不会被删，只是不再进 AI 的上下文。 */
+  try {
+    const body = await readBody(req);
+    const chatId = String(body.chatId || '').trim();
+    const at = ai.resetContext(chatId || null);
+    broadcast({ type: 'ai_context_reset', chatId: chatId || null, at });
+    return sendJson(res, 200, { ok: true, chatId: chatId || null, at });
+  } catch (err) {
+    return sendJson(res, 500, { ok: false, error: err.message });
+  }
+}
+
 if (p === '/api/ai/deepseek/test' && req.method === 'POST') {
   try {
     const body = await readBody(req);
@@ -692,6 +713,70 @@ if (p === '/api/qq/reconnect' && req.method === 'POST') {
       res.end(buf);
     });
     return;
+  }
+
+  if (p === '/api/ai/api/test' && req.method === 'POST') {
+    /* API 接口（OpenAI 兼容）连通性 + 测速 + 余额检测：
+       - 发一条 max_tokens=1 的请求，验证 Key 可用并测出延迟（速度/ping）；
+       - 仅 DeepSeek 官方接口暴露 /user/balance，其他接口大多不支持，不强求。
+       取的是面板里当前填的值（baseUrl/apiKey/model），apiKey 留空则回落到已保存的。 */
+    try {
+      const body = await readBody(req);
+      const baseRaw = String(body.baseUrl || '').trim().replace(/\/+$/, '');
+      const apiKey = String(body.apiKey || '').trim() || (configLib.get().ai.apiKey || '');
+      const model = String(body.model || '').trim() || 'deepseek-chat';
+      if (!baseRaw) return sendJson(res, 400, { ok: false, error: '请先填写接口地址' });
+      if (!apiKey) return sendJson(res, 400, { ok: false, error: '请先填写 API Key（或先保存一次）' });
+      const chatUrl = baseRaw.endsWith('/chat/completions') ? baseRaw : baseRaw + '/chat/completions';
+      const started = Date.now();
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 20000);
+      try {
+        const resp = await fetch(chatUrl, {
+          method: 'POST',
+          signal: ctrl.signal,
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({ model, messages: [{ role: 'user', content: 'ping' }], max_tokens: 1, stream: false })
+        });
+        const latencyMs = Date.now() - started;
+        if (!resp.ok) {
+          const txt = (await resp.text().catch(() => '')).slice(0, 160);
+          return sendJson(res, 200, { ok: false, latencyMs, error: `HTTP ${resp.status} ${txt}` });
+        }
+        const data = await resp.json().catch(() => null);
+        if (!data || !Array.isArray(data.choices) || !data.choices[0]) {
+          return sendJson(res, 200, { ok: false, latencyMs, error: '返回结构异常（不是标准 OpenAI 兼容接口）' });
+        }
+        /* 余额检测：DeepSeek 官方接口暴露 /user/balance，其余接口多数不支持，不强求 */
+        let balance = null;
+        let balanceNote = '该接口未提供余额查询（仅 DeepSeek 官方接口支持）';
+        try {
+          const origin = (() => { try { return new URL(baseRaw).origin; } catch { return ''; } })();
+          if (/deepseek/i.test(origin)) {
+            const bresp = await fetch(origin + '/user/balance', {
+              method: 'GET', headers: { Authorization: `Bearer ${apiKey}` }
+            }).catch(() => null);
+            if (bresp && bresp.ok) {
+              const bj = await bresp.json().catch(() => null);
+              if (bj && Array.isArray(bj.balance_infos) && bj.balance_infos[0]) {
+                const info = bj.balance_infos[0];
+                balance = parseFloat(info.total_balance) || 0;
+                balanceNote = `${info.currency}：总额 ${info.total_balance}（赠送 ${info.granted_balance} / 充值 ${info.topped_up_balance}）`;
+              }
+            } else if (bresp) {
+              balanceNote = `余额接口返回 HTTP ${bresp.status}（Key 可用，余额查询受限）`;
+            }
+          }
+        } catch (be) {
+          balanceNote = '余额查询跳过：' + be.message;
+        }
+        return sendJson(res, 200, { ok: true, latencyMs, model, balance, balanceNote });
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch (err) {
+      return sendJson(res, 200, { ok: false, error: err.message });
+    }
   }
 
   if (p === '/api/stickers' && req.method === 'DELETE') {

@@ -193,6 +193,7 @@ const state = {
   chats: [],
   feed: [],
   self: null,
+  platform: null,
   stats: { inMsgs: 0, aiReplies: 0, skips: 0 }
 };
 
@@ -275,6 +276,7 @@ function renderStatus() {
 
   const ds = ai.deepseek || {};
   if (ai.provider === 'deepseek-web') {
+    if ($('cardDsTitle')) $('cardDsTitle').textContent = 'DeepSeek 网页版';
     const map = {
       'need-login': ['bad', '待登录'],
       'ready': ['ok', '就绪'],
@@ -289,10 +291,14 @@ function renderStatus() {
     const prompt = `提示词${ds.promptSet ? (ds.promptSent ? '已发送' : '待发送') : '未设置'}`;
     $('cardDsSub').textContent = [rounds, prompt].filter(Boolean).join(' · ') || '—';
   } else {
-    $('cardDsMain').textContent = '未使用';
-    $('cardDsMain').className = 'card-main dim';
-    $('cardDsSub').textContent = '当前大脑：' + (ai.providerLabel || '—');
+    if ($('cardDsTitle')) $('cardDsTitle').textContent = ai.model && ai.model !== '内置规则引擎' ? 'DeepSeek API' : '内置规则引擎';
+    $('cardDsMain').textContent = '运行中';
+    $('cardDsMain').className = 'card-main ok';
+    $('cardDsSub').textContent = 'API 模式' + (ai.model && ai.model !== '内置规则引擎' ? `（${ai.model}）` : '');
   }
+  // 卡片按钮组随大脑切换：网页版 → 登录/新建对话；API → 测速/可用性/余额
+  if ($('dsWebBtns')) $('dsWebBtns').hidden = ai.provider !== 'deepseek-web';
+  if ($('dsApiBtns')) $('dsApiBtns').hidden = ai.provider === 'deepseek-web';
 
   renderStats();
 }
@@ -303,8 +309,21 @@ function renderStats() {
 }
 
 /* ---------------- 会话概览 ---------------- */
-function renderOverview() {
-  const ul = $('overviewList');
+/** 填充「清空哪个会话的记忆」下拉：全部会话 + 每个已知会话 */
+function renderApiNewTargets() {
+  const sel = $('setApiNewTarget');
+  if (!sel) return;
+  const cur = sel.value;
+  const opts = [{ value: '', label: '全部会话（所有会话的记忆都清掉）' }];
+  for (const c of state.chats) {
+    opts.push({ value: c.id, label: `${c.type === 'group' ? '群' : '私'} · ${c.name}` });
+  }
+  sel.innerHTML = opts.map((o) =>
+    `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join('');
+  if (cur && opts.some((o) => o.value === cur)) sel.value = cur;
+}
+
+function renderOverview() {  const ul = $('overviewList');
   const list = [...state.chats].sort((a, b) => (b.lastTime || 0) - (a.lastTime || 0));
   $('ovHint').textContent = list.length ? `${list.length} 个` : '';
   ul.innerHTML = list.length ? list.map((c) => `
@@ -358,6 +377,7 @@ async function refreshChats() {
   state.chats = data.chats || [];
   renderOverview();
   renderStats();
+  renderApiNewTargets();
 }
 
 async function refreshStatus() {
@@ -365,7 +385,36 @@ async function refreshStatus() {
   state.status = { qq: data.qq, ai: data.ai };
   state.version = data.version || state.version;
   state.self = data.self;
+  if (data.platform) state.platform = data.platform;
+  applyPlatform();
   renderStatus();
+}
+
+/**
+ * 按当前平台隐藏不适用的入口：
+ *  - 安卓：网页版模式不可用（系统里没有带 CDP 的浏览器），只留 API 模式；
+ *  - 安卓/苹果：自更新走应用商店，隐藏「自动更新」区块。
+ */
+function applyPlatform() {
+  const p = state.platform;
+  if (!p) return;
+  const webOpt = document.querySelector('#setProvider option[value="deepseek-web"]');
+  if (webOpt && p.webSupported === false) {
+    webOpt.disabled = true;
+    webOpt.textContent = '网页版 DeepSeek（本平台不支持）';
+    if ($('setProvider').value === 'deepseek-web') {
+      $('setProvider').value = 'openai-compatible';
+      toggleProviderView();
+    }
+  }
+  const updSec = $('updateSection');
+  if (updSec && p.selfUpdate === false) {
+    updSec.classList.add('hidden');
+  }
+  const webOnly = $('webOnly');
+  if (webOnly && p.webSupported === false) {
+    webOnly.classList.add('hidden');
+  }
 }
 
 /* ---------------- 设置 ---------------- */
@@ -375,7 +424,7 @@ async function openSettings() {
   $('setProvider').value = ai.provider || 'deepseek-web';
   $('setEnabled').checked = !!ai.enabled;
   $('setBaseUrl').value = ai.baseUrl || '';
-  $('setApiKey').value = ai.apiKey || '';
+  $('setApiKey').value = '';
   $('setApiKey').placeholder = ai.hasKey ? '已配置（留空保持不变）' : '留空则不可用';
   $('setModel').value = ai.model || '';
   $('setScope').value = ai.scope || 'private';
@@ -430,6 +479,8 @@ async function openSettings() {
   sel.innerHTML = opts.map((o) =>
     `<option value="${escapeHtml(o.value)}"${selected.has(o.value) ? ' selected' : ''}>${escapeHtml(o.label)}</option>`).join('');
   toggleTargetView();
+
+  renderApiNewTargets();
 
   toggleProviderView();
   refreshDsStatus();
@@ -1027,6 +1078,14 @@ function connectEvents() {
         // 扫码登录完成 / 内核退出，状态灯和二维码跟着变，用户不用手动刷新
         if (evt.engine) applyEngineStatus(evt.engine);
         break;
+      case 'ai_context_reset':
+        pushFeed({
+          kind: 'skip',
+          chatName: evt.chatId ? chatLabel(evt.chatId) : '全部会话',
+          reason: '已新建对话（AI 记忆已清空）',
+          at: evt.at || Date.now()
+        });
+        break;
     }
   };
   es.onerror = () => { /* EventSource 自动重连 */ };
@@ -1159,6 +1218,95 @@ function init() {
   });
 
   // 表情包
+  async function runApiTest() {
+    const st = $('apiStatus');
+    if (st) {
+      st.textContent = '状态：正在连接接口并测速（deepseek 官方接口会顺带查余额）…';
+      st.className = 'ds-status';
+    }
+    const r = await api('/api/ai/api/test', {
+      method: 'POST',
+      body: JSON.stringify({
+        baseUrl: $('setBaseUrl') ? $('setBaseUrl').value : '',
+        apiKey: $('setApiKey') ? $('setApiKey').value : '',
+        model: $('setModel') ? $('setModel').value : ''
+      })
+    }).catch((err) => ({ ok: false, error: err.message }));
+    let line;
+    if (r.ok) {
+      line = `✅ 可用（延迟 ${r.latencyMs}ms，模型 ${r.model}）`;
+      line += (typeof r.balance === 'number') ? ` ｜ 余额 ${r.balance}` : ` ｜ ${r.balanceNote}`;
+    } else {
+      line = `❌ 失败（${r.latencyMs ? r.latencyMs + 'ms，' : ''}${r.error}）`;
+    }
+    if (st) {
+      st.textContent = line;
+      st.className = 'ds-status ' + (r.ok ? 'ok' : 'err');
+    }
+    return r;
+  }
+  $('btnApiTest').addEventListener('click', async (e) => {
+    e.target.disabled = true;
+    e.target.textContent = '测试中…';
+    try { await runApiTest(); } finally {
+      e.target.disabled = false;
+      e.target.textContent = '测试连接 / 测速 / 余额';
+    }
+  });
+
+  /* API 模式「新建对话」= 清空喂给模型的上下文记忆 */
+  async function runApiNew(btn) {
+    const sel = $('setApiNewTarget');
+    const chatId = sel && sel.value ? sel.value : '';
+    const label = sel && sel.selectedOptions.length ? sel.selectedOptions[0].textContent : '全部会话';
+    if (btn) { btn.disabled = true; btn.textContent = '处理中…'; }
+    try {
+      const r = await api('/api/ai/api/new', {
+        method: 'POST',
+        body: JSON.stringify({ chatId })
+      });
+      if (!r || !r.ok) throw new Error((r && r.error) || '重置失败');
+      const st = $('apiStatus');
+      if (st) {
+        st.textContent = `✅ 已新建对话：${label} 的 AI 记忆已清空（聊天记录仍保留）`;
+        st.className = 'ds-status ok';
+      }
+      const cardSub = $('cardDsSub');
+      if (cardSub) cardSub.textContent = '已新建对话（记忆已清空）';
+      return r;
+    } catch (err) {
+      const st = $('apiStatus');
+      if (st) { st.textContent = `❌ 新建对话失败：${err.message}`; st.className = 'ds-status err'; }
+      return null;
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = btn.id === 'btnCardApiNew' ? '新建对话' : '新建对话（清空 AI 记忆）'; }
+    }
+  }
+  if ($('btnApiNew')) $('btnApiNew').addEventListener('click', (e) => runApiNew(e.target));
+  if ($('btnCardApiNew')) $('btnCardApiNew').addEventListener('click', (e) => runApiNew(e.target));
+  if ($('btnCardApiTest')) {
+    $('btnCardApiTest').addEventListener('click', async (e) => {
+      e.target.disabled = true;
+      e.target.textContent = '测试中…';
+      const cardSub = $('cardDsSub');
+      const keep = cardSub ? cardSub.textContent : '';
+      if (cardSub) cardSub.textContent = '正在连接接口并测速…';
+      try {
+        const r = await runApiTest();
+        if (cardSub) {
+          if (r.ok) {
+            cardSub.textContent = `✅ ${r.latencyMs}ms` + ((typeof r.balance === 'number') ? ` ｜ 余额 ${r.balance}` : '');
+          } else {
+            cardSub.textContent = `❌ ${r.error}`;
+          }
+        }
+      } finally {
+        e.target.disabled = false;
+        e.target.textContent = '测速 / 检查可用 / 余额';
+        if (cardSub && !cardSub.textContent.trim()) cardSub.textContent = keep;
+      }
+    });
+  }
   $('btnStickerTest').addEventListener('click', testSticker);
   $('btnStickerClear').addEventListener('click', clearStickers);
   if ($('btnGalleryRefresh')) $('btnGalleryRefresh').addEventListener('click', refreshGalleryForce);

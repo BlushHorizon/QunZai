@@ -15,6 +15,7 @@ const https = require('https');
 const { spawn } = require('child_process');
 const { pathToFileURL } = require('url');
 const fastDownload = require('./fast-download');
+const { IS_WIN } = require('./platform');
 
 function cmpVersion(a, b) {
   const pa = String(a || '0').replace(/^v/i, '').split(/[.+-]/).map((x) => parseInt(x, 10) || 0);
@@ -164,7 +165,9 @@ class Updater {
     if (!checked.file || !checked.file.url) throw new Error(checked.error || '更新清单没有下载地址');
     if (!checked.file.sha256) throw new Error('更新清单缺少 SHA256，拒绝下载未校验的文件');
     const safeVersion = checked.latest.replace(/[^0-9A-Za-z._-]/g, '_');
-    const dest = path.join(this.updatesDir, `QunZai-${safeVersion}-setup.exe`);
+    // Windows 走 NSIS 安装包；别的平台清单里给的是什么包就存什么包
+    const ext = IS_WIN ? 'exe' : (path.extname(checked.file.url || '') || '.bin').replace(/^\./, '');
+    const dest = path.join(this.updatesDir, `QunZai-${safeVersion}-setup.${ext}`);
 
     // 先镜像、后主地址：镜像挂了或校验不过，自动回退，用户不用管
     const urls = [];
@@ -199,6 +202,10 @@ class Updater {
   }
 
   install() {
+    if (!IS_WIN) {
+      // 安卓/苹果包由系统包管理器更新，不做「下载完自己跑安装器」这套自更新。
+      return { ok: false, error: '当前平台不支持自更新，请从官网或应用商店下载新版本' };
+    }
     if (!this.lastDownload || !fs.existsSync(this.lastDownload.file)) {
       return { ok: false, error: '还没有下载好更新文件，请先点“下载更新”' };
     }

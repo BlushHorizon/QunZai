@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
@@ -55,12 +55,16 @@
           <div class="card-sub" id="cardAiSub">—</div>
         </div>
         <div class="card">
-          <div class="card-title">DeepSeek 网页版</div>
+          <div class="card-title" id="cardDsTitle">DeepSeek 网页版</div>
           <div class="card-main" id="cardDsMain">—</div>
           <div class="card-sub" id="cardDsSub">—</div>
-          <div class="row-btns">
+          <div class="row-btns" id="dsWebBtns">
             <button class="mini-btn" id="btnDsOpen">① 打开 DeepSeek 登录</button>
             <button class="mini-btn alt" id="btnDsNew">② 新建对话</button>
+          </div>
+          <div class="row-btns" id="dsApiBtns" hidden>
+            <button class="mini-btn alt" id="btnCardApiTest">测速 / 检查可用 / 余额</button>
+            <button class="mini-btn" id="btnCardApiNew">新建对话</button>
           </div>
         </div>
         <div class="card">
@@ -231,6 +235,16 @@
           <span>角色设定（system prompt）</span>
           <textarea id="setPrompt" rows="4"></textarea>
         </label>
+        <div class="row-btns">
+          <button class="mini-btn alt" id="btnApiTest">测试连接 / 测速 / 余额</button>
+          <button class="mini-btn" id="btnApiNew">新建对话（清空 AI 记忆）</button>
+        </div>
+        <label class="field column" style="margin-top:8px">
+          <span>清空哪个会话的记忆</span>
+          <select id="setApiNewTarget"></select>
+          <span class="tip">「新建对话」= 让 AI 忘掉之前的聊天记录，从头开始。聊天记录本身不会被删，只是不再喂给模型。网页版模式由 DeepSeek 站点自己管对话，不需要这个。</span>
+        </label>
+        <div class="ds-status" id="apiStatus">状态：未测试</div>
         </div>
 
         <h4>表情包</h4>
@@ -302,7 +316,7 @@
         </div>
         <p class="tip">第一次用内置那份时，它会弹二维码让你扫码登录 QQ（只支持扫码，这是它的限制）。登录一次之后会记住，下次自动续上。</p>
 
-        <h4>自动更新</h4>
+        <h4 id="updateSection">自动更新</h4>
         <label class="field column">
           <span>更新清单地址（留空则读取 data/update.json）</span>
           <input type="text" id="setUpdateManifest" placeholder="https://…/update.json 或本地路径" />

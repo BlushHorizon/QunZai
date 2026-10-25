@@ -11,8 +11,9 @@ const MAX_MESSAGES_PER_CHAT = 300;
 const MAX_CHATS = 200;
 
 class Store {
-  constructor(root) {
-    this.file = path.join(root, 'data', 'store.json');
+  constructor(root, opts = {}) {
+    // 安卓上数据目录可能被指到别处（应用私有目录），所以允许单独传
+    this.file = path.join(opts.dataDir || path.join(root, 'data'), 'store.json');
     /** @type {Map<string, object>} key: 'private:123' | 'group:456' */
     this.chats = new Map();
     /** @type {Map<string, object[]>} */
@@ -172,12 +173,14 @@ class Store {
     return [...this.chats.values()].sort((a, b) => (b.lastTime || 0) - (a.lastTime || 0));
   }
 
-  /** 供 AI 使用的会话上下文 */
-  recentTurns(chatId, turns) {
-    const arr = (this.messages.get(chatId) || []).slice(-turns * 2);
-    return arr
-      .filter((m) => m.text && !m.system)
-      .map((m) => ({ role: m.self ? 'assistant' : 'user', content: m.text }));
+  /** 供 AI 使用的会话上下文
+   *  since：只取该时间点之后的消息（API 模式「新建对话」用它重置 AI 记忆） */
+  recentTurns(chatId, turns, since = 0) {
+    const all = this.messages.get(chatId) || [];
+    const arr = all
+      .filter((m) => m.text && !m.system && (m.time || 0) >= since)
+      .slice(-turns * 2);
+    return arr.map((m) => ({ role: m.self ? 'assistant' : 'user', content: m.text }));
   }
 
   historyForDisplay(chatId, limit = 200) {

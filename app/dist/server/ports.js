@@ -75,7 +75,11 @@ async function isCdp(port, host = HOST) {
 }
 
 function runtimeFile(root) {
-  return path.join(root, 'data', 'runtime.json');
+  // 数据目录可能与程序目录分开（安卓），所以优先用 QUNZAI_DATA_DIR
+  const dir = String(process.env.QUNZAI_DATA_DIR || '').trim()
+    ? path.resolve(process.env.QUNZAI_DATA_DIR)
+    : path.join(root, 'data');
+  return path.join(dir, 'runtime.json');
 }
 
 function readRuntime(root) {

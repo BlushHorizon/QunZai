@@ -10,6 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 const { STICKER_ABILITY_PROMPT, buildStickerPrompt } = require('./stickers');
+const { resolveDataDir } = require('./platform');
 
 const OPENAI_CHAT_PATH = '/chat/completions';
 
@@ -34,6 +35,33 @@ class AIResponder {
     this._lastReplyAt = new Map();   // chatId -> 时间戳
     this._busy = new Set();          // 正在处理的会话，防止并发重复回复
     this._pauseTimer = null;         // /暂停 N 分钟 的自动恢复定时器
+    this._ctxSince = new Map();      // chatId -> 时间戳：API 模式「新建对话」重置记忆的起点
+    this._ctxSinceAll = 0;           // 全局重置起点（所有会话）
+  }
+
+  /**
+   * API 模式「新建对话」= 清空喂给模型的上下文记忆。
+   * OpenAI 兼容接口本身无状态，每轮都把完整 messages 发过去；
+   * 所以「新建对话」= 之后不再把这次之前的聊天记录带进上下文。
+   * 网页版模式下由 DeepSeek 站点自己管对话，不需要这里。
+   * @param {string} [chatId] 指定会话；不给则清空所有会话的记忆
+   */
+  resetContext(chatId) {
+    const at = Date.now();
+    if (chatId) {
+      this._ctxSince.set(String(chatId), at);
+      console.log(`[AI] 已重置上下文记忆 → ${chatId}`);
+    } else {
+      this._ctxSinceAll = at;
+      this._ctxSince.clear();
+      console.log('[AI] 已重置上下文记忆 → 全部会话');
+    }
+    return at;
+  }
+
+  /** 该会话当前的上下文起点（没有重置过就是 0 = 全量） */
+  contextSince(chatId) {
+    return Math.max(this._ctxSinceAll || 0, this._ctxSince.get(String(chatId)) || 0);
   }
 
   get cfg() { return this.getConfig().ai || {}; }
@@ -298,7 +326,7 @@ class AIResponder {
       const delay = this.cfg.replyDelayMs ?? 900;
       if (delay > 0) await sleep(delay);
 
-      const history = this.store.recentTurns(chatKey, this.cfg.historyTurns ?? 8);
+      const history = this.store.recentTurns(chatKey, this.cfg.historyTurns ?? 8, this.contextSince(chatKey));
       const chat = this.store.chats.get(chatKey) || {};
       const context = `（会话：${msg.chatType === 'group' ? '群聊 ' + (chat.name || msg.chatId) : '私聊 ' + (msg.fromName || msg.chatId)}）`;
       const reply = await this._ask(history, context, msg);
@@ -387,7 +415,7 @@ class AIResponder {
   async _fetchImages(msg) {
     const urls = Array.isArray(msg.images) ? msg.images.slice(0, 4) : [];
     const files = [];
-    const dir = path.join(__dirname, '..', 'data', 'tmp');
+    const dir = path.join(resolveDataDir(path.resolve(__dirname, '..')), 'tmp');
     for (const u of urls) {
       try {
         const resp = await fetch(u, { signal: AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined });

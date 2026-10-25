@@ -5,8 +5,11 @@
 const fs = require('fs');
 const path = require('path');
 const { writeFileAtomic, readFileText } = require('./atomic');
+const { resolveRoot } = require('./platform');
 
-const ROOT = path.resolve(__dirname, '..');
+// 应用根目录：默认是 server/ 的父目录。
+// 安卓上整套资源会被复制到应用私有目录再运行，这时用 QUNZAI_ROOT 指过去。
+const ROOT = resolveRoot(path.resolve(__dirname, '..'));
 const CONFIG_PATH = path.join(ROOT, 'config.json');
 const OFFICIAL_UPDATE_MANIFEST = 'https://blushhorizon.github.io/QunZai/update.json';
 
