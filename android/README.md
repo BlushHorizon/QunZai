@@ -81,3 +81,59 @@ gradle --offline assembleRelease
 
 当前用 debug 签名（`signingConfigs.debug`），个人自用安装没问题。
 要正式分发请自行生成 keystore 并在 `app/build.gradle` 里配 `signingConfigs.release`。
+
+## 真机踩坑记录（v3 修复）
+
+用户拿到的 v1/v2 包在真机上都起不来：v1 静默卡在「加载中」，v2 报
+「内置 Node 自检失败」。模拟器却一切正常——因为模拟器的 linker 比真机宽松，
+把三个缺陷全掩盖了。
+
+### 缺陷 1：AGP 只打包 `*.so`
+
+`libz.so.1` / `libcrypto.so.3` / `libssl.so.3` / `libicui18n.so.78` /
+`libicuuc.so.78` / `libicudata.so.78` 这些带版本号的文件**不会**被打进
+APK 的 `lib/<abi>/`，linker 却仍按 `DT_NEEDED` 里的原名去找，必然找不到。
+
+`tools/strip_so_versions.py` 解决这个：把库的 `DT_SONAME`、以及所有依赖方的
+`DT_NEEDED` 一起改成无版本号的名字（`libz.so.1` → `libz.so`），同时把文件
+改名。注意新名字必须**不比原名长**（是在 ELF string table 里原地改写）。
+
+`libc++_shared.so` 改成了 `libc++_qz.so`：系统自带的 `/system/lib64/libc++_shared.so`
+一旦被 linker 优先选中，Termux 的 C++ 运行时会和平台的混用，符号对不上。
+
+### 缺陷 2：copyNativeLibs 只扫了 nativeLibraryDir 根目录
+
+jniLibs 装进去的库在 `<nativeLibraryDir>/<abi>/` **子目录**里，根目录只有一个
+叫 `<abi>` 的文件夹。原来的 `listFiles()` 只列根目录 → 一个库都没复制到运行时
+目录 → linker 找不到 → 自检失败。现在改成递归收集子目录与文件。
+
+### 缺陷 3：库只放在 app 私有目录，真机 linker 根本不搜
+
+Android 7+ 的 linker namespace 隔离下，app 私有目录不在许可搜索路径内。
+`LD_LIBRARY_PATH` 对 targetSdk ≥ 23 的 app 会被忽略，`DT_RUNPATH` 也不可靠。
+**库必须进 jniLibs**（装到 `nativeLibraryDir`，linker 必搜的位置）。
+
+所以 `assemble_assets.py` 里 assets 只放 `bin/node` 和 `ca-bundle.crt`，
+**`.so` 一律不进 assets**（真机根本用不上，白占 90MB）。APK 从 226MB 压到 131MB。
+
+### 顺带修的
+
+- `elfMachine()` 架构判定基准从 `lib/libz.so` 改成 `rt/bin/node`（assets 不再带 .so）。
+- 换 ABI 跑时清理运行时目录里架构不符的残留 `.so`，否则 linker 会挑到旧库报
+  `is for EM_X86_64 (62) instead of EM_AARCH64 (183)`。
+- `extractAssets` 原来静默吞掉解压异常，失败时只表现为无限「加载中」。
+  现在解压失败直接抛，并显示真实原因。
+- 16KB page 对齐：`tools/align_check2.py` 核查 node 与全部 .so
+  （判据是 `p_offset % 16384 == 0` 且 `p_vaddr % 16384 == 0` 同余）。
+
+### 怎么在模拟器上验证真机路径
+
+模拟器主 ABI 是 x86_64，nativeLibraryDir 里只有 x86_64 的库，模拟不出真机。
+办法是打一个**只含 arm64** 的包（`abiFilters 'arm64-v8a'`），装上后：
+
+```
+adb shell am start -n com.qunzai.app/.MainActivity --es qz_abi arm64
+```
+
+日志出现 `native libs ready: 10 file(s) copied` + `node self check: v26.12.1 arm64`
+就说明真机路径通了。

@@ -56,3 +56,6 @@ desktop.ini
 # 任何时候都不要把本机真实配置（含 accessToken / 真实 QQ 号 / 真实群号）复制进这两个文件——
 # 打包闸门 precheck-package.js 会拦住，但根子上别这么干。
 # 你自己的真实配置只存在于本地，不进仓库、不进归档。
+# Android 原生库（jniLibs）：由 tools/strip_so_versions.py 从 Termux 运行时
+# 生成，体积大且可由脚本重建，不进 Git 仓库。
+android/app/src/main/jniLibs/

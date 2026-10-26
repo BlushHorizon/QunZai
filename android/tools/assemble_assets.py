@@ -126,17 +126,58 @@ def main():
     print("[assets] config.json written (android defaults)")
 
     # 4) Node 运行时（按 ABI 分目录）
+    #
+    #    只放 node 可执行文件和 CA 证书；.so 一律不打进 assets——
+    #    它们在 jniLibs 里（lib/<abi>/），那是系统 linker 一定会搜的位置。
+    #    app 私有目录里的 .so 在真机上受 linker namespace 隔离，linker
+    #    根本不会去那里找，所以 assets 里放一份纯属浪费 90MB 体积。
     rt_root = os.path.join(ASSETS, "qz-rt")
     for abi, src in RUNTIMES.items():
         dst = os.path.join(rt_root, abi)
-        n = copytree(src, dst)
-        print(f"[assets] runtime[{abi}] files: {n}")
+        os.makedirs(os.path.join(dst, "bin"), exist_ok=True)
+        shutil.copy2(os.path.join(src, "bin", "node"),
+                     os.path.join(dst, "bin", "node"))
+        # 只带一份 CA 证书，放运行时根目录，两种 ABI 共用
+        print(f"[assets] runtime[{abi}]: node only")
 
-    # CA 证书兜底（放一份在 qz-rt 根，两种 ABI 共用）
+    # CA 证书（运行时根目录 + 每个 ABI 目录各一份）
     shutil.copy2(os.path.join(RUNTIMES["arm64"], "ca-bundle.crt"),
                  os.path.join(rt_root, "ca-bundle.crt"))
+    for abi, src in RUNTIMES.items():
+        shutil.copy2(os.path.join(src, "ca-bundle.crt"),
+                     os.path.join(rt_root, abi, "ca-bundle.crt"))
 
-    # 5) 统计体积
+    # 5) jniLibs：把 .so 也打进 APK 的 lib/<abi>/ 目录
+    #
+    #    为什么必须打两份（assets + jniLibs）：
+    #    Android 的动态链接器有 namespace 隔离，app 私有目录里的 .so 在
+    #    真机上常常无法按 RUNPATH/LD_LIBRARY_PATH 找到（模拟器走 NDK 转译
+    #    很宽松，把这个问题掩盖了）。只有打进 jniLibs 的库才会被装进
+    #    /data/app/.../lib/<abi>/，那是 linker 一定会去搜的位置。
+    #
+    #    而 AGP 只打包 *.so 后缀的文件，所以库的版本号后缀必须去掉
+    #    （libz.so.1 -> libz.so），同时把 DT_NEEDED 改成对应的新名字，
+    #    否则 linker 找的是 "libz.so.1"，APK 里却只有 "libz.so"。
+    #    这套改名由 strip_so_versions.py 在 runtime-slim* 上完成。
+    jni_root = os.path.join(BUILD, "android", "app", "src", "main", "jniLibs")
+    if os.path.isdir(jni_root):
+        shutil.rmtree(jni_root)
+    for abi, src in RUNTIMES.items():
+        src_lib = os.path.join(src, "lib")
+        if not os.path.isdir(src_lib):
+            continue
+        dst = os.path.join(jni_root, "arm64-v8a" if abi == "arm64" else "x86_64")
+        os.makedirs(dst, exist_ok=True)
+        n = 0
+        for name in sorted(os.listdir(src_lib)):
+            p = os.path.join(src_lib, name)
+            if not os.path.isfile(p) or not name.endswith(".so"):
+                continue
+            shutil.copy2(p, os.path.join(dst, name))
+            n += 1
+        print(f"[jniLibs] {os.path.basename(dst)}: {n} file(s)")
+
+    # 6) 统计体积
     total = 0
     for root, _dirs, files in os.walk(ASSETS):
         for f in files:
