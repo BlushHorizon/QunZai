@@ -375,7 +375,8 @@ public final class NodeHost {
      * 三套依次是：
      *   0  直接 exec，并设置 LD_LIBRARY_PATH=解压出来的 lib
      *   1  直接 exec，不设 LD_LIBRARY_PATH（交给系统的 nativeLibraryDir 解析）
-     *   2  交给系统 linker 显式指定库目录：/system/bin/linker64 --library-path ...
+     *   2  交给系统 linker 启动：/system/bin/linker64 <program>
+     *      （bionic linker 没有 --library-path，库路径仍靠 LD_LIBRARY_PATH）
      * 哪套在本机可用是未知的，运行时现试现用。
      */
     private static final String[] STRATEGY_NAMES = {
@@ -461,9 +462,11 @@ public final class NodeHost {
     private static List<String> buildCmd(int strategy, File bin, File rt, String[] args) {
         List<String> cmd = new ArrayList<>();
         if (strategy == 2) {
+            // 注意：Android 的 bionic linker 不是 GNU ld，没有 --library-path
+            // 选项（真机上会报 "expected absolute path: --library-path"）。
+            // 它只认 [--list] PROGRAM [ARGS...]，库路径靠 LD_LIBRARY_PATH
+            // 环境变量或程序自带的 RUNPATH。
             cmd.add("/system/bin/linker64");
-            cmd.add("--library-path");
-            cmd.add(libSearchPath(rt));
         }
         cmd.add(bin.getAbsolutePath());
         for (String a : args) cmd.add(a);
@@ -499,6 +502,44 @@ public final class NodeHost {
         }
         env.put("NODE_ICU_DATA", lib);
         env.put("NODE_PATH", lib);
+
+        // OpenSSL 配置：Termux 编译的 libcrypto 把 OPENSSLDIR 写死成
+        // /data/data/com.termux/files/usr/etc/tls。真机上只要用户装过
+        // Termux，node 启动时去读那个目录的 openssl.cnf 就 Permission denied，
+        // 直接 exit=13 起不来（模拟器没装 Termux，反而看不出来）。
+        // 自带一份配置并用 OPENSSL_CONF 指过去即可绕开。
+        File cnf = new File(rt, "openssl.cnf");
+        if (!cnf.exists()) {
+            cnf = writeFallbackOpenSslConf(rt);
+        }
+        if (cnf != null && cnf.exists()) {
+            env.put("OPENSSL_CONF", cnf.getAbsolutePath());
+        }
+    }
+
+    /**
+     * assets 里没带上 openssl.cnf 时的兜底：现写一份最小可用的配置。
+     * 110 字节搞定——只要 default provider 生效，TLS 就正常。
+     * （default provider 是编进 libcrypto 的，不需要额外的 .so 模块。）
+     */
+    private static File writeFallbackOpenSslConf(File rt) {
+        try {
+            File f = new File(rt, "openssl.cnf");
+            if (f.getParentFile() != null) f.getParentFile().mkdirs();
+            String body = "openssl_conf = openssl_init\n\n"
+                    + "[openssl_init]\n"
+                    + "providers = provider_sect\n\n"
+                    + "[provider_sect]\n"
+                    + "default = default_sect\n";
+            try (OutputStream os = new FileOutputStream(f)) {
+                os.write(body.getBytes("UTF-8"));
+            }
+            Log.i(TAG, "openssl.cnf written as fallback");
+            return f;
+        } catch (Exception e) {
+            Log.w(TAG, "write fallback openssl.cnf failed", e);
+            return null;
+        }
     }
 
     /**

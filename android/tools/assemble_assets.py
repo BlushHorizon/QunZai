@@ -22,6 +22,9 @@ import sys
 SRC = r"C:\Users\14132\Documents\默认项目\open-source\DeepPupil"
 BUILD = r"D:\qz-build"
 ASSETS = os.path.join(BUILD, "android", "app", "src", "main", "assets")
+# OpenSSL 配置（Termux 官方 openssl.cnf 原件），随脚本走，不依赖 BUILD 目录
+TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
+OSSL_CNF = os.path.join(TOOLS_DIR, "ossl_cfg", "openssl.cnf")
 
 # ABI -> 运行时目录（runtime-slim 是 arm64，runtime-slim-x64 是 x86_64）
 RUNTIMES = {
@@ -146,6 +149,27 @@ def main():
     for abi, src in RUNTIMES.items():
         shutil.copy2(os.path.join(src, "ca-bundle.crt"),
                      os.path.join(rt_root, abi, "ca-bundle.crt"))
+
+    # 4b) OpenSSL 配置（openssl.cnf）
+    #
+    #     为什么必须自带：Termux 编译的 libcrypto 把 OPENSSLDIR 写死成
+    #     /data/data/com.termux/files/usr/etc/tls。真机上如果用户装过
+    #     Termux，node 一启动就会去读那个目录里的 openssl.cnf，读不到就
+    #     报 "OpenSSL configuration error: ... Permission denied"，
+    #     node 直接 exit=13 启动不了。模拟器上没装 Termux 反而看不出。
+    #
+    #     解法：自带一份配置，用 OPENSSL_CONF 环境变量指过去
+    #     （OpenSSL 3 支持这个变量覆盖默认路径）。已实测有效。
+    #     用的是 Termux 官方 openssl.cnf 原件（12KB），跟这版 libcrypto
+    #     严格配套；default provider 是编进 libcrypto 的，不需要额外模块。
+    ossl_cnf = OSSL_CNF
+    if os.path.isfile(ossl_cnf):
+        shutil.copy2(ossl_cnf, os.path.join(rt_root, "openssl.cnf"))
+        for abi in RUNTIMES:
+            shutil.copy2(ossl_cnf, os.path.join(rt_root, abi, "openssl.cnf"))
+        print("[assets] openssl.cnf copied (override Termux OPENSSLDIR)")
+    else:
+        print("[assets] WARN openssl.cnf missing:", ossl_cnf)
 
     # 5) jniLibs：把 .so 也打进 APK 的 lib/<abi>/ 目录
     #
