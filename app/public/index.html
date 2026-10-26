@@ -279,9 +279,12 @@
           <span>AccessToken</span>
           <input type="password" id="setToken" placeholder="兼容运行时未设置则留空" />
         </label>
-        <p class="tip">保存后会自动按新地址重连 QQ，不用重启服务；若没连上，先用下面的「群崽 QQ 内核」自动检测并同步，或检查本机 OneBot 运行时是否已启动、端口是否一致。</p>
+        <p class="tip">保存后会自动按新地址重连 QQ，不用重启服务；若没连上，先检查电脑上的 OneBot 运行时是否已启动、端口是否一致。</p>
 
-        <h4>监视器（QQ 运行时）</h4>
+        <p class="tip" id="qqTipMobile" hidden>安卓版没有内置 Windows 版 QQ 运行时，所以「监视器」那一栏已隐藏。请在电脑上装一个 OneBot 11 兼容运行时（如 NapCat），在下面填它的 WebSocket 地址（例如 <code>ws://192.168.1.10:3001</code>），群崽就能连上去。</p>
+
+        <div id="engineBlock">
+        <h4 id="engineSection">监视器（QQ 运行时）</h4>
         <p class="tip">「监视器」就是真正登录 QQ、把消息转成群崽能读的 OneBot 11 的那个程序。群崽自己不登录 QQ。安装包里已经内置了一份 NapCat，开箱即用；你也可以换成自己找的那一份。</p>
         <label class="field">
           <span>用哪一份</span>
@@ -315,7 +318,9 @@
           <div class="qr-tip" id="engineQrTip">用小号在手机 QQ 上扫码登录，登录后这里会自动变成「运行中」</div>
         </div>
         <p class="tip">第一次用内置那份时，它会弹二维码让你扫码登录 QQ（只支持扫码，这是它的限制）。登录一次之后会记住，下次自动续上。</p>
+        </div>
 
+        <div id="updateBlock">
         <h4 id="updateSection">自动更新</h4>
         <label class="field column">
           <span>更新清单地址（留空则读取 data/update.json）</span>
@@ -330,6 +335,7 @@
           <button class="mini-btn" id="btnUpdateCheck">检查更新</button>
         </div>
         <p class="tip">发现新版本后会先询问“更新 / 不更新”，你同意后才下载；下载完成后还会再确认是否安装。不会静默更新。</p>
+        </div>
 
         <h4>关于与声明</h4>
         <div class="about-box">

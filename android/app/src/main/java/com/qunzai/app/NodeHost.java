@@ -6,6 +6,7 @@ import android.os.StatFs;
 import android.util.Log;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -43,6 +44,21 @@ public final class NodeHost {
      * 标签取自 assets 前缀（如 qz-rt/arm64），换 ABI 时标签自然不同。
      */
     private static final String OK_SUFFIX = ".qzok";
+
+    /**
+     * 资产版本戳：assets 里每个要解压的目录根下放一个 .qzstamp，
+     * 内容是本次打包内容的摘要（assemble_assets.py 写）。
+     *
+     * 解压前先比对磁盘上的戳：
+     *  - 相同 → 沿用已解压的文件（省掉近百 MB 的重复解压）
+     *  - 不同 → 整个目录清空后重解压
+     *
+     * 为什么必须有这个：以前只按「文件存在且大小一致」判断，而标记里记的是
+     * 上一次写入时的旧大小。升级 APK 后，新旧文件大小可能一样或标记没变，
+     * 于是手机里跑的一直是旧代码——面板改了却看不到任何变化。
+     * 戳一变就整体重解压，问题消失。
+     */
+    private static final String STAMP_NAME = "qzstamp.txt";
 
     /** 进度回调：让界面能显示「正在解压 37/42」，而不是干等。 */
     public interface Progress {
@@ -199,17 +215,76 @@ public final class NodeHost {
     /**
      * 从 assets 解压内置资源到目标目录。
      *
-     * 幂等判据是「同名 .qzok 标记存在且记录的大小与实际文件一致」，
-     * 任何半截文件都会被重新解压覆盖。
+     * 先比对资产版本戳（.qzstamp）：戳一致就沿用已解压的文件，
+     * 戳变了就清空目标目录整个重解压——否则升级 APK 后手机里跑的还是旧代码。
      *
      * 失败时抛异常（不再静默吞掉）——解压失败必须让用户看见，
      * 否则表现就是「一直卡在加载中」。
      */
     public static void extractAssets(Context ctx, String assetPrefix, File target, Progress progress)
             throws Exception {
+        String stamp = readAssetStamp(ctx, assetPrefix);
+        if (stamp != null && !stamp.isEmpty()) {
+            File stampFile = new File(target, STAMP_NAME);
+            String old = readTextFile(stampFile);
+            if (!stamp.equals(old)) {
+                Log.i(TAG, "asset stamp changed for " + assetPrefix + " ("
+                        + old + " -> " + stamp + "), re-extract");
+                deleteRecursively(target);
+                target.mkdirs();
+            }
+        }
         int total = countFiles(ctx, assetPrefix);
         final int[] done = {0};
         extractDir(ctx, assetPrefix, target, progress, done, total);
+        if (stamp != null && !stamp.isEmpty()) {
+            writeTextFile(new File(target, STAMP_NAME), stamp);
+        }
+    }
+
+    /** 读 assets 里 <prefix>/.qzstamp 的内容。 */
+    private static String readAssetStamp(Context ctx, String assetPrefix) {
+        try (InputStream in = ctx.getAssets().open(assetPrefix + "/" + STAMP_NAME)) {
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            byte[] buf = new byte[512];
+            int n;
+            while ((n = in.read(buf)) > 0) bos.write(buf, 0, n);
+            return bos.toString("UTF-8").trim();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static String readTextFile(File f) {
+        if (f == null || !f.isFile()) return null;
+        try (BufferedReader r = new BufferedReader(new InputStreamReader(
+                new java.io.FileInputStream(f), "UTF-8"))) {
+            String s = r.readLine();
+            return s == null ? null : s.trim();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static void writeTextFile(File f, String content) {
+        try (FileOutputStream os = new FileOutputStream(f)) {
+            os.write(content.getBytes("UTF-8"));
+            os.flush();
+        } catch (Exception e) {
+            Log.w(TAG, "write stamp failed: " + e.getMessage());
+        }
+    }
+
+    /** 递归删除目录（用于戳变化后清空重解压）。 */
+    private static void deleteRecursively(File f) {
+        if (f == null || !f.exists()) return;
+        if (f.isDirectory()) {
+            File[] kids = f.listFiles();
+            if (kids != null) {
+                for (File k : kids) deleteRecursively(k);
+            }
+        }
+        try { f.delete(); } catch (Exception ignored) { }
     }
 
     private static void extractDir(Context ctx, String assetPrefix, File target,

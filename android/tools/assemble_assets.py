@@ -22,9 +22,6 @@ import sys
 SRC = r"C:\Users\14132\Documents\默认项目\open-source\DeepPupil"
 BUILD = r"D:\qz-build"
 ASSETS = os.path.join(BUILD, "android", "app", "src", "main", "assets")
-# OpenSSL 配置（Termux 官方 openssl.cnf 原件），随脚本走，不依赖 BUILD 目录
-TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
-OSSL_CNF = os.path.join(TOOLS_DIR, "ossl_cfg", "openssl.cnf")
 
 # ABI -> 运行时目录（runtime-slim 是 arm64，runtime-slim-x64 是 x86_64）
 RUNTIMES = {
@@ -162,7 +159,7 @@ def main():
     #     （OpenSSL 3 支持这个变量覆盖默认路径）。已实测有效。
     #     用的是 Termux 官方 openssl.cnf 原件（12KB），跟这版 libcrypto
     #     严格配套；default provider 是编进 libcrypto 的，不需要额外模块。
-    ossl_cnf = OSSL_CNF
+    ossl_cnf = os.path.join(BUILD, "ossl_cfg", "openssl.cnf")
     if os.path.isfile(ossl_cnf):
         shutil.copy2(ossl_cnf, os.path.join(rt_root, "openssl.cnf"))
         for abi in RUNTIMES:
@@ -201,7 +198,41 @@ def main():
             n += 1
         print(f"[jniLibs] {os.path.basename(dst)}: {n} file(s)")
 
-    # 6) 统计体积
+    # 6) 资产版本戳
+    #
+    #    Android 侧解压前会读 assets/<prefix>/qzstamp.txt，跟设备上已解压目录里的
+    #    戳比对：一样就跳过解压，不一样就清空重解压。
+    #    以前只按「文件存在且大小一致」判断，导致升级 APK 后手机里跑的还是
+    #    旧代码（面板改了没反应）。戳一变就整体重解，问题消失。
+    #
+    #    戳的算法：对目录内所有文件的「相对路径 + 大小 + mtime」求 sha256。
+    #    只用大小不够——不同版本可能大小相同；加上 mtime 后只要重新打包
+    #    内容就一定变。
+    import hashlib
+
+    def write_stamp(root_dir):
+        h = hashlib.sha256()
+        for dirpath, _dirs, files in os.walk(root_dir):
+            for name in sorted(files):
+                if name == "qzstamp.txt":
+                    continue
+                p = os.path.join(dirpath, name)
+                rel = os.path.relpath(p, root_dir).replace("\\", "/")
+                st = os.stat(p)
+                h.update(rel.encode("utf-8"))
+                h.update(b"|%d|%d|" % (st.st_size, int(st.st_mtime)))
+        stamp = h.hexdigest()[:32]
+        with open(os.path.join(root_dir, "qzstamp.txt"), "w", encoding="utf-8") as fh:
+            fh.write(stamp)
+        return stamp
+
+    s1 = write_stamp(os.path.join(ASSETS, "qz-app"))
+    print(f"[assets] stamp qz-app: {s1}")
+    for abi in RUNTIMES:
+        s = write_stamp(os.path.join(ASSETS, "qz-rt", abi))
+        print(f"[assets] stamp qz-rt/{abi}: {s}")
+
+    # 7) 统计体积
     total = 0
     for root, _dirs, files in os.walk(ASSETS):
         for f in files:

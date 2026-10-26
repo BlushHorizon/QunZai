@@ -115,12 +115,23 @@ function resolveDataDir(root) {
 /**
  * 平台信息：给前端判断哪些入口可用。
  * - win / mac / linux：桌面端，全功能
- * - android：网页版模式不可用（没有带 CDP 的浏览器），自更新不可用
+ * - android：网页版模式不可用（没有带 CDP 的浏览器），自更新不可用，
+ *   「监视器（QQ 运行时）」也不可用（安卓版不内置 Windows 版 NapCat 运行时）
  */
 function platformInfo() {
   const os = process.platform;
   if (IS_ANDROID) {
-    return { os: 'android', isWindows: false, isMac: false, isLinux: true, isAndroid: true, webSupported: false, selfUpdate: false, label: 'Android' };
+    return {
+      os: 'android',
+      isWindows: false,
+      isMac: false,
+      isLinux: true,
+      isAndroid: true,
+      webSupported: false,
+      selfUpdate: false,
+      engineSupported: false,
+      label: 'Android'
+    };
   }
   return {
     os,
@@ -130,6 +141,7 @@ function platformInfo() {
     isAndroid: false,
     webSupported: true,
     selfUpdate: IS_WIN,
+    engineSupported: true,
     label: IS_WIN ? 'Windows' : (IS_MAC ? 'macOS' : 'Linux')
   };
 }

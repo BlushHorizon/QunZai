@@ -409,11 +409,23 @@ function applyPlatform() {
   }
   const updSec = $('updateSection');
   if (updSec && p.selfUpdate === false) {
-    updSec.classList.add('hidden');
+    const updBlock = $('updateBlock') || updSec;
+    updBlock.classList.add('hidden');
   }
   const webOnly = $('webOnly');
   if (webOnly && p.webSupported === false) {
     webOnly.classList.add('hidden');
+  }
+  // 安卓版不内置 Windows 版 QQ 运行时，隐藏「监视器」整块，换成手机端说明
+  const engSec = $('engineSection');
+  if (engSec && p.engineSupported === false) {
+    const engBlock = $('engineBlock') || engSec;
+    engBlock.classList.add('hidden');
+    const tip = $('qqTipMobile');
+    if (tip) {
+      tip.classList.remove('hidden');
+      tip.hidden = false;
+    }
   }
 }
 
