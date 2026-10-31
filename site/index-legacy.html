@@ -1,0 +1,440 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>群崽 QunZai — 让群热闹，也把群管好</title>
+<meta name="description" content="群崽 QunZai：住进 QQ 群的 AI 搭子。接梗、斗图、自己发表情包，把冷场救回来；@ 才回、关键词、免打扰、指定会话，群规矩也帮你盯。本地运行，免 API Key，80.6 MB。" />
+<meta name="theme-color" content="#07090c" />
+<link rel="canonical" href="https://blushhorizon.github.io/QunZai/" />
+
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="群崽 QunZai" />
+<meta property="og:locale" content="zh_CN" />
+<meta property="og:title" content="群崽 QunZai — 让群热闹，也把群管好" />
+<meta property="og:description" content="接梗、斗图、自己发表情包，把冷场救回来；@ 才回、关键词、免打扰、指定会话，群规矩也帮你盯。80.6 MB，双击即用。" />
+<meta property="og:url" content="https://blushhorizon.github.io/QunZai/" />
+<meta property="og:image" content="https://blushhorizon.github.io/QunZai/assets/og-cover.jpg" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="群崽 QunZai — 让群热闹，也把群管好" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="群崽 QunZai — 让群热闹，也把群管好" />
+<meta name="twitter:description" content="接梗斗图、自己发表情包，也帮你把群规矩管好。80.6 MB，双击即用。" />
+<meta name="twitter:image" content="https://blushhorizon.github.io/QunZai/assets/og-cover.jpg" />
+
+<link rel="stylesheet" href="assets/site.css" />
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+</head>
+<body>
+
+<div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
+
+<!-- ============ 导航 ============ -->
+<header class="nav" id="nav">
+  <div class="wrap nav-in">
+    <a class="logo" href="#top" aria-label="群崽 QunZai 首页">
+      <span class="mark" aria-hidden="true"><i></i></span>
+      <span class="logo-t">群崽 <b>QunZai</b></span>
+    </a>
+    <nav class="nav-links" aria-label="主导航">
+      <a href="#features">能力</a>
+      <a href="#demo">演示</a>
+      <a href="#films">影像</a>
+      <a href="#start">上手</a>
+      <a href="#faq">问题</a>
+      <a href="#author">作者</a>
+      <a href="#disclaimer" class="warn">声明</a>
+    </nav>
+    <div class="nav-right">
+      <a class="gh" href="https://github.com/BlushHorizon/QunZai" target="_blank" rel="noopener" aria-label="在 GitHub 上查看源码" title="GitHub 仓库">
+        <svg viewBox="0 0 16 16" width="17" height="17" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+      </a>
+      <a class="btn btn--sm nav-cta" href="#download">下载</a>
+    </div>
+    <button class="nav-toggle" id="navToggle" aria-label="打开菜单" aria-expanded="false" aria-controls="mnav">
+      <span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<div class="mnav" id="mnav" aria-hidden="true">
+  <nav aria-label="移动端导航">
+    <a href="#features"><i>01</i>能力</a>
+    <a href="#demo"><i>02</i>演示</a>
+    <a href="#films"><i>03</i>影像</a>
+    <a href="#start"><i>04</i>上手</a>
+    <a href="#faq"><i>05</i>问题</a>
+    <a href="#author"><i>06</i>作者</a>
+    <a href="#disclaimer" class="warn"><i>07</i>声明</a>
+    <a href="https://github.com/BlushHorizon/QunZai" target="_blank" rel="noopener"><i>08</i>GitHub 仓库</a>
+  </nav>
+  <a class="btn btn--wide" href="#download">下载安装包 · 80.6 MB</a>
+</div>
+
+<!-- ============ HERO ============ -->
+<section class="hero" id="top">
+  <div class="hero-bg" aria-hidden="true">
+    <canvas id="flowCanvas"></canvas>
+    <div class="hero-glow"></div>
+  </div>
+
+  <div class="wrap hero-in">
+    <div class="hero-copy">
+      <p class="eyebrow"><span class="dot"></span>LOCAL · DEEPSEEK WEB · NO API KEY</p>
+      <h1>让群热闹，<br><span class="hl">也把群管好</span><i class="caret" aria-hidden="true"></i></h1>
+      <p class="lede">群崽住进你的 QQ 群：接梗、斗图、<b>自己发表情包</b>，冷场它来救；@ 才回、关键词、免打扰、指定会话，群规矩它来盯。大脑直连 DeepSeek 网页版——免 Key、免 API 费。</p>
+      <div class="cta">
+        <a class="btn btn--lg" href="assets/群崽QunZai安装包.exe" download>下载安装包 · 80.6 MB</a>
+        <a class="btn btn--ghost btn--lg" href="#demo">看它怎么热场</a>
+      </div>
+      <p class="hero-note">Windows 10 / 11 · 双击即用 · 自带 QQ 监视器与 Node · 数据只在本机<br><span class="hero-mirror">直连慢？<a href="https://ghfast.top/https://github.com/BlushHorizon/QunZai/releases/download/v1.4.13/QunZai-v1.4.13-win-x64.exe" target="_blank" rel="noopener">走国内加速镜像 ↓</a></span></p>
+    </div>
+
+    <div class="hero-art" aria-hidden="true">
+      <div class="chatcard">
+        <div class="cc-head">
+          <span class="cc-ava"><i></i></span>
+          <span class="cc-name">群崽</span>
+          <span class="cc-on">在线</span>
+        </div>
+        <div class="cc-body">
+          <div class="cc-msg cc-in"><span class="cc-who">七喜</span><p>群里怎么又安静了</p></div>
+          <div class="cc-msg cc-out"><span class="cc-who">群崽</span><p>冷场检测到。新收了 12 张表情，谁来点个题？</p></div>
+          <div class="cc-msg cc-in"><span class="cc-who">七喜</span><p>来个能救场的</p></div>
+          <div class="cc-msg cc-out"><span class="cc-who">群崽</span><p>三连已就位，一条发完，不刷屏。</p></div>
+          <div class="cc-stk">
+            <img src="assets/stk1.jpg" alt="" width="72" height="72" />
+            <img src="assets/stk4.jpg" alt="" width="72" height="72" />
+            <img src="assets/stk2.jpg" alt="" width="72" height="72" />
+            <span>表情包 ×3 · 打包成一条</span>
+          </div>
+        </div>
+        <div class="cc-foot">发消息…</div>
+      </div>
+      <img class="float-stk float-1" src="assets/stk3.png" alt="" />
+      <img class="float-stk float-2" src="assets/stk6.jpg" alt="" />
+    </div>
+  </div>
+
+  <div class="hero-rule" aria-hidden="true"></div>
+</section>
+
+<!-- ============ 滚动条幅 ============ -->
+<div class="marquee" aria-hidden="true">
+  <div class="marquee-track" id="marqueeTrack">
+    <span>AI 自主发表情包</span><i>✦</i>
+    <span>免 API Key</span><i>✦</i>
+    <span>DeepSeek 网页版直连</span><i>✦</i>
+    <span>80.6 MB</span><i>✦</i>
+    <span>自带监视器</span><i>✦</i>
+    <span>数据只在本机</span><i>✦</i>
+    <span>只回你选中的会话</span><i>✦</i>
+    <span>MIT 开源</span><i>✦</i>
+  </div>
+</div>
+
+<!-- ============ 01 能力 ============ -->
+<section class="sec" id="features">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow"><b>01</b>CAPABILITIES</p>
+      <h2>把群盘活，也把群管住</h2>
+      <p class="lede">不堆功能。就干两件事：让群有话聊，让群有规矩。</p>
+    </div>
+
+    <div class="caps">
+      <article class="cap reveal">
+        <span class="cap-no">01</span>
+        <h3>接得住梗</h3>
+        <p>群友抛梗它接，冷场它起头。网页版 DeepSeek 直连，免 Key 免 API 费；回复带上下文，还能引用原消息。</p>
+        <ul class="cap-tags"><li>接梗</li><li>起话头</li><li>引用原消息</li></ul>
+      </article>
+      <article class="cap reveal">
+        <span class="cap-no">02</span>
+        <h3>抖得出图</h3>
+        <p>自动收藏来信里的表情包并下载本地副本（QQ 图链会过期，本地副本不会）。AI 按专属提示词自主发表情包，三连打包成一条消息，不刷屏。另内置「梗鲸 · DeepSeek娘」在线图库约 2300 张，群友素材挑不到就按描述去图库现取。</p>
+        <ul class="cap-tags"><li>自动收录</li><li>本地副本</li><li>在线图库 2300+</li><li>三连打包</li></ul>
+      </article>
+      <article class="cap reveal">
+        <span class="cap-no">03</span>
+        <h3>管得住群</h3>
+        <p>群聊需 @ 才回、关键词过滤、非 @ 主动回复概率；指定会话多选，只回你选的群；免打扰时段自动闭嘴，主人在 QQ 里发 <code>/状态</code> <code>/暂停</code> <code>/帮助</code> 就能管。</p>
+        <ul class="cap-tags"><li>@ 才回</li><li>指定会话</li><li>免打扰</li></ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 02 演示 ============ -->
+<section class="sec sec--black" id="demo">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow"><b>02</b>LIVE DEMO</p>
+      <h2>它就这样待在群里</h2>
+      <p class="lede">收到消息 → 看懂上下文 → 接梗回话 → 该抖图的时候发表情包。</p>
+    </div>
+
+    <div class="qq reveal" id="qqDemo">
+      <aside class="qq-side">
+        <div class="qq-head"><span class="qq-ava"><i></i></span><b>群崽</b><span class="qq-on">在线</span></div>
+        <div class="qq-item is-on"><i>群</i>半夜三点半</div>
+        <div class="qq-item"><i>私</i>阿岚</div>
+        <div class="qq-item"><i>私</i>小满</div>
+        <div class="qq-side-foot">今日：收 21 · 回 18 · 跳过 3</div>
+      </aside>
+
+      <div class="qq-main">
+        <div class="qq-titlebar"><span>群「半夜三点半」</span><i>6 人</i></div>
+        <div class="qq-body" id="chatBody">
+          <div class="msg" data-step="1"><b class="who">七喜</b><p>群里怎么又安静了？</p></div>
+          <div class="msg msg--bot" data-step="2">
+            <b class="who">群崽</b>
+            <p><span id="m2text"></span><i class="dots" id="dots" aria-hidden="true"><s></s><s></s><s></s></i></p>
+          </div>
+          <div class="msg" data-step="3"><b class="who">七喜</b><p>哈哈哈，这下热闹了</p></div>
+          <div class="msg msg--bot" data-step="4">
+            <b class="who">群崽</b>
+            <div class="trio" id="trio">
+              <img src="assets/stk1.jpg" alt="表情包" loading="lazy" />
+              <img src="assets/stk4.jpg" alt="表情包" loading="lazy" />
+              <img src="assets/stk2.jpg" alt="表情包" loading="lazy" />
+            </div>
+            <p class="trio-cap">三连打包成同一条消息发出——不会被判定刷屏</p>
+          </div>
+        </div>
+        <div class="qq-input"><span>发消息…</span><button class="qq-replay" id="btnReplay" type="button">↻ 重播</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 数字 ============ -->
+<section class="stats-band">
+  <div class="wrap stats">
+    <div class="stat reveal"><b>80.6</b><i>MB</i><span>安装包 · 双击即用</span></div>
+    <div class="stat reveal"><b data-count="0">0</b><i>元</i><span>无 API 费</span></div>
+    <div class="stat reveal"><b data-count="93">0</b><i>项</i><span>自动测试全绿</span></div>
+    <div class="stat reveal"><b data-count="50">0</b><i>轮</i><span>自动开新对话</span></div>
+  </div>
+</section>
+
+<!-- ============ 03 影像 ============ -->
+<section class="sec" id="films">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow"><b>03</b>FILMS</p>
+      <h2>三支片子，一条流水线</h2>
+      <p class="lede">配乐由 JS 合成器现场合成，画面 canvas 逐帧渲染——没有剪辑软件，也没有素材库。</p>
+    </div>
+
+    <div class="films reveal">
+      <div class="film-tabs" role="tablist" aria-label="视频选择">
+        <button class="film-tab is-on" role="tab" aria-selected="true"
+          data-src="assets/qunzai-promo.mp4" data-poster="assets/poster-promo.jpg"
+          data-title="宣传片 · 40 秒" data-desc="群太安静？没人接话？40 秒看完群崽怎么把场子热起来——包括它自己发表情包那一段。">
+          <b>宣传片</b><i>40s</i>
+        </button>
+        <button class="film-tab" role="tab" aria-selected="false"
+          data-src="assets/qunzai-mv.mp4" data-poster="assets/mv-poster.jpg"
+          data-title="MV · 代码生成" data-desc="36 秒合成波，画面逐帧渲染。片里飞的都是群崽自己收的表情包，歌词字幕在画面里。">
+          <b>MV</b><i>成片</i>
+        </button>
+        <button class="film-tab" role="tab" aria-selected="false"
+          data-src="assets/qunzai-tutorial.mp4" data-poster="assets/poster-tutorial.jpg"
+          data-title="教程 · 82 秒" data-desc="真实面板录屏：下载安装、启动服务、登录大脑、接上 QQ、群聊规矩、表情包引擎、实时动态——八步一条龙。">
+          <b>教程</b><i>82s</i>
+        </button>
+      </div>
+
+      <div class="film-stage">
+        <div class="film-player">
+          <video id="filmVideo" controls playsinline preload="metadata"
+            poster="assets/poster-promo.jpg" src="assets/qunzai-promo.mp4"></video>
+          <div class="film-scan" aria-hidden="true"></div>
+        </div>
+        <div class="film-meta">
+          <p class="film-k">NOW PLAYING</p>
+          <h3 id="filmTitle">宣传片 · 40 秒</h3>
+          <p id="filmDesc">群太安静？没人接话？40 秒看完群崽怎么把场子热起来——包括它自己发表情包那一段。</p>
+          <p class="fine">画面里的界面与真机一致（演示数据已脱敏）。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 04 上手 ============ -->
+<section class="sec sec--black" id="start">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow"><b>04</b>QUICK START</p>
+      <h2>三步开跑</h2>
+      <p class="lede">不用配环境，不用装依赖。装完就能干活。</p>
+    </div>
+
+    <ol class="steps">
+      <li class="reveal">
+        <span class="step-no">01</span>
+        <b>下载安装</b>
+        <p>运行安装包，默认装到 <code>D:\群崽</code>；覆盖安装不会丢数据。</p>
+      </li>
+      <li class="reveal">
+        <span class="step-no">02</span>
+        <b>接上 QQ</b>
+        <p>设置页「群崽 QQ 内核」点<b>启动并同步</b>，面板会直接显示二维码，手机 QQ 扫一下就接上了。内核（NapCat）和 Node 都随包装好；想用自己的 SnowLuma / 其他 OneBot 11 实现也行，填 WS 地址 <code>ws://127.0.0.1:3001</code> 即可。</p>
+      </li>
+      <li class="reveal">
+        <span class="step-no">03</span>
+        <b>登录大脑</b>
+        <p>双击桌面「群崽 QunZai」打开窗口，面板点「① 打开该网站」扫码登录一次 DeepSeek。窗口右上角可停止/启动服务，关闭窗口会停止由它启动的服务。</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============ 05 FAQ ============ -->
+<section class="sec" id="faq">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow"><b>05</b>FAQ</p>
+      <h2>你可能想问的</h2>
+    </div>
+
+    <div class="faq">
+      <details class="reveal"><summary>需要 API Key 吗？</summary><p>不需要。默认直接驱动 DeepSeek 网页版（免 Key、免 API 费）。如果你有 OpenAI 兼容的 Key，面板里也能填，走 API 模式。</p></details>
+      <details class="reveal"><summary>要自己装 OneBot 吗？</summary><p><b>不用。</b>安装包已经内置 NapCat 和 Node，设置页选「内置的」→「启动并同步」，手机 QQ 扫码就能用。想用自己的 SnowLuma / 其他 OneBot 11 实现，也可以填目录，或直接填 WS 地址 <code>ws://127.0.0.1:3001</code>。</p></details>
+      <details class="reveal"><summary>会不会被 QQ 风控？</summary><p>高频发消息 / 发图是风控大头。群崽内置最小回复间隔、表情包批量单条、40 秒冷却、免打扰时段；但请自行控制频率、遵守平台规则，<b>请勿用于骚扰</b>，建议用小号。</p></details>
+      <details class="reveal"><summary>表情包哪来的？</summary><p>两处：一是自动收集所有进来的消息，商城表情与图片都入库并下载本地副本；二是内置的在线图库「<a href="https://aigengtu.com/DeepSeek%E5%A8%98" target="_blank" rel="noopener">梗鲸 · DeepSeek娘</a>」（约 2300 张），群友素材里挑不到时按描述现取一张，只缓存在本机。面板里可以逐条删除或一键清空。</p></details>
+      <details class="reveal"><summary>它能帮我管群吗？</summary><p>它管的是<b>自己的嘴</b>：群聊需 @ 才回、关键词过滤、指定会话、免打扰、主人远程指令。它<b>不会踢人、禁言、改群规</b>，也不碰群成员管理——那些还是你来。</p></details>
+      <details class="reveal"><summary>数据在哪？安全吗？</summary><p>全在本机：<code>D:\群崽\data</code>（配置、日志、表情包库、浏览器登录态）。<b>没有任何遥测与联网上传</b>。</p></details>
+      <details class="reveal"><summary>成本？</summary><p>0 元。安装包 80.6 MB，运行时全本地。</p></details>
+      <details class="reveal"><summary>下载后要删吗？</summary><p><b class="warn-text">本软件仅学习使用，请在 24h 内删除。</b>它只是玩具，试过就好。当然，MIT 协议允许你保留和自由使用，删不删由你；作者只是希望它别被拿去干坏事。</p></details>
+      <details class="reveal"><summary>提了需求会回吗？</summary><p><b>作者本人还是个高中生</b>，做这个纯属个人兴趣，水平有限、代码也糙。需求、问题、Issue <b>我大概率不会回复，只有休息日才看消息</b>，请多包涵。不是已读不回，是周一到周五基本不看手机。真的急的话走邮箱 <a href="mailto:1413214574@qq.com">1413214574@qq.com</a>，这个比 Issue 靠谱。<br><br><b>不过功能是会加的——前提是你先提建议。</b>群崽是我一个人闷头想出来的，能想到的早想完了，你提的点子才是它变好的方向。<b>提建议多的人可以进内测群</b>，新功能新版本先在群里发，抢鲜试用、遇 Bug 直接找我。怎么提？<b>说清楚「你想用它解决什么场景」</b>，比堆一串功能名词有用得多。</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 06 作者 ============ -->
+<section class="sec sec--black" id="author">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow"><b>06</b>ABOUT THE AUTHOR</p>
+      <h2>关于作者</h2>
+      <p class="lede">先说清楚，免得你等半天没人回。</p>
+    </div>
+
+    <div class="author">
+      <p class="author-lead"><b>我是 BlushHorizon，还是个高中生</b>，做这个纯属个人兴趣，水平有限、代码也糙。</p>
+
+      <ul class="author-list">
+        <li><b>需求、问题、Issue 我大概率不会回复</b>，只有<b>休息日</b>才看消息，请多包涵。</li>
+        <li>不是已读不回，是<b>真的没看到</b>——周一到周五基本不看手机。</li>
+        <li>想让我一定看到的话，走邮箱 <a href="mailto:1413214574@qq.com">1413214574@qq.com</a>，这个反而比 Issue 靠谱。</li>
+      </ul>
+
+      <div class="author-hi">
+        <p class="author-hi-t">但功能我会加 —— 前提是你先提建议</p>
+        <p>群崽是我一个人闷头想出来的，能想到的早就想完了。<b>你提的点子才是它变好的方向</b>。</p>
+        <p class="author-perk"><b>提建议多的人可以进内测群</b>——新功能、新版本先在群里发，抢鲜试用，遇到 Bug 直接找我，不用排队等公开版。</p>
+      </div>
+
+      <div class="author-support">
+        <img class="author-support-avatar" src="assets/blushhorizon-avatar.jpg" alt="BlushHorizon" width="56" height="56" loading="lazy" />
+        <div class="author-support-copy">
+          <p class="author-support-t">☕ 如果群崽帮到了你</p>
+          <p>可以请我喝杯咖啡。软件仍然免费开源，发电随缘，不发电也完全不影响使用。</p>
+        </div>
+        <a class="btn btn--sm" href="https://ifdian.net/a/blushhorizon" target="_blank" rel="noopener">爱发电 · BlushHorizon</a>
+      </div>
+
+      <p class="author-foot">
+        所以：<b>别提 PR 期待我合并</b>（我没时间看 diff），但<b>建议尽管提，认认真真提的我都记着</b>。<br />
+        怎么提？在群里或 Issue 里说清楚「<b>你想用它解决什么场景</b>」，比堆一串功能名词有用得多。<br />
+        想自己动手改也行，MIT 协议摆在这儿，随便 fork。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 07 声明 ============ -->
+<section class="sec sec--paper" id="disclaimer">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow"><b>07</b>DISCLAIMER · 请先读完再下载</p>
+      <h2>风险与利益共存，<br />一分钱一分货</h2>
+      <p class="lede">这是个<b>玩具级学习作品，不是生产级产品</b>。下载前请确认你清楚自己在做什么。</p>
+    </div>
+
+    <div class="decl">
+      <article class="decl-card"><span class="decl-no">01</span><h3>轻量，但有限</h3><p>安装包约 <b>80.6 MB</b>（其中约 80 MB 是随包内置的 QQ 监视器 NapCat 与 Node 运行时），群崽自身零 npm 依赖，靠 Edge 跑。<b>只能当玩具玩 / 学习交流，不可用于生产环境</b>，不承诺任何稳定性。</p></article>
+      <article class="decl-card"><span class="decl-no">02</span><h3>无安全措施</h3><p>它会把 <b>AI 生成的内容自动发到 QQ 群聊</b>，没有审核、没有黑名单、没有人工确认。生成内容可能不当，<b>发出去收不回来</b>。</p></article>
+      <article class="decl-card"><span class="decl-no">03</span><h3>违反 DeepSeek 用户协议</h3><p>本项目<b>不是反代、没有第三方中转、没有逆向 DeepSeek 网页</b>。原理是用 Node 连接本机浏览器调试端口（CDP）模拟操作，<b>与反代一样均违反 DeepSeek 用户协议，账号可能被临时限制或封禁</b>。</p></article>
+      <article class="decl-card"><span class="decl-no">04</span><h3>QQ 风控</h3><p>高频发消息 / 发图是风控大头。内置了最小间隔、批量单条、40 秒冷却、免打扰时段等护栏，<b>但请勿用于骚扰、刷屏、恶作剧，建议用小号</b>。</p></article>
+      <article class="decl-card"><span class="decl-no">05</span><h3>杀软可能误报</h3><p>NSIS 打包 + 运行时会自动拉起 Edge 并连接调试端口，符合部分杀软对「远控 / 自动化脚本」的启发式判定，<b>可能误报木马</b>。源码全部公开可自行审计，误报请加白名单。</p></article>
+      <article class="decl-card"><span class="decl-no">06</span><h3>隐私与责任</h3><p>数据只在本机 <code>D:\群崽\data</code>，<b>无任何遥测与联网上传</b>。但使用本项目造成的一切后果（账号被封、群被踢、纠纷等）<b>由使用者自行承担，作者不承担责任</b>。</p></article>
+      <article class="decl-card"><span class="decl-no">07</span><h3>内置的第三方组件</h3><p>安装包里的 QQ 监视器是第三方开源项目 <b>NapCat</b>（作者 Mlikiowa），按其 Limited Redistribution License 原样随包附带，未做修改，完整许可见安装目录 <code>engine\napcat\LICENSE</code>。它<b>不是群崽的一部分</b>，出问题请先看 NapCat 自己的文档；群崽本体仍是 MIT。</p></article>
+      <article class="decl-card decl-card--key"><span class="decl-no">NOTICE</span><h3>仅供学习使用</h3><p><b>本软件仅学习使用，请在 24h 内删除。</b>它是个玩具，试过就够了。MIT 协议并不禁止你留着——作者只是希望它别被拿去干坏事，<b>更希望你自己看懂源码再决定要不要留</b>。</p></article>
+    </div>
+
+    <div class="decl-foot">
+      <p>完整版声明见仓库 <a href="https://github.com/BlushHorizon/QunZai/blob/main/docs/免责声明.md" target="_blank" rel="noopener">docs/免责声明.md</a></p>
+      <p><b>侵权 / 投诉 / 合作：</b><a href="mailto:1413214574@qq.com">1413214574@qq.com</a>（48 小时内响应）· MIT 开源</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 08 下载 ============ -->
+<section class="sec sec--dl" id="download">
+  <div class="wrap dl-in">
+    <div class="dl-copy">
+      <p class="eyebrow"><b>08</b>v1.4.13 · WINDOWS · 80.6 MB</p>
+      <h2>群崽 <span class="dim">QunZai</span></h2>
+      <p class="lede">默认装到 <code>D:\群崽</code> · 覆盖安装保留数据 · 自带 NapCat 监视器与 Node，装完点「启动并同步」扫码就能用 · 系统要求：Windows 10/11 + 已装桌面版 QQ + Edge/Chrome + 一台 QQ（建议小号）</p>
+    </div>
+
+    <div class="dl-act">
+      <div class="dl-btns">
+        <a class="btn btn--xl" href="assets/群崽QunZai安装包.exe" download>立即下载</a>
+        <a class="btn btn--ghost btn--xl" href="https://ghfast.top/https://github.com/BlushHorizon/QunZai/releases/download/v1.4.13/QunZai-v1.4.13-win-x64.exe" target="_blank" rel="noopener">国内加速下载</a>
+      </div>
+      <p class="dl-mirror">直连 GitHub 只有 45 KB/s 左右，要等半小时。点「国内加速下载」走 ghfast.top 镜像，实测快 4～30 倍（同一份文件，SHA256 一致）。镜像万一挂了就用直连。</p>
+      <div class="dl-btns dl-btns--sub">
+        <a class="btn btn--ghost btn--sm" href="https://github.com/BlushHorizon/QunZai/releases" target="_blank" rel="noopener">历史版本 / GitHub</a>
+      </div>
+      <p class="dl-note"><b>本软件仅学习使用，请在 24h 内删除。</b>它是玩具，试过就好。<a href="#disclaimer">完整声明 ↓</a></p>
+      <div class="grp">
+        <span class="grp-k">QQ 群 <b>1128593359</b> · 暗号 <b>qunzai520</b></span>
+        <div class="grp-btns">
+          <button class="btn btn--ghost btn--sm" type="button" data-copy="1128593359">复制群号</button>
+          <button class="btn btn--ghost btn--sm" type="button" data-copy="qunzai520">复制暗号</button>
+        </div>
+      </div>
+      <p class="fine">作者本人是高中生，<b>群里的问题大概率不会回，只有休息日才看消息</b>。但<b>功能会加——先提建议，提得多能进内测群</b>。</p>
+    </div>
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <div class="foot-l">
+      <span class="mark mark--sm" aria-hidden="true"><i></i></span>
+      <span>群崽 QunZai · 群活跃 · 群管理</span>
+    </div>
+    <p class="fine">本项目与 QQ / DeepSeek 官方无关 · 请勿用于骚扰 · 仅供学习使用，请在 24h 内删除 · <a href="#disclaimer">免责声明</a> · <a href="https://github.com/BlushHorizon/QunZai" target="_blank" rel="noopener">GitHub 仓库</a> · <a href="#top">回到顶部</a></p>
+  </div>
+</footer>
+
+<div class="grain" aria-hidden="true"></div>
+
+<script src="assets/site.js"></script>
+</body>
+</html>
+
+
+
+
+
+
+
