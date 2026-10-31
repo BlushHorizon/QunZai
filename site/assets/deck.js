@@ -1,154 +1,141 @@
 /* ============================================================
-   群崽 QunZai — 官网 v2 · 整屏滚动交互
+   群崽 QunZai — 官网 v3 · 滚动驱动引擎
+   整页连续滚动（不吸附、不翻页），滚动位置直接驱动每个元素的状态。
+   不用 IntersectionObserver：改为每帧按 getBoundingClientRect 计算，
+   这样在任何环境（含后台标签页、截图工具）都表现一致。
+
+   每个 [data-rise]/[data-fade]/[data-wipe]/[data-zoom] 元素：
+     - 进入视口下沿 88% 处开始播
+     - 到视口 55% 处播完（约 300px 的滚动行程）
+   [data-stagger] 的子元素按 --d 依次错峰。
    ============================================================ */
 (function () {
   'use strict';
 
-  var deck = document.getElementById('deck');
-  var panes = Array.prototype.slice.call(document.querySelectorAll('.pane'));
-  var dotsBox = document.getElementById('dots');
-  var prog = document.getElementById('prog');
-  var cur = 0;
+  var top = document.querySelector('.top');
+  var prog = document.getElementById('progFill');
 
-  /* ---------- 生成右侧导航点 ---------- */
-  panes.forEach(function (p, i) {
-    var a = document.createElement('a');
-    a.href = '#' + p.id;
-    a.setAttribute('aria-label', p.dataset.label || ('第 ' + (i + 1) + ' 屏'));
-    var s = document.createElement('span');
-    s.textContent = p.dataset.label || ('第 ' + (i + 1) + ' 屏');
-    a.appendChild(s);
-    a.addEventListener('click', function (e) {
-      e.preventDefault();
-      go(i);
+  /* ---------- 1. 逐条错峰：给 [data-stagger] 的子元素设 --d ---------- */
+  document.querySelectorAll('[data-stagger]').forEach(function (box) {
+    var step = parseFloat(box.getAttribute('data-step')) || 0.075;
+    Array.prototype.forEach.call(box.children, function (c, i) {
+      c.style.setProperty('--d', (i * step).toFixed(3) + 's');
     });
-    dotsBox.appendChild(a);
   });
-  var dotEls = Array.prototype.slice.call(dotsBox.children);
 
-  /* ---------- 滚动到第 i 屏 ---------- */
-  function go(i) {
-    i = Math.max(0, Math.min(panes.length - 1, i));
-    panes[i].scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
+  /* ---------- 2. 收集所有动画元素 ---------- */
+  var anim = Array.prototype.slice.call(
+    document.querySelectorAll('[data-rise],[data-fade],[data-wipe],[data-zoom],[data-stagger]')
+  );
 
-  /* ---------- 入场 / 出场 ---------- */
-  var io = new IntersectionObserver(function (entries) {
-    entries.forEach(function (en) {
-      if (en.isIntersecting && en.intersectionRatio > 0.45) {
-        en.target.classList.add('on');
-      } else if (en.intersectionRatio < 0.2) {
-        en.target.classList.remove('on');
+  // 预读每个元素的「延迟秒数」，转成滚动进度上的偏移
+  // 1 秒延迟 ≈ 0.10 的进度偏移（滚动 ~300px 播完时，0.3s 延迟刚好错开）
+  anim.forEach(function (el) {
+    var d = parseFloat((el.style.getPropertyValue('--d') || '0').replace('s', '')) || 0;
+    el._delay = d;
+    el._shown = false;
+  });
+
+  /* ---------- 3. 每帧计算 ---------- */
+  var paraEls = Array.prototype.slice.call(document.querySelectorAll('[data-para]'));
+  var ticking = false;
+
+  function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+  function smooth(v) { return v * v * (3 - 2 * v); }
+
+  function render() {
+    var vh = window.innerHeight || 900;
+    var y = window.pageYOffset || document.documentElement.scrollTop || 0;
+    var max = Math.max(1, document.documentElement.scrollHeight - vh);
+
+    // 顶部进度条
+    if (prog) prog.style.width = (clamp01(y / max) * 100).toFixed(2) + '%';
+    // 顶栏实心化
+    if (top) top.classList.toggle('solid', y > 40);
+
+    // 每个动画元素：按它在视口中的位置决定进度
+    // start = 元素顶部到达视口 88% 高度时开始；end = 到达 55% 时结束
+    for (var i = 0; i < anim.length; i++) {
+      var el = anim[i];
+      var r = el.getBoundingClientRect();
+
+      var startY = vh * 0.88;
+      var endY = vh * 0.55;
+      var p = (startY - r.top) / (startY - endY);   // 0 = 刚进, 1 = 播完
+      p = clamp01(p);
+
+      // 应用元素自身延迟（延迟越大，需要滚得越深才播完）
+      if (el._delay > 0) {
+        p = clamp01((p - el._delay * 0.55) / (1 - el._delay * 0.55));
       }
+
+      var e = smooth(p);
+
+      // 写回 CSS 变量，让 CSS 的 transition 负责平滑
+      el.style.setProperty('--p', e.toFixed(3));
+
+      // 超过阈值就加 .in（CSS 里 .in 是终态；同时 --p 提供连续插值）
+      var shouldIn = e > 0.02;
+      if (shouldIn !== el._shown) {
+        el._shown = shouldIn;
+        el.classList.toggle('in', shouldIn);
+      }
+    }
+
+    // 视差
+    for (var j = 0; j < paraEls.length; j++) {
+      var pe = paraEls[j];
+      var pr = pe.getBoundingClientRect();
+      if (pr.bottom < -300 || pr.top > vh + 300) continue;
+      var t = (pr.top + pr.height / 2 - vh / 2) / vh;
+      var amt = parseFloat(pe.getAttribute('data-para')) || 18;
+      pe.style.transform = 'translate3d(0,' + (t * amt).toFixed(2) + 'px,0)';
+    }
+
+    ticking = false;
+  }
+
+  /* ---------- 3b. 滚动事件同步计算 ----------
+     直接同步跑 render（115 个元素约 0.4ms，可忽略），
+     不依赖 rAF —— 后台标签页/截图环境里 rAF 可能不触发。 */
+  window.addEventListener('scroll', render, { passive: true });
+  window.addEventListener('resize', render, { passive: true });
+  window.addEventListener('load', render);
+  window.addEventListener('DOMContentLoaded', render);
+  document.addEventListener('scroll', render, { passive: true });
+  window.__deckRender = render;   // 便于自动化验证/调试
+  render();
+  setTimeout(render, 60);
+  setTimeout(render, 300);
+
+  /* 兜底轮询：某些环境（后台标签页、自动化截图）不派发 scroll 事件。
+     只在滚动位置真的变化时才重算，正常浏览时几乎零成本。 */
+  var _ly = -1, _lvh = -1;
+  setInterval(function () {
+    var y = window.pageYOffset || document.documentElement.scrollTop || 0;
+    var vh = window.innerHeight || 900;
+    if (y !== _ly || vh !== _lvh) { _ly = y; _lvh = vh; render(); }
+  }, 120);
+
+  /* ---------- 4. 锚点平滑滚动（留顶栏高度） ---------- */
+  document.querySelectorAll('a[href^="#"]').forEach(function (a) {
+    var href = a.getAttribute('href');
+    if (!href || href === '#' || href.length < 2) return;
+    var target = document.getElementById(href.slice(1));
+    if (!target) return;
+    a.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      var topOffset = target.getBoundingClientRect().top + window.pageYOffset - 76;
+      window.scrollTo({ top: Math.round(topOffset), behavior: 'smooth' });
+      history.replaceState(null, '', href);
     });
-  }, { root: deck, threshold: [0, 0.2, 0.45, 0.75] });
-  panes.forEach(function (p) { io.observe(p); });
+  });
 
-  /* ---------- 当前屏高亮 + 进度条 ---------- */
-  function updateUI() {
-    var scrollTop = deck.scrollTop;
-    var total = deck.scrollHeight - deck.clientHeight;
-    var pct = total > 0 ? (scrollTop / total) * 100 : 0;
-    if (prog) prog.style.width = pct.toFixed(2) + '%';
-
-    var best = 0, bestDist = Infinity;
-    panes.forEach(function (p, i) {
-      var d = Math.abs(p.offsetTop - scrollTop);
-      if (d < bestDist) { bestDist = d; best = i; }
-    });
-    if (best !== cur) {
-      cur = best;
-      dotEls.forEach(function (el, i) { el.classList.toggle('on', i === best); });
-    }
-  }
-  deck.addEventListener('scroll', function () {
-    if (!updateUI._raf) {
-      updateUI._raf = requestAnimationFrame(function () {
-        updateUI._raf = null;
-        updateUI();
-      });
-    }
-  }, { passive: true });
-
-  /* ---------- 键盘翻屏 ---------- */
-  var lock = false;
-  function step(dir) {
-    if (lock) return;
-    lock = true;
-    go(cur + dir);
-    setTimeout(function () { lock = false; }, 620);
-  }
-  window.addEventListener('keydown', function (e) {
-    if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
-    switch (e.key) {
-      case 'ArrowDown': case 'PageDown': case ' ':
-        e.preventDefault(); step(1); break;
-      case 'ArrowUp': case 'PageUp':
-        e.preventDefault(); step(-1); break;
-      case 'Home':
-        e.preventDefault(); go(0); break;
-      case 'End':
-        e.preventDefault(); go(panes.length - 1); break;
-    }
-  }, { passive: false });
-
-  /* ---------- 触控板 / 鼠标滚轮整屏吸附 ---------- */
-  var wheelAcc = 0, wheelTimer = null, wheelLock = false;
-  deck.addEventListener('wheel', function (e) {
-    if (Math.abs(e.deltaY) < 4) return;
-    if (e.ctrlKey) return;               // 让浏览器缩放正常工作
-    // 屏内可滚动内容（极少数）时放行
-    var pane = panes[cur];
-    if (pane && pane.scrollHeight > pane.clientHeight + 8) {
-      var inner = e.target.closest('.pane');
-      if (inner && inner.scrollHeight > inner.clientHeight + 8) return;
-    }
-    e.preventDefault();
-    if (wheelLock) return;
-
-    wheelAcc += e.deltaY;
-    clearTimeout(wheelTimer);
-    wheelTimer = setTimeout(function () { wheelAcc = 0; }, 180);
-
-    if (Math.abs(wheelAcc) > 60) {
-      var dir = wheelAcc > 0 ? 1 : -1;
-      wheelAcc = 0;
-      wheelLock = true;
-      go(cur + dir);
-      setTimeout(function () { wheelLock = false; }, 680);
-    }
-  }, { passive: false });
-
-  /* ---------- 移动端触摸滑动 ---------- */
-  var tY = 0, tLock = false;
-  deck.addEventListener('touchstart', function (e) {
-    tY = e.touches[0].clientY;
-  }, { passive: true });
-  deck.addEventListener('touchend', function (e) {
-    if (tLock) return;
-    var d = tY - e.changedTouches[0].clientY;
-    if (Math.abs(d) > 55) {
-      tLock = true;
-      go(cur + (d > 0 ? 1 : -1));
-      setTimeout(function () { tLock = false; }, 700);
-    }
-  }, { passive: true });
-
-  /* ---------- 初始化 ---------- */
-  // 首屏直接点亮（避免 IntersectionObserver 延迟导致首屏空白）
-  panes[0].classList.add('on');
-  dotEls[0].classList.add('on');
-  updateUI();
-
-  // 支持带 hash 直接进入
-  if (location.hash) {
-    var t = document.querySelector(location.hash);
-    if (t) setTimeout(function () { t.scrollIntoView({ block: 'start' }); }, 60);
-  }
-
-  // 视频帧图片加载失败时降级（不阻塞布局）
+  /* ---------- 5. 图片加载失败降级 ---------- */
   document.querySelectorAll('img').forEach(function (img) {
     img.addEventListener('error', function () {
+      var p = img.parentElement;
+      if (p) p.style.background = 'rgba(255,255,255,.04)';
       img.style.visibility = 'hidden';
     });
   });

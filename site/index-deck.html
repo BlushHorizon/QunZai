@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>群崽 QunZai — QQ 群里多了一个 AI 群友</title>
+<meta name="description" content="群崽 QunZai：本地运行的 QQ 群 AI 助手。不用敲指令、会看上下文、有分寸。网页版 DeepSeek 免 API Key，80 MB 双击即用，数据只在你自己的电脑上。" />
+<meta name="theme-color" content="#04060a" />
+<link rel="canonical" href="https://blushhorizon.github.io/QunZai/" />
+
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="群崽 QunZai" />
+<meta property="og:locale" content="zh_CN" />
+<meta property="og:title" content="群崽 QunZai — QQ 群里多了一个 AI 群友" />
+<meta property="og:description" content="不用敲指令、会看上下文、有分寸。网页版 DeepSeek 免 API Key，80 MB 双击即用。" />
+<meta property="og:url" content="https://blushhorizon.github.io/QunZai/" />
+<meta property="og:image" content="https://blushhorizon.github.io/QunZai/assets/og-cover.jpg" />
+<meta name="twitter:card" content="summary_large_image" />
+
+<link rel="stylesheet" href="assets/deck.css" />
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+</head>
+<body>
+
+<div class="prog"><i id="prog" style="display:block;height:100%;width:0;background:inherit;border-radius:0 2px 2px 0"></i></div>
+
+<!-- 顶栏 -->
+<header class="top">
+  <a class="brand" href="#p00">
+    <span class="mark">群</span>
+    <span>群崽 <b>QunZai</b></span>
+  </a>
+  <nav class="top-nav">
+    <a href="#p01">是什么</a>
+    <a href="#p03">怎么开始</a>
+    <a href="#p10">面板</a>
+    <a href="#p14">开源</a>
+    <a href="#p19">下载</a>
+  </nav>
+  <a class="btn btn--sm" href="#p19">下载</a>
+</header>
+
+<!-- 右侧导航点 -->
+<nav class="dots" id="dots" aria-label="页面导航"></nav>
+
+<div id="deck">
+
+  <!-- 01 封面 -->
+  <section class="pane" data-v="2" id="p00" data-label="封面">
+    <div class="bg"></div><div class="bg-dots"></div>
+    <div class="bg-glow" style="width:520px;height:520px;left:-8%;top:8%;background:rgba(77,141,255,.30)"></div>
+    <div class="bg-glow" style="width:460px;height:460px;right:-6%;bottom:-8%;background:rgba(70,224,168,.22)"></div>
+    <div class="pane-in g7-5">
+      <div>
+        <p class="kicker anim">QUNZAI · 群崽</p>
+        <h1 class="anim d1">QQ 群里<br><span class="hl">多了一个 AI 群友</span></h1>
+        <div class="rule anim d2"></div>
+        <p class="lede anim d2">会接话、会发表情、懂分寸的群成员。<br>装在你自己电脑上，跑在你自己建的群里。</p>
+        <div class="cta anim d3">
+          <a class="btn" href="#p19">下载 · 80 MB</a>
+          <a class="btn btn--ghost" href="#p01">它是什么</a>
+        </div>
+        <p class="note anim d4">本地运行 · 自己的 QQ 号 · 自己的电脑</p>
+      </div>
+      <div class="anim d3" style="position:relative">
+        <div class="card" style="padding:clamp(18px,2vw,26px)">
+          <div style="display:flex;align-items:center;gap:10px;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:16px">
+            <span style="width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--blue),var(--mint));display:grid;place-items:center;font-size:12px;font-weight:900;color:#04060a">群</span>
+            <span style="font-weight:700;font-size:15px">摸鱼小分队</span>
+            <span style="margin-left:auto;font-size:12px;color:var(--mint)">群崽 在线</span>
+          </div>
+          <div class="chat">
+            <div class="msg msg--in"><div class="who">小林</div>今晚谁打本？</div>
+            <div class="msg msg--out"><div class="who">群崽</div>我可以，几点？</div>
+            <div class="msg msg--in"><div class="who">阿哲</div>这谁啊，反应好快</div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:16px">
+            <img src="assets/stk/q03.webp" alt="" style="width:58px;height:58px;object-fit:contain;border-radius:12px;background:rgba(255,255,255,.05);padding:5px" loading="eager" />
+            <img src="assets/stk/q05.webp" alt="" style="width:58px;height:58px;object-fit:contain;border-radius:12px;background:rgba(255,255,255,.05);padding:5px" loading="eager" />
+            <img src="assets/stk/q09.webp" alt="" style="width:58px;height:58px;object-fit:contain;border-radius:12px;background:rgba(255,255,255,.05);padding:5px" loading="eager" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 它是什么 -->
+  <section class="pane" data-v="2" id="p01" data-label="它是什么">
+    <div class="bg"></div><div class="bg-dots"></div>
+    <div class="bg-glow" style="width:520px;height:520px;right:-10%;top:20%;background:rgba(77,141,255,.24)"></div>
+    <div class="pane-in g7-5">
+      <div>
+        <p class="kicker anim">它是什么</p>
+        <h2 class="anim d1">装在你自己的电脑上<br><span class="hl">跑在你自己建的群里</span></h2>
+        <p class="anim d2" style="margin-top:24px">群崽 QunZai 是一个本地运行的 AI 群聊助手。接一个 QQ 号，接一个大模型，它就能参与群聊。</p>
+        <div class="stats anim d3">
+          <div class="stat"><div class="v">1 个</div><div class="l">QQ 号</div></div>
+          <div class="stat"><div class="v">1 台</div><div class="l">电脑</div></div>
+          <div class="stat"><div class="v">0 元</div><div class="l">起步</div></div>
+        </div>
+        <p class="note anim d4">不需要服务器、公网 IP、数据库。</p>
+      </div>
+      <div class="anim d3"><div class="frame"><img src="assets/shots/01-overview.webp" alt="群崽是什么" loading="lazy" /></div></div>
+    </div>
+  </section>
+
+  <!-- 03 和普通机器人不一样 -->
+  <section class="pane" data-v="2" id="p02" data-label="不一样">
+    <div class="bg"></div><div class="bg-dots"></div>
+    <div class="pane-in g7-5">
+      <div>
+        <p class="kicker anim">和普通机器人不一样</p>
+        <h2 class="anim d1">别人是命令<br><span class="hl">它是聊天</span></h2>
+        <div class="bullets">
+          <div class="bullet anim d2"><i>01</i><div><div class="t">不用敲指令</div><div class="s">正常说话就行</div></div></div>
+          <div class="bullet anim d3"><i>02</i><div><div class="t">会看上下文</div><div class="s">记得刚才聊到哪</div></div></div>
+          <div class="bullet anim d4"><i>03</i><div><div class="t">有分寸感</div><div class="s">不该说的时候不说</div></div></div>
+        </div>
+        <p class="note anim d5">回复频率、插话概率都能在面板里调。</p>
+      </div>
+      <div class="anim d3">
+        <div class="card">
+          <div class="chat">
+            <div class="msg msg--in"><div class="who">周周</div>这段为啥一直报错啊</div>
+            <div class="msg msg--out"><div class="who">群崽</div>第 12 行少个右括号</div>
+            <div class="msg msg--in"><div class="who">周周</div>神了，谢了</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 三步 -->
+  <section class="pane" data-v="2" id="p03" data-label="三步">
+    <div class="bg"></div><div class="bg-dots"></div>
+    <div class="bg-glow" style="width:460px;height:460px;left:-6%;bottom:-10%;background:rgba(70,224,168,.20)"></div>
+    <div class="pane-in g7-5">
+      <div>
+        <p class="kicker anim">怎么开始</p>
+        <h2 class="anim d1">三步，五分钟</h2>
+        <div class="bullets">
+          <div class="bullet anim d2"><i>①</i><div><div class="t">下载安装包</div><div class="s">一个 exe，内置运行时</div></div></div>
+          <div class="bullet anim d3"><i>②</i><div><div class="t">扫码登录 QQ</div><div class="s">面板里点一下，用手机扫</div></div></div>
+          <div class="bullet anim d4"><i>③</i><div><div class="t">群里 @ 它</div><div class="s">就这一句，开始聊</div></div></div>
+        </div>
+        <p class="note anim d5">装在哪由你决定：自己的电脑、家里的小主机都行。</p>
+      </div>
+      <div class="anim d3"><div class="frame"><img src="assets/shots/03-settings-open.webp" alt="三步开始" loading="lazy" /></div></div>
+    </div>
+  </section>
+
+  <!-- 05 接入 -->
+  <section class="pane" data-v="2" id="p04" data-label="接入">
+    <div class="bg"></div><div class="bg-dots"></div>
+    <div class="pane-in g7-5">
+      <div>
+        <p class="kicker anim">接入方式</p>
+        <h2 class="anim d1">标准 OneBot 11 协议</h2>
+        <p class="anim d2" style="margin-top:22px">和 NapCat、Lagrange、LLOneBot 这些主流框架都能对接，换框架不用改代码，填个地址就行。</p>
+        <div class="card card--accent anim d3" style="margin-top:28px">
+          <div style="font-size:12px;letter-spacing:.16em;color:var(--faint)">连接地址</div>
+          <div class="mono" style="font-size:clamp(15px,1.7vw,22px);color:var(--mint);margin-top:10px">ws://127.0.0.1:3001</div>
+        </div>
+        <p class="note anim d4">内置 NapCat 引擎，装完就能连，不用另外配。</p>
+      </div>
+      <div class="anim d3">
+        <div class="card">
+          <div style="font-size:12px;letter-spacing:.16em;color:var(--faint);margin-bottom:14px">支持框架</div>
+          <div style="display:grid;gap:12px;font-size:clamp(15px,1.4vw,18px);font-weight:700">
+            <div>NapCat</div><div>Lagrange</div><div>LLOneBot</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 06 两种大脑 -->
+  <section class="pane" data-v="2" id="p05" data-label="大脑">
+    <div class="bg"></div><div class="bg-dots"></div>
+    <div class="bg-glow" style="width:500px;height:500px;right:-8%;top:10%;background:rgba(77,141,255,.24)"></div>
+    <div class="pane-in g2">
+      <div>
+        <p class="kicker anim">它的大脑</p>
+        <h2 class="anim d1">两种模式，随便切</h2>
+        <p class="anim d2" style="margin-top:22px">不想折腾 Key、不想绑卡，也能让群先活起来。</p>
+        <p class="note anim d3">同一份配置里切换，不用重装。</p>
+      </div>
+      <div style="display:grid;gap:18px">
+        <div class="card card--accent anim d2">
+          <h3 style="color:var(--mint)">网页版 DeepSeek</h3>
+          <p style="margin-top:10px">不用 API Key<br>登录一次长期可用</p>
+        </div>
+        <div class="card anim d3">
+          <h3 style="color:var(--blue-hi)">API 接口</h3>
+          <p style="margin-top:10px">OpenAI 兼容<br>更快更稳可量化</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 07 API 能力 -->
+  <section class="pane" data-v="2" id="p06" data-label="API">
+    <div class="bg"></div><div class="bg-dots"></div>
+    <div class="pane-in g7-5">
+      <div>
+        <p class="kicker anim">想要更好</p>
+        <h2 class="anim d1">切到 API 就行</h2>
+        <div class="bullets">
+          <div class="bullet anim d2"><i>·</i><div><div class="t">测速</div><div class="s">实时延迟，多少毫秒</div></div></div>
+          <div class="bullet anim d3"><i>·</i><div><div class="t">检查可用</div><div class="s">通不通、返不返回</div></div></div>
+          <div class="bullet anim d4"><i>·</i><div><div class="t">查余额</div><div class="s">还剩多少钱，一次看清</div></div></div>
+        </div>
+        <p class="note anim d5">面板里直接测，不用去别处翻。</p>
+      </div>
+      <div class="anim d3">
+        <div class="card card--accent">
+          <div class="mono" style="font-size:clamp(14px,1.5vw,19px);color:var(--mint);line-height:1.8">
+            latency 412ms<br>balance ¥18.60
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 08 怎么说话 -->
+  <section class="pane" data-v="2" id="p07" data-label="说话方式">
+    <div class="bg"></div><div class="bg-dots"></div>
+    <div class="pane-in g7-5">
+      <div>
+        <p class="kicker anim">它在群里怎么说话</p>
+        <h2 class="anim d1">不是每句都接</h2>
+        <div class="bullets">
+          <div class="bullet anim d2"><i>·</i><div><div class="t">被 @ 或收到私聊</div><div class="s">必回</div></div></div>
+          <div class="bullet anim d3"><i>·</i><div><div class="t">话题转到它在行的事</div><div class="s">会接</div></div></div>
+          <div class="bullet anim d4"><i>·</i><div><div class="t">群里在吵架或刷屏</div><div class="s">不插嘴</div></div></div>
+        </div>
+        <p class="note anim d5">它不会一直刷存在感，只在合适的时候说话。</p>
+      </div>
+      <div class="anim d3">
+        <div class="card">
+          <div class="chat">
+            <div class="msg msg--in"><div class="who">土豆</div>这动画怎么这么丝滑</div>
+            <div class="msg msg--out"><div class="who">群崽</div>transform，别动 layout</div>
+            <div class="msg msg--in"><div class="who">土豆</div>学到了</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 09 表情包 -->
+  <section class="pane" data-v="2" id="p08" data-label="表情包">
+    <div class="bg"></div><div class="bg-dots"></div>
+    <div class="bg-glow" style="width:520px;height:520px;left:-10%;top:0%;background:rgba(255,122,184,.16)"></div>
+    <div class="pane-in g5-7">
+      <div>
+        <p class="kicker anim">表情包</p>
+        <h2 class="anim d1">113 张<br><span class="hl">随取随用</span></h2>
+        <p class="anim d2" style="margin-top:22px">表情和语气匹配，不会发错场合。图库在本地，不联网也能用，也能自己加。</p>
+        <p class="note anim d3">发图频率可控，不会刷屏。</p>
+      </div>
+      <div class="anim d2">
+        <div class="stk-wall">
+          <img src="assets/stk/q00.webp" alt="" loading="lazy" />
+          <img src="assets/stk/q01.webp" alt="" loading="lazy" />
+          <img src="assets/stk/q02.webp" alt="" loading="lazy" />
+          <img src="assets/stk/q03.webp" alt="" loading="lazy" />
+          <img src="assets/stk/q04.webp" alt="" loading="lazy" />
+          <img src="assets/stk/q05.webp" alt="" loading="lazy" />
+          <img src="assets/stk/q06.webp" alt="" loading="lazy" />
+          <img src="assets/stk/q07.webp" alt="" loading="lazy" />
+          <img src="assets/stk/q08.webp" alt="" loading="lazy" />
+          <img src="assets/stk/q09.webp" alt="" loading="lazy" />
+          <img src="assets/stk/q10.webp" alt="" loading="lazy" />
+          <img src="assets/stk/q11.webp" alt="" loading="lazy" />
+          <img src="assets/stk/q12.webp" alt="" loading="lazy" />
+          <img src="assets/stk/q13.webp" alt="" loading="lazy" />
+          <img src="assets/stk/q14.webp" alt="" loading="lazy" />
+          <img src="assets/stk/q15.webp" alt="" loading="lazy" />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10 群规 -->
+  <section class="pane" data-v="2" id="p09" data-label="群规">
+    <div class="bg"></div><div class="bg-dots"></div>
+    <div class="pane-in">
+      <div>
+        <p class="kicker anim">群规</p>
+        <h2 class="anim d1">违规，它当场处理</h2>
+        <div class="stk-wall" style="grid-template-columns:repeat(3,1fr);margin-top:clamp(26px,3.4vw,44px)">
+          <div class="card anim d2" style="text-align:center;font-size:clamp(13px,1.2vw,16px);font-weight:700"><span style="color:var(--mint)">✓</span> 刷屏限流</div>
+          <div class="card anim d2" style="text-align:center;font-size:clamp(13px,1.2vw,16px);font-weight:700"><span style="color:var(--mint)">✓</span> 广告 / 拉人拦截</div>
+          <div class="card anim d3" style="text-align:center;font-size:clamp(13px,1.2vw,16px);font-weight:700"><span style="color:var(--mint)">✓</span> 违禁词预警</div>
+          <div class="card anim d3" style="text-align:center;font-size:clamp(13px,1.2vw,16px);font-weight:700"><span style="color:var(--mint)">✓</span> 重复消息合并</div>
+          <div class="card anim d4" style="text-align:center;font-size:clamp(13px,1.2vw,16px);font-weight:700"><span style="color:var(--mint)">✓</span> 新人自动欢迎</div>
+          <div class="card anim d4" style="text-align:center;font-size:clamp(13px,1.2vw,16px);font-weight:700"><span style="color:var(--mint)">✓</span> 深夜宵禁提醒</div>
+        </div>
+        <p class="note anim d5">命中先提醒，再犯才禁言，误伤可以手动撤。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11 面板 -->
+  <section class="pane" data-v="2" id="p10" data-label="面板">
+    <div class="bg"></div><div class="bg-dots"></div>
+    <div class="bg-glow" style="width:520px;height:520px;right:-8%;top:0%;background:rgba(77,141,255,.22)"></div>
+    <div class="pane-in g5-7">
+      <div>
+        <p class="kicker anim">监控台</p>
+        <h2 class="anim d1">一个页面<br><span class="hl">看全部</span></h2>
+        <p class="anim d2" style="margin-top:22px">实时动态、群列表、会话、运行状态，都在同一个网页面板里，本地 8787 端口。</p>
+        <p class="note anim d3">不需要外网访问，局域网内打开就行。</p>
+      </div>
+      <div class="anim d2"><div class="frame"><img src="assets/shots/01-overview.webp" alt="监控台" loading="lazy" /></div></div>
+    </div>
+  </section>
+
+  <!-- 12 记录 -->
+  <section class="pane" data-v="2" id="p11" data-label="记录">
+    <div class="bg"></div><div class="bg-dots"></div>
+    <div class="pane-in g7-5">
+      <div>
+        <p class="kicker anim">可观测</p>
+        <h2 class="anim d1">每条回复都有记录</h2>
+        <div class="bullets">
+          <div class="bullet anim d2"><i>·</i><div><div class="t">谁触发的</div><div class="s">群号、QQ、原话</div></div></div>
+          <div class="bullet anim d3"><i>·</i><div><div class="t">它怎么想的</div><div class="s">命中哪条规则</div></div></div>
+          <div class="bullet anim d4"><i>·</i><div><div class="t">花了多久</div><div class="s">延迟、tokens、错误原因</div></div></div>
+        </div>
+        <p class="anim d5" style="margin-top:26px;color:var(--mint)">出问题时不用猜，翻记录就知道卡在哪。</p>
+        <p class="note anim d5">记录只写本地文件，按天分，方便翻。</p>
+      </div>
+      <div class="anim d3"><div class="frame"><img src="assets/shots/02-feed.webp" alt="记录" loading="lazy" /></div></div>
+    </div>
+  </section>
+
+  <!-- 13 本地 -->
+  <section class="pane" data-v="2" id="p12" data-label="本地">
+    <div class="bg"></div><div class="bg-dots"></div>
+    <div class="bg-glow" style="width:520px;height:520px;left:-8%;bottom:-6%;background:rgba(70,224,168,.20)"></div>
+    <div class="pane-in g7-5">
+      <div>
+        <p class="kicker anim">数据在哪</p>
+        <h2 class="anim d1">不出这台机器</h2>
+        <p class="anim d2" style="margin-top:22px">聊天记录、群成员、表情包、配置，全部存在本地。没有云端账号，没有上传，卸载就是删干净。</p>
+        <div class="card card--accent anim d3" style="margin-top:28px">
+          <div class="mono" style="font-size:clamp(14px,1.5vw,20px);color:var(--mint)">D:\群崽\data</div>
+          <div style="font-size:13px;color:var(--faint);margin-top:10px">所有数据都在这个目录</div>
+        </div>
+        <p class="note anim d4">想搬走，整个目录拷过去就行。</p>
+      </div>
+      <div class="anim d3"><div class="frame"><img src="assets/shots/05-settings-quiet.webp" alt="本地数据" loading="lazy" /></div></div>
+    </div>
+  </section>
+
+  <!-- 14 安装 -->
+  <section class="pane" data-v="2" id="p13" data-label="安装">
+    <div class="bg"></div><div class="bg-dots"></div>
+    <div class="pane-in g7-5">
+      <div>
+        <p class="kicker anim">安装</p>
+        <h2 class="anim d1">双击，下一步，完成</h2>
+        <div class="stats anim d2">
+          <div class="stat"><div class="v">80 MB</div><div class="l">安装包</div></div>
+          <div class="stat"><div class="v">0</div><div class="l">第三方依赖</div></div>
+          <div class="stat"><div class="v">秒级</div><div class="l">启动</div></div>
+        </div>
+        <p class="anim d3" style="margin-top:26px">Node 运行时直接打包在里面，不用装 Python、不用装 Node、不用配环境变量。支持 Windows 10 / 11 64 位。</p>
+        <p class="note anim d4">第一次启动会引导你扫码登录 QQ。</p>
+      </div>
+      <div class="anim d3"><div class="frame"><img src="assets/shots/04-settings-reply.webp" alt="安装" loading="lazy" /></div></div>
+    </div>
+  </section>
+
+  <!-- 15 开源 -->
+  <section class="pane" data-v="2" id="p14" data-label="开源">
+    <div class="bg"></div><div class="bg-dots"></div>
+    <div class="bg-glow" style="width:460px;height:460px;right:-6%;top:6%;background:rgba(120,80,220,.20)"></div>
+    <div class="pane-in g2">
+      <div>
+        <p class="kicker anim">开源</p>
+        <h2 class="anim d1">MIT 协议<br><span class="hl">代码都在</span></h2>
+        <p class="anim d2" style="margin-top:22px">
+          <a href="https://github.com/BlushHorizon/QunZai" target="_blank" rel="noopener" class="mono" style="color:var(--blue-hi);border-bottom:1px solid rgba(125,176,255,.4)">github.com/BlushHorizon/QunZai</a><br>
+          想加功能自己改，想改界面自己调，不喜欢的直接删。
+        </p>
+        <p class="anim d3" style="margin-top:24px;font-size:clamp(17px,1.9vw,24px);color:var(--mint);font-weight:700">没有黑箱，没有偷偷联网。</p>
+        <p class="note anim d4">提 issue、提 PR 都欢迎，文档也在仓库里。</p>
+      </div>
+      <div class="anim d3" style="display:flex;justify-content:center">
+        <img src="assets/stk/q07.webp" alt="" style="width:clamp(140px,20vw,260px);height:auto;border-radius:20px" loading="lazy" />
+      </div>
+    </div>
+  </section>
+
+  <!-- 16 场景 -->
+  <section class="pane" data-v="2" id="p15" data-label="场景">
+    <div class="bg"></div><div class="bg-dots"></div>
+    <div class="pane-in g7-5">
+      <div>
+        <p class="kicker anim">它能干什么</p>
+        <h2 class="anim d1">冷场接一句<br><span class="hl">随口就答</span></h2>
+        <div class="bullets">
+          <div class="bullet anim d2"><i>·</i><div><div class="t">考研自习室</div><div class="s">出题 + 记错题</div></div></div>
+          <div class="bullet anim d3"><i>·</i><div><div class="t">摄影交流</div><div class="s">参数建议</div></div></div>
+          <div class="bullet anim d4"><i>·</i><div><div class="t">公司吐槽群</div><div class="s">半夜也在</div></div></div>
+        </div>
+        <p class="note anim d5">群越热闹它越有用；冷清的群它也会自己找话题。</p>
+      </div>
+      <div class="anim d3">
+        <div class="card">
+          <div class="chat">
+            <div class="msg msg--in"><div class="who">小林</div>今晚谁打本？</div>
+            <div class="msg msg--in"><div class="who">阿哲</div>我我我</div>
+            <div class="msg msg--in"><div class="who">小林</div>还差一个</div>
+            <div class="msg msg--out"><div class="who">群崽</div>我可以，几点？</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 17 诚实 -->
+  <section class="pane" data-v="2" id="p16" data-label="脾气">
+    <div class="bg"></div><div class="bg-dots"></div>
+    <div class="bg-glow" style="width:480px;height:480px;left:-8%;top:16%;background:rgba(255,180,84,.16)"></div>
+    <div class="pane-in g7-5">
+      <div>
+        <p class="kicker anim">它的脾气</p>
+        <h2 class="anim d1">不知道<br><span class="hl">就说不知道</span></h2>
+        <p class="anim d2" style="margin-top:22px">不瞎编、不硬答、不为了讨好你编一个答案。这一点比「显得聪明」重要。</p>
+        <p class="note anim d3">拿不准的事情，它会说「我不确定」，而不是编。</p>
+      </div>
+      <div class="anim d3">
+        <div class="card">
+          <div class="chat">
+            <div class="msg msg--in"><div class="who">青禾</div>这周读哪本</div>
+            <div class="msg msg--out"><div class="who">群崽</div>上本没聊完，先收尾吧</div>
+            <div class="msg msg--in"><div class="who">青禾</div>有道理</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 18 对比 -->
+  <section class="pane" data-v="2" id="p17" data-label="对比">
+    <div class="bg"></div><div class="bg-dots"></div>
+    <div class="pane-in">
+      <div>
+        <p class="kicker anim">对比一下</p>
+        <h2 class="anim d1">它不是另一种客服</h2>
+        <table class="cmp anim d2">
+          <thead><tr><th></th><th>客服机器人</th><th>群崽</th></tr></thead>
+          <tbody>
+            <tr><td>触发</td><td>关键词 / 菜单</td><td>自然对话</td></tr>
+            <tr><td>说话</td><td>模板话术</td><td>自己组织</td></tr>
+            <tr><td>在群里</td><td>格格不入</td><td>像个群友</td></tr>
+            <tr><td>数据</td><td>在别人服务器</td><td>在你自己硬盘</td></tr>
+          </tbody>
+        </table>
+        <p class="note anim d3">一句话：它是群友，不是工单系统。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 19 限制 -->
+  <section class="pane" data-v="2" id="p18" data-label="限制">
+    <div class="bg"></div><div class="bg-dots"></div>
+    <div class="pane-in g7-5">
+      <div>
+        <p class="kicker anim">也说说限制</p>
+        <h2 class="anim d1">它不是万能的</h2>
+        <div class="bullets">
+          <div class="bullet anim d2"><i>·</i><div><div class="t">要一个 QQ 号</div><div class="s">小号更安全</div></div></div>
+          <div class="bullet anim d3"><i>·</i><div><div class="t">要一台常开的电脑</div><div class="s">或一台小主机</div></div></div>
+          <div class="bullet anim d4"><i>·</i><div><div class="t">网页版大脑有风控</div><div class="s">长期挂要注意</div></div></div>
+        </div>
+        <p class="anim d5" style="margin-top:26px;color:var(--mint)">这些我都写在 README 里了，没有藏着。</p>
+        <p class="note anim d5">这些限制不是 bug，是它的使用前提。</p>
+      </div>
+      <div class="anim d3"><div class="frame"><img src="assets/shots/06-settings-engine.webp" alt="限制" loading="lazy" /></div></div>
+    </div>
+  </section>
+
+  <!-- 20 下载 -->
+  <section class="pane" data-v="2" id="p19" data-label="下载">
+    <div class="bg"></div><div class="bg-dots"></div>
+    <div class="bg-glow" style="width:600px;height:600px;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(77,141,255,.24)"></div>
+    <div class="pane-in" style="grid-template-columns:1fr;text-align:center;justify-items:center">
+      <div>
+        <p class="kicker anim" style="justify-content:center">开始</p>
+        <h2 class="anim d1" style="font-size:clamp(36px,5.4vw,84px)">下一个群<br><span class="hl">等它上线</span></h2>
+        <div class="rule anim d2" style="margin-left:auto;margin-right:auto"></div>
+        <div class="cta anim d3" style="justify-content:center">
+          <a class="btn" href="assets/群崽QunZai安装包.exe" download>下载安装包 · 80 MB</a>
+          <a class="btn btn--ghost" href="https://github.com/BlushHorizon/QunZai" target="_blank" rel="noopener">GitHub 源码</a>
+        </div>
+        <p class="anim d4" style="margin-top:clamp(22px,3vw,34px);font-size:clamp(12px,1.05vw,14px);color:var(--faint)">
+          Windows 10 / 11 · 双击即用 · 数据只在本机<br>
+          MIT 开源 · 免费 · 本地运行
+        </p>
+        <p class="anim d5" style="margin-top:14px;font-size:clamp(11px,.95vw,13px);color:#4d5663">
+          直连慢？<a href="https://ghfast.top/https://github.com/BlushHorizon/QunZai/releases/download/v1.4.13/QunZai-v1.4.13-win-x64.exe" target="_blank" rel="noopener" style="color:var(--blue-hi);border-bottom:1px solid rgba(125,176,255,.35)">走国内加速镜像</a>
+        </p>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>
