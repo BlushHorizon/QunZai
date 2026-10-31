@@ -75,6 +75,50 @@ const DEFAULT_CONFIG = {
     historyTurns: 8,             // 送给模型的上下文轮数
     replyDelayMs: 900            // 模拟“正在输入”的思考时间
   },
+  // 长期记忆：只记不说。
+  // 默认开启是安全的——它不改变任何对外行为，最坏情况只是「记得不准」，
+  // 而用户永远不会遇到「机器人突然乱说话」。
+  memory: {
+    enabled: true,               // 总开关
+    backend: 'json',             // json = 单文件（2 万条内够用）；预留 sqlite
+    digestEvery: 40,             // 每累积多少条群消息抽取一次
+    digestMinChars: 6,           // 短于此长度的消息不进抽取
+    autoExtract: true,           // 规则档自动抽取
+    maxPerScope: 20000,          // 单个会话的记忆上限，超了淘汰低价值的
+    decayDays: 30,               // event 类记忆的半衰期（天）
+    promptTopN: 6                // 回复时最多拼几条记忆进提示词
+  },
+  // 兴趣画像：给「该不该插话」提供相关性分数，本身不说话
+  interest: {
+    enabled: true,
+    capabilities: ['编程', '电脑', '游戏', '番剧', '学习', '做饭', '数码'],
+    interjectThreshold: 0.55,    // 插话相关度门槛
+    initiateThreshold: 0.65,     // 主动开口门槛（更严）
+    judge: 'lexical',            // lexical = 二元组词法；预留 model
+    profileDecayPerDay: 0.02     // 兴趣权重每日衰减
+  },
+  // 兴趣主动回复：概率闸门落空时，用它再问一次「这个话题值不值得说」
+  interestReply: {
+    enabled: false,              // 默认关：会改变对外行为，必须用户显式打开
+    shadow: true,                // 演练模式：算分、记日志，但不发
+    threshold: 0.55
+  },
+  // 主动发言：没人 @ 也没人说话时自己起话头
+  proactive: {
+    enabled: false,              // 默认关
+    shadow: true,                // 默认演练：只记录不发送，先让用户看几天日志
+    idleMin: 25,                 // 群里安静多少分钟后才考虑开口
+    minGroupMsgsToday: 20,       // 当日群消息少于这个数说明是死群，不开口
+    nightFrom: '00:00',          // 主动发言静默窗口（比免打扰更严）
+    nightTo: '09:00',
+    maxPerHour: 2,               // 与插话共享预算
+    maxPerDay: 8,
+    minGapMs: 1200000,           // 同一群两次开口的最小间隔（20 分钟）
+    ignoreWindowSec: 600,        // 发出后多久没人接算「被无视」
+    settleMs: 3000,              // 最后一条消息后至少安静这么久
+    targetChatKeys: [],          // 白名单：空 = 一个群都不主动（安全默认）
+    candidateKinds: ['event', 'meme', 'fact']
+  },
   // 自动更新：只检查，下载/安装必须用户确认
   update: {
     manifestUrl: OFFICIAL_UPDATE_MANIFEST,

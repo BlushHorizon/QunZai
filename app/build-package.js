@@ -33,12 +33,17 @@ const FILES = ['launcher.ps1'];
 const LEGACY_ENTRY_FILES = ['开启.bat', '关闭.bat'];
 
 function rmrf(p) { fs.rmSync(p, { recursive: true, force: true }); }
-function copyDir(src, dst) {
+/** 开发期文件不进安装包：验收脚本（smoke-*.js）、临时诊断脚本（_diag/_d*.js）。
+ *  它们会跑真实模块、打印内部状态，进了用户机器毫无用处，还等于把内部实现摊开给人看。 */
+const DEV_FILE_RE = /^(smoke-.*\.js|_diag.*\.js|_d\d+\.js)$/i;
+function isDevFile(name) { return DEV_FILE_RE.test(name); }
+function copyDir(src, dst, filter) {
   fs.mkdirSync(dst, { recursive: true });
   for (const e of fs.readdirSync(src, { withFileTypes: true })) {
+    if (e.isFile() && filter && !filter(e.name)) continue;
     const s = path.join(src, e.name);
     const d = path.join(dst, e.name);
-    if (e.isDirectory()) copyDir(s, d);
+    if (e.isDirectory()) copyDir(s, d, filter);
     else fs.copyFileSync(s, d);
   }
 }
@@ -80,8 +85,8 @@ for (const dir of DIRS) {
   const src = path.join(ROOT, dir);
   if (!fs.existsSync(src)) { console.log('  跳过(不存在) ' + dir); continue; }
   rmrf(path.join(DIST, dir));            // 先清空：残留文件会一直躺在包里
-  copyDir(src, path.join(DIST, dir));
-  const cnt = (function c(d) { let k = 0; for (const e of fs.readdirSync(d, { withFileTypes: true })) k += e.isDirectory() ? c(path.join(d, e.name)) : 1; return k; })(src);
+  copyDir(src, path.join(DIST, dir), dir === 'server' ? (name) => !isDevFile(name) : null);
+  const cnt = (function c(d) { let k = 0; for (const e of fs.readdirSync(d, { withFileTypes: true })) k += e.isDirectory() ? c(path.join(d, e.name)) : 1; return k; })(path.join(DIST, dir));
   n += cnt;
   console.log(`  ${dir}/  (${cnt} 个文件)`);
 }

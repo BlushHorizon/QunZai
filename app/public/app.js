@@ -28,6 +28,10 @@ if (IN_DESKTOP_HOST) document.documentElement.classList.add('qz-host');
 
 let dsSlotSyncPending = false;
 
+/* 打开设置时缓存的服务端配置：有些值面板上没有控件（阈值、候选类型、忽略窗口），
+   保存时得沿用现值，不能凭空填。 */
+let settingsCache = {};
+
 function dsSlotBlocked() {
   const sm = $('settingsModal');
   const qd = $('qzDialog');
@@ -432,6 +436,7 @@ function applyPlatform() {
 /* ---------------- 设置 ---------------- */
 async function openSettings() {
   const data = await api('/api/settings');
+  settingsCache = data;
   const ai = data.ai || {};
   $('setProvider').value = ai.provider || 'deepseek-web';
   $('setEnabled').checked = !!ai.enabled;
@@ -459,6 +464,26 @@ async function openSettings() {
   $('setBrowserPath').value = ai.browserPath || '';
   $('setWebPrompt').value = ai.webPrompt || '';
   $('setWebMaxRounds').value = ai.webMaxRounds ?? 50;
+
+  /* ---- 长期记忆 / 兴趣 / 主动发言（老 config.json 里没有这几段，靠服务端回默认值） ---- */
+  const mem = data.memory || {};
+  const itr = data.interest || {};
+  const itrReply = data.interestReply || {};
+  const pro = data.proactive || {};
+  $('setMemEnabled').checked = mem.enabled !== false;
+  $('setInterestReply').checked = !!itrReply.enabled;
+  $('setProactiveEnabled').checked = !!pro.enabled;
+  $('setProactiveShadow').checked = pro.shadow !== false;
+  $('setProactiveTargets').value = Array.isArray(pro.targetChatKeys) ? pro.targetChatKeys.join(',') : '';
+  $('setProIdleMin').value = pro.idleMin ?? 25;
+  $('setProMaxHour').value = pro.maxPerHour ?? 2;
+  $('setProMaxDay').value = pro.maxPerDay ?? 8;
+  $('setProGapMin').value = Math.round((pro.minGapMs ?? 1200000) / 60000);
+  $('setProNightFrom').value = pro.nightFrom || '00:00';
+  $('setProNightTo').value = pro.nightTo || '09:00';
+  $('setInterestCaps').value = Array.isArray(itr.capabilities) ? itr.capabilities.join(',') : '';
+  refreshMemoryPanel();
+  refreshProactiveLog();
   $('setMode').value = data.qq?.mode || 'mock';
   $('setWsUrl').value = data.qq?.onebot?.wsUrl || 'ws://127.0.0.1:3001';
   $('setToken').value = data.qq?.onebot?.accessToken || '';
@@ -516,14 +541,111 @@ async function openSettings() {
   $('settingsModal').classList.remove('hidden');
 }
 
-function toggleTargetView() {
-  $('targetWrap').classList.toggle('hidden', $('setReplyMode').value !== 'target');
+function toggleTargetView() {  $('targetWrap').classList.toggle('hidden', $('setReplyMode').value !== 'target');
 }
 
 function toggleProviderView() {
   const p = $('setProvider').value;
   $('webOnly').classList.toggle('hidden', p !== 'deepseek-web');
   $('apiOnly').classList.toggle('hidden', p === 'deepseek-web');
+}
+
+/* ---------------- 长期记忆 / 主动发言面板 ---------------- */
+
+const MEM_KIND_LABEL = { fact: '人设', event: '近况', meme: '群梗', pref: '偏好', relation: '关系' };
+
+async function refreshMemoryPanel() {
+  const el = $('memStats');
+  if (!el) return;
+  try {
+    const r = await api('/api/memory/stats');
+    const m = r.memory || {};
+    const ex = r.extractor || {};
+    if (r.enabled === false) {
+      el.textContent = '记忆：已关闭';
+      return;
+    }
+    const size = m.fileBytes ? ` · ${(m.fileBytes / 1024).toFixed(0)}KB` : '';
+    el.textContent = `记忆：${m.total || 0} 条（${m.grams || 0} 个索引词）${size}` +
+      (ex.buffered ? ` · 待整理 ${ex.buffered} 条` : '');
+  } catch (e) {
+    el.textContent = '记忆状态加载失败：' + e.message;
+  }
+}
+
+async function showMemoryList() {
+  const box = $('memList');
+  if (box.innerHTML.trim()) { box.innerHTML = ''; return; }   // 再点一次收起
+  box.innerHTML = '<div class="tip">加载中…</div>';
+  try {
+    const r = await api('/api/memory/list?limit=60');
+    if (!r.items || !r.items.length) {
+      box.innerHTML = '<div class="tip">还没记住任何事。它在群里看到「我叫…」「我喜欢…」「周末要…」这类句子时会自己记下来，攒够一批就整理一次。</div>';
+      return;
+    }
+    box.innerHTML = r.items.map((m) => `
+      <div class="sticker-row">
+        <span class="sticker-emoji">${MEM_KIND_LABEL[m.kind] || '记忆'}</span>
+        <span>${escapeHtml(m.text)}<br><small class="tip">${escapeHtml(m.scope || '')} · 权重 ${(m.weight || 1).toFixed(2)} · 命中 ${m.hitCount || 0} 次</small></span>
+        <button class="mini-btn danger-btn mem-del" data-id="${escapeHtml(m.id)}">忘掉</button>
+      </div>`).join('');
+    box.querySelectorAll('.mem-del').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!(await uiConfirm('让它忘掉这条记忆？', { title: '忘记', okText: '忘掉', cancelText: '取消', type: 'warn' }))) return;
+        try {
+          await api('/api/memory/forget', { method: 'POST', body: JSON.stringify({ id: btn.dataset.id }) });
+          box.innerHTML = '';
+          await showMemoryList();
+          refreshMemoryPanel();
+        } catch (e) {
+          uiAlert('删除失败：' + e.message);
+        }
+      });
+    });
+  } catch (e) {
+    box.innerHTML = `<div class="tip">加载失败：${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function refreshProactiveLog() {
+  const box = $('proactiveLog');
+  if (!box) return;
+  try {
+    const r = await api('/api/proactive/decisions?limit=30');
+    const items = r.items || [];
+    if (!items.length) {
+      box.textContent = '还没有决策记录。开了「冷场时主动开口」之后，它每次想说话都会在这里留一条——说了什么、或者被哪道闸拦下。';
+      return;
+    }
+    box.innerHTML = items.slice(0, 30).map((d) => {
+      const t = new Date(d.at || Date.now());
+      const hh = String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0');
+      const tag = d.ok
+        ? (d.sent ? '✅ 发了' : (d.shadow ? '👀 演练' : '⏸ 待发'))
+        : '🚫 ' + escapeHtml(d.reason || '未通过');
+      const body = d.text || d.preview || '';
+      return `<div style="margin:4px 0;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)">
+        <small>${hh} · ${escapeHtml(d.chatKey || '')} · ${tag} · 相关度 ${(d.score || 0).toFixed(2)}</small>
+        ${body ? `<div>${escapeHtml(String(body).slice(0, 80))}</div>` : ''}
+      </div>`;
+    }).join('');
+  } catch (e) {
+    box.textContent = '决策记录加载失败：' + e.message;
+  }
+}
+
+async function killProactive() {
+  if (!(await uiConfirm('立刻关闭主动发言和兴趣插话？\n\n正常 @ 回复不受影响。这个操作会写进配置，重启后也不会自己打开。',
+    { title: '一键闭嘴', okText: '闭嘴', cancelText: '算了', type: 'warn' }))) return;
+  try {
+    const r = await api('/api/proactive/kill', { method: 'POST', body: '{}' });
+    $('setProactiveEnabled').checked = false;
+    $('setInterestReply').checked = false;
+    uiAlert(r.message || '已关闭');
+    refreshProactiveLog();
+  } catch (e) {
+    uiAlert('操作失败：' + e.message);
+  }
 }
 
 /* ---------------- 表情包 ---------------- */
@@ -946,6 +1068,12 @@ setInterval(() => {
 }, 3000);
 
 async function saveSettings() {
+  /* saveSettings 里有些值（阈值、候选类型等）面板上没控件，要沿用服务端现值。
+     打开设置时缓存一份，避免这里再发一次 GET。 */
+  const mem = settingsCache.memory || {};
+  const interest = settingsCache.interest || {};
+  const interestReply = settingsCache.interestReply || {};
+  const proactive = settingsCache.proactive || {};
   const payload = {
     ai: {
       enabled: $('setEnabled').checked,
@@ -994,6 +1122,44 @@ async function saveSettings() {
     update: {
       manifestUrl: $('setUpdateManifest').value.trim(),
       autoCheck: $('setUpdateAuto').checked
+    },
+    /* 这四段必须每次都带上：服务端 configLib.save 是 deepMerge 覆盖写，
+       不传就等于没改；而传了不夹取，前端一个负数就能把闸门锁死。 */
+    memory: {
+      enabled: $('setMemEnabled').checked,
+      autoExtract: true,
+      digestEvery: mem.digestEvery ?? 40,
+      digestMinChars: mem.digestMinChars ?? 6,
+      maxPerScope: mem.maxPerScope ?? 20000,
+      decayDays: mem.decayDays ?? 30,
+      promptTopN: mem.promptTopN ?? 6
+    },
+    interest: {
+      enabled: true,
+      capabilities: $('setInterestCaps').value.split(/[,，;；\s]+/).map((s) => s.trim()).filter(Boolean),
+      interjectThreshold: interest.interjectThreshold ?? 0.55,
+      initiateThreshold: interest.initiateThreshold ?? 0.65,
+      profileDecayPerDay: interest.profileDecayPerDay ?? 0.02
+    },
+    interestReply: {
+      enabled: $('setInterestReply').checked,
+      shadow: false,
+      threshold: interestReply.threshold ?? 0.55
+    },
+    proactive: {
+      enabled: $('setProactiveEnabled').checked,
+      shadow: $('setProactiveShadow').checked,
+      idleMin: Number($('setProIdleMin').value) || 25,
+      minGroupMsgsToday: proactive.minGroupMsgsToday ?? 20,
+      nightFrom: $('setProNightFrom').value || '00:00',
+      nightTo: $('setProNightTo').value || '09:00',
+      maxPerHour: Number($('setProMaxHour').value) || 0,
+      maxPerDay: Number($('setProMaxDay').value) || 0,
+      minGapMs: Math.max(0, (Number($('setProGapMin').value) || 0) * 60000),
+      ignoreWindowSec: proactive.ignoreWindowSec ?? 600,
+      settleMs: proactive.settleMs ?? 3000,
+      targetChatKeys: $('setProactiveTargets').value.split(/[,，;；\s]+/).map((s) => s.trim()).filter(Boolean),
+      candidateKinds: proactive.candidateKinds || ['event', 'meme', 'fact']
     }
   };
   const resp = await api('/api/settings', { method: 'POST', body: JSON.stringify(payload) }).catch((e) => {
@@ -1077,6 +1243,29 @@ function connectEvents() {
           at: evt.at || Date.now()
         });
         renderStats();
+        break;
+      /* ---- 长期记忆 / 主动发言 ----
+         这几种事件不刷首页 feed：它们频率低、信息是给「诊断」用的，
+         塞进消息流只会干扰看聊天。只在设置面板里体现。 */
+      case 'memory_written':
+        refreshMemoryPanel();
+        break;
+      case 'speak_decision':
+      case 'proactive_decision':
+        if (!$('proactiveLog')) break;
+        refreshProactiveLog();
+        break;
+      case 'proactive_sent':
+        pushFeed({
+          kind: 'ai',
+          chatName: chatLabel((evt.chatKey || '').split(':')[1]),
+          text: evt.text || '（主动开口）',
+          at: evt.at || Date.now()
+        });
+        refreshProactiveLog();
+        break;
+      case 'proactive_skipped':
+        if ($('proactiveLog')) refreshProactiveLog();
         break;
       case 'ai_error':
         pushFeed({
@@ -1322,6 +1511,9 @@ function init() {
   $('btnStickerTest').addEventListener('click', testSticker);
   $('btnStickerClear').addEventListener('click', clearStickers);
   if ($('btnGalleryRefresh')) $('btnGalleryRefresh').addEventListener('click', refreshGalleryForce);
+  if ($('btnMemList')) $('btnMemList').addEventListener('click', showMemoryList);
+  if ($('btnProactiveLog')) $('btnProactiveLog').addEventListener('click', refreshProactiveLog);
+  if ($('btnProactiveKill')) $('btnProactiveKill').addEventListener('click', killProactive);
   $('btnWebOpen').addEventListener('click', openWebSite);
 
   refreshStatus().catch(() => {});

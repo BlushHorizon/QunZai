@@ -37,6 +37,23 @@ class AIResponder {
     this._pauseTimer = null;         // /暂停 N 分钟 的自动恢复定时器
     this._ctxSince = new Map();      // chatId -> 时间戳：API 模式「新建对话」重置记忆的起点
     this._ctxSinceAll = 0;           // 全局重置起点（所有会话）
+    // 三能力（记忆/兴趣/决策器/大脑闸门）由 server.js 注入。
+    // 全部可选：任何一项没注入，AI 行为必须与旧版完全一致。
+    this.policy = null;
+    this.memory = null;
+    this.interest = null;
+    this.gate = null;
+    this.proactive = null;
+  }
+
+  /** server.js 接线用：把三能力挂上来 */
+  setEngines({ policy, memory, interest, gate, proactive }) {
+    if (policy !== undefined) this.policy = policy;
+    if (memory !== undefined) this.memory = memory;
+    if (interest !== undefined) this.interest = interest;
+    if (gate !== undefined) this.gate = gate;
+    if (proactive !== undefined) this.proactive = proactive;
+    return this;
   }
 
   /**
@@ -133,6 +150,25 @@ class AIResponder {
       .filter(Boolean);
   }
 
+  /**
+   * 兴趣回复判定（可选能力）。
+   * 没接决策器时必须返回「不通过」——绝不能因为漏接线就悄悄放行，
+   * 那会让概率设置突然失效，用户完全不知道为什么机器人变吵了。
+   */
+  _interestVerdict(msg) {
+    if (!this.policy || typeof this.policy.verdict !== 'function') {
+      return { ok: false, reason: '群聊主动回复概率未命中', score: 0 };
+    }
+    try {
+      const chatKey = this.store.chatKey(msg.chatType, msg.chatId);
+      const v = this.policy.verdict({ kind: 'interject', chatKey, msg, text: msg.text });
+      return v && typeof v === 'object' ? v : { ok: false, reason: '群聊主动回复概率未命中', score: 0 };
+    } catch (err) {
+      console.warn('[ai] 兴趣判定出错（按不通过处理）:', err.message);
+      return { ok: false, reason: '群聊主动回复概率未命中', score: 0 };
+    }
+  }
+
   /** 是否应该对这条消息自动回复 */
   shouldReply(msg) {
     const c = this.cfg;
@@ -176,7 +212,13 @@ class AIResponder {
     if (msg.chatType === 'group' && !msg.mentionsMe) {
       const chance = c.groupReplyChance ?? 100;
       if (chance < 100 && Math.random() * 100 >= chance) {
-        return { ok: false, reason: '群聊主动回复概率未命中' };
+        // 概率没命中不等于放弃：兴趣回复是**叠加层**，不是替代层。
+        // 群里正在聊它最关心的话题时，应该比纯随机更容易开口——
+        // 否则用户把概率调到 0 之后，兴趣功能就永远没有机会生效。
+        // 放行后继续走下面的冷却判断，不能在这里直接 return ok。
+        const verdict = this._interestVerdict(msg);
+        if (!verdict.ok) return { ok: false, reason: verdict.reason || '群聊主动回复概率未命中' };
+        console.log(`[AI] 概率未命中，但兴趣相关度 ${Number(verdict.score || 0).toFixed(2)} → 放行`);
       }
     }
 
@@ -260,8 +302,40 @@ class AIResponder {
           '/开 — 开启自动回复',
           '/暂停 [分钟] — 关闭（带数字则 N 分钟后自动恢复）',
           '/状态 — 查看运行状态',
+          '/记忆 [关键词] — 看看它记住了什么',
+          '/闭嘴 — 立刻停止主动发言与兴趣插话（不影响正常 @ 回复）',
           '/帮助 — 本菜单'
         ];
+        await say(lines.join('\n'));
+        return true;
+      }
+      case '/闭嘴': case '/mute': {
+        // 急停按钮：必须比任何配置项都优先，不能因为某个开关是开的就还继续说话。
+        // 这里真的写盘（不只改内存），否则重启后又会自己开口。
+        try {
+          this.saveConfig({
+            proactive: { enabled: false },
+            interestReply: { enabled: false }
+          });
+        } catch (err) {
+          console.warn('[指令] 保存闭嘴状态失败:', err.message);
+        }
+        try { this.proactive?.kill?.(); } catch { /* noop */ }
+        await say('🤐 已闭嘴：主动发言和兴趣插话全部停止（正常 @ 我仍会回；发 /开 恢复自动回复）');
+        return true;
+      }
+      case '/记忆': {
+        const key = this.store.chatKey(msg.chatType, msg.chatId);
+        let lines = ['🧠 长期记忆'];
+        try {
+          const hits = this.memory?.search?.({ scope: key, text: arg || '', topN: 5, minScore: 0 }) || [];
+          if (!hits.length) lines.push('（这个会话还没有记忆）');
+          else for (const h of hits) lines.push(`· ${String(h.item.text).slice(0, 40)}`);
+          const st = this.memory?.stats?.() || {};
+          if (typeof st.total === 'number') lines.push(`共 ${st.total} 条`);
+        } catch (err) {
+          lines.push(`（读取失败：${err.message}）`);
+        }
         await say(lines.join('\n'));
         return true;
       }
@@ -329,7 +403,20 @@ class AIResponder {
       const history = this.store.recentTurns(chatKey, this.cfg.historyTurns ?? 8, this.contextSince(chatKey));
       const chat = this.store.chats.get(chatKey) || {};
       const context = `（会话：${msg.chatType === 'group' ? '群聊 ' + (chat.name || msg.chatId) : '私聊 ' + (msg.fromName || msg.chatId)}）`;
-      const reply = await this._ask(history, context, msg);
+      // 大脑是单飞的：主动发言/兴趣插话正在生成时，真人 @ 会直接抛
+      // 「XX 正在生成上一条回复」。真人优先，所以这里用大脑闸门排队（reply 优先级最高），
+      // 而不是把这次 @ 变成 ai_error 让用户以为机器人挂了。
+      let reply;
+      try {
+        reply = this.gate && typeof this.gate.run === 'function'
+          ? await this.gate.run('reply', () => this._ask(history, context, msg))
+          : await this._ask(history, context, msg);
+      } catch (err) {
+        if (!/正在生成上一条回复/.test(String(err && err.message || ''))) throw err;
+        console.warn('[ai] 大脑被占用，2 秒后重试一次');
+        await sleep(2000);
+        reply = await this._ask(history, context, msg);
+      }
       if (!reply || !reply.trim()) {
         this.broadcast({ type: 'ai_error', chatId: chatKey, message: '模型没有返回内容', at: Date.now() });
         return;
@@ -443,11 +530,45 @@ class AIResponder {
    * 能力段写死在代码里，用户改人设不会弄丢——AI 永远知道自己有发表情包的本事、
    * 怎么触发（[表情]/[表情:关键词]）、什么时候该用什么时候别用。
    */
-  _fullPrompt() {
+  _fullPrompt(chatKey) {
     const base = this.cfg.webPrompt || '';
-    if (!this.sticker) return base;
-    const stickerPrompt = this._stickerPrompt();
-    return base ? base + '\n\n' + stickerPrompt : stickerPrompt;
+    const parts = [];
+    if (base) parts.push(base);
+    if (this.sticker) parts.push(this._stickerPrompt());
+    // 记忆/兴趣提示块：可选，任何一项没接就不加——绝不因为漏接线让提示词变形
+    let memoryBlock = '';
+    try {
+      memoryBlock = this._memoryPromptBlock(chatKey) || '';
+    } catch (err) {
+      console.warn('[ai] 记忆提示块生成失败（已忽略）:', err.message);
+    }
+    if (memoryBlock) parts.push(memoryBlock);
+    return parts.join('\n\n');
+  }
+
+  /**
+   * 把「这个群最近在聊什么」「你记得哪些事」拼成一小段提示词。
+   * 必须短：记忆塞太多会把用户人设挤掉，模型反而更不像本人。
+   */
+  _memoryPromptBlock(chatKey) {
+    if (!this.memory && !this.policy) return '';
+    const out = [];
+    if (this.policy && typeof this.policy.promptBlock === 'function' && chatKey) {
+      try {
+        const pb = this.policy.promptBlock(chatKey);
+        if (pb) out.push(pb);
+      } catch { /* noop */ }
+    }
+    if (this.memory && chatKey) {
+      try {
+        const topN = Number((this.getConfig() || {}).memory?.promptTopN) || 6;
+        // 不带查询词：这里要的是「这个群最值得记的事」，不是「和这句话最像的事」
+        const hits = this.memory.search({ scope: chatKey, text: '', topN, minScore: 0 }) || [];
+        const lines = hits.map((h) => `· ${String(h.item.text).slice(0, 60)}`).filter(Boolean);
+        if (lines.length) out.push(['【你记得关于这个群里的事】', ...lines].join('\n'));
+      } catch { /* noop */ }
+    }
+    return out.join('\n\n');
   }
 
   /**
@@ -456,10 +577,11 @@ class AIResponder {
    */
   async _askWeb(history, context, msg) {
     if (!this.deepseek) throw new Error('未初始化网页版驱动');
+    const chatKey = this.store.chatKey(msg.chatType, msg.chatId);
     // 把完整提示词/轮次上限/当前站点同步给驱动（改了配置即时生效）
     this.deepseek.configure({
       site: this.cfg.webProvider || 'deepseek',
-      prompt: this._fullPrompt(),
+      prompt: this._fullPrompt(chatKey),
       maxRounds: this.cfg.webMaxRounds || 50
     });
     // 带图消息：下载后交给驱动上传到对话（需开启"看图回复"且该站点支持）
@@ -485,9 +607,32 @@ class AIResponder {
     }
   }
 
+  /**
+   * 无会话的一次性提问：主动发言用它把「记忆候选」说成人话。
+   * 与 _ask 的区别是它不带历史、不带 @ 语义、不发 QQ——只借大脑生成一句话。
+   * @param {string} prompt 完整提示词
+   * @param {string} [chatKey] 只用于拼记忆块，可为空
+   */
+  async askText(prompt, chatKey) {
+    const provider = this.provider();
+    if (provider === 'deepseek-web') {
+      if (!this.deepseek) throw new Error('未初始化网页版驱动');
+      this.deepseek.configure({
+        site: this.cfg.webProvider || 'deepseek',
+        prompt: this._fullPrompt(chatKey),
+        maxRounds: this.cfg.webMaxRounds || 50
+      });
+      return this.deepseek.ask(prompt, { timeoutMs: 90000 });
+    }
+    if (provider === 'openai-compatible') {
+      if (!this.cfg.apiKey) throw new Error('未配置 API Key');
+      return this._askOpenAI([], '', { text: prompt });
+    }
+    return '';
+  }
+
   /** OpenAI 兼容接口 */
-  async _askOpenAI(history, context, msg) {
-    const c = this.cfg;
+  async _askOpenAI(history, context, msg) {    const c = this.cfg;
     const base = String(c.baseUrl || '').replace(/\/+$/, '');
     const url = base.endsWith(OPENAI_CHAT_PATH) ? base : base + OPENAI_CHAT_PATH;
     const messages = [

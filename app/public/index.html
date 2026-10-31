@@ -247,6 +247,54 @@
         <div class="ds-status" id="apiStatus">状态：未测试</div>
         </div>
 
+        <h4>长期记忆 / 主动发言</h4>
+        <p class="tip">这三样是分开的开关：<b>记得住</b>（只记录，不改变任何聊天行为，出问题也不会打扰人）、<b>感兴趣时插话</b>、<b>冷场时主动开口</b>。后两个会真的发消息，默认关闭。</p>
+
+        <div class="field" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+          <label class="chk"><input type="checkbox" id="setMemEnabled" /> 长期记忆</label>
+          <span class="tip" id="memStats">记忆：加载中…</span>
+          <button class="mini-btn" id="btnMemList">看它记住了什么</button>
+        </div>
+        <div id="memList" class="sticker-list"></div>
+
+        <div class="field" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+          <label class="chk"><input type="checkbox" id="setInterestReply" /> 感兴趣时插一句</label>
+          <label class="chk"><input type="checkbox" id="setProactiveEnabled" /> 冷场时主动开口</label>
+          <label class="chk"><input type="checkbox" id="setProactiveShadow" checked /> 只演练不真发</label>
+          <button class="mini-btn danger-btn" id="btnProactiveKill">一键闭嘴</button>
+        </div>
+
+        <label class="field">
+          <span>主动开口的群（留空 = 一个都不主动）</span>
+          <input type="text" id="setProactiveTargets" placeholder="group:123456,group:789012" />
+          <span class="tip">格式是 <code>group:群号</code>。这里是白名单：没填群号，它在任何群里都不会主动开口。留空最安全，先看演练记录再放开。</span>
+        </label>
+
+        <div class="field column">
+          <span>它最近想说什么 / 为什么没说</span>
+          <div id="proactiveLog" class="tip" style="max-height:150px;overflow:auto">还没有决策记录。</div>
+        </div>
+        <div class="row-btns">
+          <button class="mini-btn" id="btnProactiveLog">刷新决策记录</button>
+        </div>
+
+        <details class="tip" style="margin-top:6px">
+          <summary style="cursor:pointer">高级：频率与兴趣词表</summary>
+          <div class="field" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
+            <label class="field" style="width:auto"><span>冷场多少分钟算冷场</span><input type="number" id="setProIdleMin" min="1" max="1440" value="25" /></label>
+            <label class="field" style="width:auto"><span>每小时最多</span><input type="number" id="setProMaxHour" min="0" max="20" value="2" /></label>
+            <label class="field" style="width:auto"><span>每天最多</span><input type="number" id="setProMaxDay" min="0" max="100" value="8" /></label>
+            <label class="field" style="width:auto"><span>两次间隔（分钟）</span><input type="number" id="setProGapMin" min="0" max="1440" value="20" /></label>
+            <label class="field" style="width:auto"><span>夜间静默开始</span><input type="time" id="setProNightFrom" value="00:00" /></label>
+            <label class="field" style="width:auto"><span>夜间静默结束</span><input type="time" id="setProNightTo" value="09:00" /></label>
+          </div>
+          <label class="field">
+            <span>感兴趣的话题词（逗号分隔）</span>
+            <input type="text" id="setInterestCaps" placeholder="编程,电脑,游戏,番剧,学习,做饭,数码" />
+          </label>
+          <p class="tip">频率不是礼貌问题：QQ 对高频发送会判骚扰（result=120）。默认每小时 2 条、每天 8 条，已经不算保守。</p>
+        </details>
+
         <h4>表情包</h4>
         <p class="tip">机器人自动收藏群友们发的商城表情/图片当素材库，AI 聊天时<b>自己看着办</b>发表情包（提示词内置「表情包能力」，告诉它怎么触发、什么时候发）。给机器人私聊丢几个表情包或在群里发，它马上收藏。</p>
         <div class="field" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">

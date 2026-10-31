@@ -25,6 +25,13 @@ const { DeepSeekWeb, siteList } = require('./deepseek-web');
 const { StickerLibrary } = require('./stickers');
 const { OnlineGallery } = require('./sticker-gallery');
 const { resolveDataDir, platformInfo } = require('./platform');
+// 三能力（长期记忆 / 兴趣画像 / 主动发言）
+const { MemoryStore } = require('./memory-store');
+const { MemoryExtractor } = require('./memory-extract');
+const { InterestProfile } = require('./interest');
+const { SpeakPolicy } = require('./speak-policy');
+const { BrainGate } = require('./brain-gate');
+const { ProactiveEngine } = require('./proactive');
 
 /* ---------------- 日志系统：控制台实时显示 + data\app.log 持久落盘（追加、不截断） ---------------- */
 const _tsNow = () => {
@@ -130,6 +137,9 @@ function rebuildAdapter(reason = '') {
   // 否则它们会继续对着已经 close() 的旧连接发消息 → 全部报「OneBot 未连接」
   try { ai.adapter = next; } catch { /* 启动早期还没建好 */ }
   try { stickerLib.adapter = next; } catch { /* 同上 */ }
+  // 主动发言也持有 adapter：漏了这一行，它会对着已经 close() 的旧连接发消息
+  // （界面看着一切正常，主动发言却永远失败，且日志里只有「OneBot 未连接」）
+  try { proactive.adapter = next; } catch { /* 同上 */ }
   qqStatus = { connected: false, message: '正在重连…', mode: qqCfg.mode };
   broadcast({ type: 'qq_status', status: qqStatus, ai: ai.status() });
   console.log(`[qq] 按新配置重建适配器${reason ? '（' + reason + '）' : ''}：${qqCfg.mode === 'onebot' ? qqCfg.onebot?.wsUrl : '演示模式'}`);
@@ -207,6 +217,17 @@ function onAdapterEvent(msg) {
   // 表情包素材收集（内置功能），出错不影响主流程
   try { stickerLib.collect(msg); } catch { /* noop */ }
 
+  // 长期记忆：观察 -> 攒批 -> 抽取。必须同步、廉价、绝不抛错，
+  // 它挂在消息主链路上，抛一次就可能吞掉一条真实消息。
+  try { memoryExtract.observe(msg); } catch (err) { console.warn('[记忆] observe 失败:', err.message); }
+
+  // 兴趣画像：同一条消息既进记忆也进画像，两者不要混在一个模块里
+  try { interestProfile.observeMessage(msg); } catch { /* noop */ }
+  try { if (msg.mentionsMe) interestProfile.observeMention(msg); } catch { /* noop */ }
+
+  // 主动发言：更新冷场计时/当日活跃度/负反馈熔断
+  try { proactive.notifyInbound(msg); } catch (err) { console.warn('[主动] 信号失败:', err.message); }
+
   // 触发 AI 自动回复（EAgent 式自动应答）
   ai.handle(msg).catch((e) => console.warn('[ai] handle 出错:', e.message));
 }
@@ -253,12 +274,69 @@ const ai = new AIResponder({
   deepseek,
   sticker: stickerLib,
   getConfig: () => configLib.get(),
-  saveConfig: () => configLib.save({})
+  saveConfig: (patch) => configLib.save(patch || {})
 });
 
 // 唯一提示词入口：完整提示词（人设 +【表情包能力】段）在此注入 DeepSeek 驱动。
 // 之后启动自动发、②新建对话、50 轮换轮、保存设置、每条消息补发——全部用它。
 deepseek.configure({ site: cfg.ai?.webProvider || 'deepseek', prompt: ai._fullPrompt(), maxRounds: cfg.ai?.webMaxRounds || 50 });
+
+/* ---------------- 长期记忆 / 兴趣 / 决策器 / 主动发言 ---------------- */
+// 顺序有讲究：记忆先建（它是所有能力的底座），再兴趣画像，
+// 再决策器（同时依赖前两者），最后主动发言（依赖决策器 + 大脑闸门）。
+// 任何一环抛错都不能拖垮主服务——聊天是主线，这些是增强。
+const memoryStore = new MemoryStore({
+  dataDir: DATA_DIR,
+  log: (t) => console.log(`[记忆] ${t}`),
+  getConfig: () => configLib.get()
+});
+try { memoryStore.load(); } catch (err) { console.warn('[记忆] 载入失败，按空库继续:', err.message); }
+
+const interestProfile = new InterestProfile({
+  getConfig: () => configLib.get(),
+  broadcast
+});
+
+const speakPolicy = new SpeakPolicy({
+  getConfig: () => configLib.get(),
+  interest: interestProfile,
+  memory: memoryStore,
+  broadcast
+});
+
+const brainGate = new BrainGate({
+  log: (t) => console.log(`[大脑] ${t}`)
+});
+
+const memoryExtract = new MemoryExtractor({
+  memory: memoryStore,
+  getConfig: () => configLib.get(),
+  broadcast
+});
+
+const proactive = new ProactiveEngine({
+  interest: interestProfile,
+  policy: speakPolicy,
+  memory: memoryStore,
+  gate: brainGate,
+  store,
+  adapter,
+  broadcast,
+  getConfig: () => configLib.get(),
+  // 生成走大脑。主动发言优先级最低，抢不到就这轮不说——
+  // 绝不能因为「想说句话」把真人 @ 的那条回复挤掉。
+  compose: async (chatKey, prompt) => {
+    try {
+      return await ai.askText(prompt, chatKey);
+    } catch (err) {
+      console.warn('[主动] 生成失败:', err.message);
+      return '';
+    }
+  }
+});
+
+// 接线：AI 侧的决策器/记忆/闸门一次性挂上
+ai.setEngines({ policy: speakPolicy, memory: memoryStore, interest: interestProfile, gate: brainGate, proactive });
 
 // 防抽风看门狗：DeepSeek 驱动思考卡死超时自动复位（每分钟检查一次）
 setInterval(() => {
@@ -269,7 +347,25 @@ setInterval(() => {
 setInterval(() => {
   let dsState = '-';
   try { dsState = deepseek.status ? deepseek.status().state : '-'; } catch { /* noop */ }
-  console.log(`[心跳] QQ=${qqStatus.connected ? '已连接' : '断开'} | 会话=${store.chats.size} | 收信=${stats.inMsgs} AI回=${stats.aiReplies} 跳过=${stats.skips} | DeepSeek=${dsState}`);
+  const memCount = (() => { try { return memoryStore.stats().total; } catch { return '-'; } })();
+  const proOn = configLib.get().proactive?.enabled === true ? '开' : '关';
+  console.log(`[心跳] QQ=${qqStatus.connected ? '已连接' : '断开'} | 会话=${store.chats.size} | 收信=${stats.inMsgs} AI回=${stats.aiReplies} 跳过=${stats.skips} | 记忆=${memCount} 主动=${proOn} ${brainGate.busy ? '大脑=忙' : ''} | DeepSeek=${dsState}`);
+}, 60 * 1000).unref?.();
+
+// 主动发言调度：30 秒一次。它绝大多数时候什么都不做（配置默认关），
+// 所以必须是廉价的——只在真正冷场时才去碰记忆和大脑。
+setInterval(() => {
+  proactive.tick().catch((e) => console.warn('[主动] tick 异常:', e.message));
+}, 30 * 1000).unref?.();
+
+// 记忆落盘 & 抽取兜底：5 分钟一次，避免攒着的观察一直不写盘
+setInterval(() => {
+  try { memoryExtract.tick(); } catch (e) { console.warn('[记忆] tick 异常:', e.message); }
+  try { memoryStore.decay(); } catch { /* noop */ }
+  try { interestProfile.decay(); } catch { /* noop */ }
+}, 5 * 60 * 1000).unref?.();
+setInterval(() => {
+  try { memoryStore.flush(); } catch { /* noop */ }
 }, 60 * 1000).unref?.();
 
 /* ---------------- 工具 ---------------- */
@@ -448,6 +544,12 @@ async function handleApi(req, res, url) {
           }
         },
         ai: { ...c.ai, apiKey: c.ai.apiKey ? '********' : '', hasKey: !!c.ai.apiKey },
+        // 记忆/兴趣/主动发言默认值是写在 config.js 里的，
+        // 但老 config.json 里没有这几段——这里必须回默认值，否则面板打开全是空白
+        memory: { ...(configLib.DEFAULT_CONFIG.memory || {}), ...(c.memory || {}) },
+        interest: { ...(configLib.DEFAULT_CONFIG.interest || {}), ...(c.interest || {}) },
+        interestReply: { ...(configLib.DEFAULT_CONFIG.interestReply || {}), ...(c.interestReply || {}) },
+        proactive: { ...(configLib.DEFAULT_CONFIG.proactive || {}), ...(c.proactive || {}) },
         update: { ...(c.update || {}) }
       });
     }
@@ -469,6 +571,78 @@ async function handleApi(req, res, url) {
       }
       /* 先记下旧的 QQ 接入配置，判断是否需要重建适配器 */
       if (body.update) patch.update = { ...body.update };
+
+      /* ---- 长期记忆 / 兴趣 / 主动发言 ----
+         面板每次保存都会整体 PUT 这四段，所以这里必须逐字段做白名单+夹取：
+         原样展开 body 的话，前端一个笔误就能把 maxPerHour 写成 -1，
+         而闸门里 -1 意味着「永远不满足预算」→ 主动发言静默失效。 */
+      const clamp = (v, lo, hi, dflt) => {
+        const n = Number(v);
+        if (!Number.isFinite(n)) return dflt;
+        return Math.min(hi, Math.max(lo, n));
+      };
+      const asBool = (v, dflt) => (typeof v === 'boolean' ? v : dflt);
+      const asTime = (v, dflt) => {
+        const s = String(v || '');
+        return /^([01]\d|2[0-3]):[0-5]\d$/.test(s) ? s : dflt;
+      };
+      const D = configLib.DEFAULT_CONFIG;
+      if (body.memory && typeof body.memory === 'object') {
+        patch.memory = {
+          enabled: asBool(body.memory.enabled, true),
+          backend: 'json',
+          digestEvery: Math.round(clamp(body.memory.digestEvery, 5, 200, D.memory.digestEvery)),
+          digestMinChars: Math.round(clamp(body.memory.digestMinChars, 2, 20, D.memory.digestMinChars)),
+          autoExtract: asBool(body.memory.autoExtract, true),
+          maxPerScope: Math.round(clamp(body.memory.maxPerScope, 100, 200000, D.memory.maxPerScope)),
+          decayDays: Math.round(clamp(body.memory.decayDays, 1, 3650, D.memory.decayDays)),
+          promptTopN: Math.round(clamp(body.memory.promptTopN, 0, 12, D.memory.promptTopN))
+        };
+      }
+      if (body.interest && typeof body.interest === 'object') {
+        const caps = Array.isArray(body.interest.capabilities)
+          ? body.interest.capabilities.map((s) => String(s || '').trim().slice(0, 8)).filter(Boolean).slice(0, 30)
+          : D.interest.capabilities;
+        patch.interest = {
+          enabled: asBool(body.interest.enabled, true),
+          capabilities: caps,
+          interjectThreshold: clamp(body.interest.interjectThreshold, 0, 1, D.interest.interjectThreshold),
+          initiateThreshold: clamp(body.interest.initiateThreshold, 0, 1, D.interest.initiateThreshold),
+          judge: 'lexical',
+          profileDecayPerDay: clamp(body.interest.profileDecayPerDay, 0, 0.2, D.interest.profileDecayPerDay)
+        };
+      }
+      if (body.interestReply && typeof body.interestReply === 'object') {
+        patch.interestReply = {
+          enabled: asBool(body.interestReply.enabled, false),
+          shadow: asBool(body.interestReply.shadow, true),
+          threshold: clamp(body.interestReply.threshold, 0, 1, D.interestReply.threshold)
+        };
+      }
+      if (body.proactive && typeof body.proactive === 'object') {
+        const kinds = Array.isArray(body.proactive.candidateKinds)
+          ? body.proactive.candidateKinds.filter((k) => ['fact', 'event', 'meme', 'pref', 'relation'].includes(k))
+          : D.proactive.candidateKinds;
+        patch.proactive = {
+          enabled: asBool(body.proactive.enabled, false),
+          shadow: asBool(body.proactive.shadow, true),
+          idleMin: Math.round(clamp(body.proactive.idleMin, 1, 1440, D.proactive.idleMin)),
+          minGroupMsgsToday: Math.round(clamp(body.proactive.minGroupMsgsToday, 0, 10000, D.proactive.minGroupMsgsToday)),
+          nightFrom: asTime(body.proactive.nightFrom, D.proactive.nightFrom),
+          nightTo: asTime(body.proactive.nightTo, D.proactive.nightTo),
+          maxPerHour: Math.round(clamp(body.proactive.maxPerHour, 0, 20, D.proactive.maxPerHour)),
+          maxPerDay: Math.round(clamp(body.proactive.maxPerDay, 0, 100, D.proactive.maxPerDay)),
+          minGapMs: Math.round(clamp(body.proactive.minGapMs, 0, 86400000, D.proactive.minGapMs)),
+          ignoreWindowSec: Math.round(clamp(body.proactive.ignoreWindowSec, 30, 86400, D.proactive.ignoreWindowSec)),
+          settleMs: Math.round(clamp(body.proactive.settleMs, 0, 60000, D.proactive.settleMs)),
+          targetChatKeys: Array.isArray(body.proactive.targetChatKeys)
+            ? body.proactive.targetChatKeys.map((s) => String(s || '').trim()).filter(Boolean)
+            : [],
+          candidateKinds: kinds.length ? kinds : D.proactive.candidateKinds
+        };
+        // 安全阀：演练模式下允许开着 enabled 观察行为；生产模式下必须先关 shadow 才会真发。
+        // 面板「一键闭嘴」走 /api/proactive/kill，比这里更直接。
+      }
       const beforeQQ = JSON.stringify(configLib.get().qq);
       configLib.save(patch);
       if (patch.ai) {
@@ -862,6 +1036,108 @@ if (p === '/api/qq/reconnect' && req.method === 'POST') {
       res.end(buf);
     });
     return;
+  }
+
+  /* ---------------- 长期记忆 / 兴趣 / 主动发言 API ---------------- */
+  // 全部只读或显式写：面板要用它们展示「它记住了什么」「它想说什么」「为什么没说」。
+  // 这几个接口是这套能力唯一的可观测入口——没有它们，用户只能看到「机器人好像变了」。
+  if (p === '/api/memory/stats' && req.method === 'GET') {
+    let st = {};
+    try { st = memoryStore.stats(); } catch (err) { st = { error: err.message }; }
+    let ex = {};
+    try { ex = memoryExtract.state(); } catch { /* noop */ }
+    return sendJson(res, 200, { ok: true, memory: st, extractor: ex, enabled: configLib.get().memory?.enabled !== false });
+  }
+
+  if (p === '/api/memory/list' && req.method === 'GET') {
+    const u = new URL(req.url, 'http://localhost');
+    const scope = String(u.searchParams.get('scope') || '');
+    const kind = String(u.searchParams.get('kind') || '');
+    const status = String(u.searchParams.get('status') || 'active');
+    const limit = Math.min(200, Math.max(1, Number(u.searchParams.get('limit')) || 50));
+    const offset = Math.max(0, Number(u.searchParams.get('offset')) || 0);
+    const r = memoryStore.list({ scope: scope || undefined, kind: kind || undefined, status, limit, offset });
+    return sendJson(res, 200, { ok: true, ...r });
+  }
+
+  if (p === '/api/memory/search' && req.method === 'GET') {
+    const u = new URL(req.url, 'http://localhost');
+    const scope = String(u.searchParams.get('scope') || '');
+    const q = String(u.searchParams.get('q') || '');
+    const topN = Math.min(50, Math.max(1, Number(u.searchParams.get('topN')) || 10));
+    const hits = memoryStore.search({ scope: scope || undefined, text: q, topN, minScore: 0 })
+      .map((h) => ({ ...h.item, score: Number(h.score.toFixed(3)) }));
+    return sendJson(res, 200, { ok: true, items: hits });
+  }
+
+  if (p === '/api/memory/upsert' && req.method === 'POST') {
+    const body = await readBody(req);
+    const text = String(body.text || '').trim();
+    if (!text) return sendJson(res, 400, { error: '缺少 text' });
+    const r = memoryStore.upsert({
+      scope: String(body.scope || ''),
+      kind: ['fact', 'event', 'meme', 'pref', 'relation'].includes(body.kind) ? body.kind : 'fact',
+      text,
+      subject: body.subject ? String(body.subject) : '',
+      weight: Number(body.weight) || 1,
+      conf: Number(body.conf) || 0.9,
+      origin: 'manual'
+    });
+    return sendJson(res, 200, { ok: true, ...r });
+  }
+
+  if (p === '/api/memory/forget' && req.method === 'POST') {
+    const body = await readBody(req);
+    const id = String(body.id || '');
+    if (!id) return sendJson(res, 400, { error: '缺少 id' });
+    const gone = memoryStore.forget(id, body.hard === true);
+    return sendJson(res, gone ? 200 : 404, { ok: gone, error: gone ? undefined : '没有这条记忆' });
+  }
+
+  if (p === '/api/interest/profile' && req.method === 'GET') {
+    const u = new URL(req.url, 'http://localhost');
+    const scope = String(u.searchParams.get('scope') || '');
+    if (!scope) return sendJson(res, 200, { ok: true, ...interestProfile.stats() });
+    return sendJson(res, 200, { ok: true, ...interestProfile.profile(scope, 30) });
+  }
+
+  if (p === '/api/interest/seed' && req.method === 'POST') {
+    const body = await readBody(req);
+    const scope = String(body.scope || '');
+    const words = Array.isArray(body.words) ? body.words : String(body.words || '').split(/[,，;；\s]+/);
+    if (!scope || !words.filter(Boolean).length) return sendJson(res, 400, { error: '需要 scope 和 words' });
+    const n = interestProfile.seed(scope, words.filter(Boolean));
+    return sendJson(res, 200, { ok: true, seeded: n });
+  }
+
+  if (p === '/api/proactive/state' && req.method === 'GET') {
+    let st = {};
+    try { st = proactive.state(); } catch (err) { st = { error: err.message }; }
+    let ps = {};
+    try { ps = speakPolicy.state(); } catch { /* noop */ }
+    let gs = {};
+    try { gs = brainGate.state(); } catch { /* noop */ }
+    return sendJson(res, 200, {
+      ok: true,
+      proactive: st,
+      policy: ps,
+      brain: gs,
+      config: configLib.get().proactive || {}
+    });
+  }
+
+  if (p === '/api/proactive/decisions' && req.method === 'GET') {
+    const u = new URL(req.url, 'http://localhost');
+    const limit = Math.min(200, Math.max(1, Number(u.searchParams.get('limit')) || 50));
+    return sendJson(res, 200, { ok: true, items: speakPolicy.decisions(limit) });
+  }
+
+  // 一键闭嘴：运行期立刻停，同时把配置写盘——否则重启后又自己开口了
+  if (p === '/api/proactive/kill' && req.method === 'POST') {
+    try { proactive.kill(); } catch { /* noop */ }
+    try { configLib.save({ proactive: { enabled: false }, interestReply: { enabled: false } }); } catch { /* noop */ }
+    broadcast({ type: 'settings_changed', ai: ai.status() });
+    return sendJson(res, 200, { ok: true, message: '已关闭主动发言与兴趣插话（正常 @ 回复不受影响）' });
   }
 
   return sendJson(res, 404, { error: 'unknown api' });

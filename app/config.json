@@ -8,6 +8,14 @@
     "onebot": {
       "wsUrl": "ws://127.0.0.1:3001",
       "accessToken": ""
+    },
+    "engine": {
+      "enabled": true,
+      "autoStart": true,
+      "source": "auto",
+      "dir": "",
+      "account": "",
+      "apiPort": 3000
     }
   },
   "ai": {
@@ -38,6 +46,56 @@
     "minIntervalMs": 2500,
     "historyTurns": 8,
     "replyDelayMs": 900
+  },
+  "memory": {
+    "enabled": true,
+    "backend": "json",
+    "digestEvery": 40,
+    "digestMinChars": 6,
+    "autoExtract": true,
+    "maxPerScope": 20000,
+    "decayDays": 30,
+    "promptTopN": 6
+  },
+  "interest": {
+    "enabled": true,
+    "capabilities": [
+      "编程",
+      "电脑",
+      "游戏",
+      "番剧",
+      "学习",
+      "做饭",
+      "数码"
+    ],
+    "interjectThreshold": 0.55,
+    "initiateThreshold": 0.65,
+    "judge": "lexical",
+    "profileDecayPerDay": 0.02
+  },
+  "interestReply": {
+    "enabled": false,
+    "shadow": true,
+    "threshold": 0.55
+  },
+  "proactive": {
+    "enabled": false,
+    "shadow": true,
+    "idleMin": 25,
+    "minGroupMsgsToday": 20,
+    "nightFrom": "00:00",
+    "nightTo": "09:00",
+    "maxPerHour": 2,
+    "maxPerDay": 8,
+    "minGapMs": 1200000,
+    "ignoreWindowSec": 600,
+    "settleMs": 3000,
+    "targetChatKeys": [],
+    "candidateKinds": [
+      "event",
+      "meme",
+      "fact"
+    ]
   },
   "update": {
     "manifestUrl": "https://blushhorizon.github.io/QunZai/update.json",

@@ -562,6 +562,12 @@ textarea { resize: vertical; }
 
 .tip { font-size: 12px; color: var(--text-faint); margin: 6px 0 2px; }
 
+/* 一行两个以上「勾选框 + 文字」并排：.field 的 110px 固定标签宽在并排时会撑爆 */
+.chk { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-dim); cursor: pointer; white-space: nowrap; }
+.chk input[type="checkbox"] { margin: 0; }
+details > summary { font-size: 12px; color: var(--text-faint); }
+details[open] > summary { margin-bottom: 4px; }
+
 .row-btns { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 4px; }
 
 /* hidden 属性兜底：.row-btns 等处 display:flex 会盖掉 UA 的 [hidden]{display:none} */

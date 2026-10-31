@@ -1,13 +1,13 @@
 {
-  "version": "1.4.13",
-  "notes": "群崽 v1.4.13：安装器现在会自动关掉旧进程再覆盖安装。之前覆盖安装时，内置的 NapCat 监视器还在运行、占用 engine\napcat 里的文件，会报「无法写入 QQNT.dll」让安装中断。现在安装开始前会用自带的停止脚本按安装目录精准结束桌面宿主、主服务和 NapCat/SnowLuma 监视器进程（只杀本目录的，不误伤其他 Node 程序），装完再拉起。另延续 v1.4.12 的多线程下载：80 MB 包国内加速约 1 分半下完。覆盖安装保留 data/ 与 config.json，不用重新扫码。",
-  "pubDate": "2026-10-25",
+  "version": "1.4.14",
+  "notes": "群崽 v1.4.14：内置长期记忆与主动发言。机器人现在会记住群里发生过的事（谁喜欢什么、谁最近在忙什么、上次聊天得出的结论），并在没人 @ 它的时候，从记忆里挑一件相关的事主动开口——说得出一句「上次那个键盘最后买了没」，而不是「大家好呀今天聊点啥」。另加兴趣回复：没被 @ 但话题正好撞上这个群常聊的东西时，会插一句。安全阀默认全开向保守一侧：记忆默认开（只记不说），主动发言与兴趣插话默认关，且默认演练模式——决策器照常跑、面板上能看到它「想说什么」，但不会真的发出去；面板有「一键闭嘴」，QQ 里发 /闭嘴 也立刻停。深夜静默、每小时/每天次数上限、连续被无视自动降频、被骂自动静音 30 分钟都已内置。",
+  "pubDate": "2026-11-01",
   "files": [
     {
       "url": "https://blushhorizon.github.io/QunZai/assets/%E7%BE%A4%E5%B4%BDQunZai%E5%AE%89%E8%A3%85%E5%8C%85.exe",
-      "sha256": "e995345d7bdba7829f77976b0d60432394e972b55fe3acf7f2e65b005b521a62",
-      "size": 84500816,
-      "mirror": "https://ghfast.top/https://github.com/BlushHorizon/QunZai/releases/download/v1.4.13/QunZai-v1.4.13-win-x64.exe"
+      "sha256": "aaba0aa8e22c355c5eca46999cb3b7ff69a446b08b3ebd4069f472815dff3bdf",
+      "size": 84550426,
+      "mirror": "https://ghfast.top/https://github.com/BlushHorizon/QunZai/releases/download/v1.4.14/QunZai-v1.4.14-win-x64.exe"
     }
   ]
 }
