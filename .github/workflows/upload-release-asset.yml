@@ -1,30 +1,28 @@
-name: Upload release asset
-
+name: Upload Release Asset
 on:
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "Release tag, for example v1.4.3"
-        required: true
-        default: "v1.4.3"
-
-permissions:
-  contents: write
-
+  workflow_dispatch: {}
 jobs:
   upload:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Upload installer to release
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Download installer from site
         run: |
-          TAG="${{ inputs.tag }}"
-          FILE="releases/群崽QunZai安装包-${TAG}.exe"
-          echo "Uploading $FILE to $TAG"
-          ls -l "$FILE"
-          gh release upload "$TAG" "$FILE" --clobber
-          gh release view "$TAG" --json assets --jq '.assets[] | [.name, .size] | @tsv'
+          curl -sL -o installer.exe "https://blushhorizon.github.io/QunZai/assets/%E7%BE%A4%E5%B4%BDQunZai%E5%AE%89%E8%A3%85%E5%8C%85.exe"
+          ls -la installer.exe
+          sha256sum installer.exe
+      - name: Verify SHA256
+        run: |
+          EXPECT="48f4671efd844c80425b2d22695b2e387e259925df9fb2a1d39fd05050ac43dc"
+          ACTUAL=$(sha256sum installer.exe | cut -d' ' -f1)
+          echo "expect=$EXPECT actual=$ACTUAL"
+          [ "$EXPECT" = "$ACTUAL" ] || (echo "SHA256 MISMATCH"; exit 1)
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.4.14
+          files: installer.exe
+          overwrite_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
