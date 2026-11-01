@@ -198,8 +198,12 @@ const state = {
   feed: [],
   self: null,
   platform: null,
-  stats: { inMsgs: 0, aiReplies: 0, skips: 0 }
+  stats: { inMsgs: 0, aiReplies: 0, skips: 0 },
+  /** 随包内置那份运行时的真实目录，由 /api/engine/status 的 bundledDir 带回来 */
+  bundledEngineDir: ''
 };
+/** 用户自己填过的监视器目录，切到「内置」再切回来时还原 */
+let lastCustomEngineDir = '';
 
 /* ---------------- 工具 ---------------- */
 function escapeHtml(s) {
@@ -255,11 +259,14 @@ function renderStatus() {
   $('qqStatusText').textContent = qq.message || (qq.connected ? '已连接' : '未连接');
 
   const self = state.self || {};
-  $('cardQqMain').textContent = qq.connected ? '已连接' : '未连接';
-  $('cardQqMain').className = 'card-main ' + (qq.connected ? 'ok' : 'bad');
+  // 「连上 OneBot 服务」和「QQ 真的登录了」是两件事：NapCat 没扫码时 WS 也是通的。
+  // needLogin 由后端在「ws 通了但 get_login_info 拿不到账号」时置位，这里必须单独显示，
+  // 否则会顶着绿灯说「已连接 OneBot」，用户发消息却石沉大海。
+  $('cardQqMain').textContent = qq.connected ? '已连接' : (qq.needLogin ? 'QQ 未登录' : '未连接');
+  $('cardQqMain').className = 'card-main ' + (qq.connected ? 'ok' : (qq.needLogin ? 'dim' : 'bad'));
   $('cardQqSub').textContent = self.nickname
     ? `账号 ${self.nickname} (${self.userId})`
-    : (qq.connected ? '已连接 OneBot' : '等待接入…');
+    : (qq.connected ? '已连接 OneBot' : (qq.needLogin ? '服务通了，等你扫码登录 QQ' : '等待接入…'));
 
   const ai = state.status.ai || {};
   $('aiToggle').checked = !!ai.enabled;
@@ -443,6 +450,7 @@ async function openSettings() {
   $('setBaseUrl').value = ai.baseUrl || '';
   $('setApiKey').value = '';
   $('setApiKey').placeholder = ai.hasKey ? '已配置（留空保持不变）' : '留空则不可用';
+  if ($('btnApiKeyClear')) $('btnApiKeyClear').hidden = !ai.hasKey;
   $('setModel').value = ai.model || '';
   $('setScope').value = ai.scope || 'private';
   $('setMention').checked = !!ai.requireMentionInGroup;
@@ -465,12 +473,10 @@ async function openSettings() {
   $('setWebPrompt').value = ai.webPrompt || '';
   $('setWebMaxRounds').value = ai.webMaxRounds ?? 50;
 
-  /* ---- 长期记忆 / 兴趣 / 主动发言（老 config.json 里没有这几段，靠服务端回默认值） ---- */
-  const mem = data.memory || {};
+  /* ---- 兴趣 / 主动发言（长期记忆已移除） ---- */
   const itr = data.interest || {};
   const itrReply = data.interestReply || {};
   const pro = data.proactive || {};
-  $('setMemEnabled').checked = mem.enabled !== false;
   $('setInterestReply').checked = !!itrReply.enabled;
   $('setProactiveEnabled').checked = !!pro.enabled;
   $('setProactiveShadow').checked = pro.shadow !== false;
@@ -482,15 +488,45 @@ async function openSettings() {
   $('setProNightFrom').value = pro.nightFrom || '00:00';
   $('setProNightTo').value = pro.nightTo || '09:00';
   $('setInterestCaps').value = Array.isArray(itr.capabilities) ? itr.capabilities.join(',') : '';
-  refreshMemoryPanel();
+  /* ---- 群管（六件套）---- */
+  const mod = data.moderation || {};
+  $('setModEnabled').checked = !!mod.enabled;
+  $('setModShadow').checked = !!mod.shadow;
+  $('setModAutoPunish').checked = !!mod.autoPunish;
+  $('setModWhitelist').value = [mod.whitelistUsers || '', (mod.whitelistChats || '').split(',').filter(Boolean).map((s) => 'group:' + s).join(',')].filter(Boolean).join(',');
+  $('setModSpamWin').value = mod.spam?.windowSec ?? 10;
+  $('setModSpamMax').value = mod.spam?.maxMsgs ?? 6;
+  $('setModSpamMute').value = mod.spam?.muteMin ?? 5;
+  $('setModDupWin').value = mod.duplicate?.windowSec ?? 60;
+  $('setModDupTimes').value = mod.duplicate?.times ?? 3;
+  $('setModDupDel').checked = mod.duplicate?.deleteMsg !== false;
+  $('setModDupNotice').checked = mod.duplicate?.notice !== false;
+  $('setModBanned').value = mod.banned?.words || '';
+  $('setModBannedNotify').checked = mod.banned?.notifyAdmin !== false;
+  $('setModAdDelete').checked = mod.ad?.deleteMsg !== false;
+  $('setModAdLinks').checked = !!mod.ad?.blockLinks;
+  $('setModWelcome').value = mod.welcome?.text || '';
+  $('setModCurfewFrom').value = mod.curfew?.from || '00:00';
+  $('setModCurfewTo').value = mod.curfew?.to || '06:00';
+  $('setModCurfewText').value = mod.curfew?.text || '';
   refreshProactiveLog();
-  $('setMode').value = data.qq?.mode || 'mock';
+  $('setMode').value = data.qq?.mode || 'onebot';
   $('setWsUrl').value = data.qq?.onebot?.wsUrl || 'ws://127.0.0.1:3001';
   $('setToken').value = data.qq?.onebot?.accessToken || '';
   // Token 只回后 4 位；留空保存 = 清除
   $('setToken').placeholder = data.qq?.onebot?.hasToken ? '留空 = 清除（当前已配置）' : '与 OneBot 运行时里填的一致，没有就留空';
+  /* ---- QQ 官方机器人（mode=qqbot）---- */
+  const off = data.qq?.official || {};
+  $('setQqbotAppId').value = off.appId || '';
+  $('setQqbotSecret').value = '';
+  $('setQqbotSecret').placeholder = off.hasSecret ? '已配置（留空保持不变）' : '在 q.qq.com 机器人管理页复制';
+  $('setQqbotSandbox').checked = !!off.sandbox;
+  toggleQqMode();
   const eng = data.qq?.engine || {};
   $('setEngineSource').value = eng.source || 'auto';
+  // 配置里的 dir 是「自定义目录」；选内置时界面要显示内置路径而不是它。
+  // 先把它记成 lastCustomEngineDir，toggleEngineDir 才有东西可以还原。
+  lastCustomEngineDir = eng.dir || '';
   $('setEngineDir').value = eng.dir || '';
   $('setEngineAccount').value = eng.account || '';
   $('setEngineAuto').checked = eng.autoStart !== false;
@@ -550,61 +586,56 @@ function toggleProviderView() {
   $('apiOnly').classList.toggle('hidden', p === 'deepseek-web');
 }
 
-/* ---------------- 长期记忆 / 主动发言面板 ---------------- */
+/* ---------------- 主动发言面板 ---------------- */
 
-const MEM_KIND_LABEL = { fact: '人设', event: '近况', meme: '群梗', pref: '偏好', relation: '关系' };
+/* ---- 群管：拦截记录 ---- */
+const MOD_FEATURE_LABEL = {
+  spam: '刷屏', ad: '广告', banned: '违禁词',
+  duplicate: '重复', welcome: '欢迎', curfew: '宵禁'
+};
 
-async function refreshMemoryPanel() {
-  const el = $('memStats');
-  if (!el) return;
+function modFeatureLabel(f) {
+  return MOD_FEATURE_LABEL[f] || f || '其他';
+}
+
+async function refreshModStats() {
+  const box = $('modStatsBox');
+  if (!box) return;
   try {
-    const r = await api('/api/memory/stats');
-    const m = r.memory || {};
-    const ex = r.extractor || {};
-    if (r.enabled === false) {
-      el.textContent = '记忆：已关闭';
+    const r = await api('/api/moderation');
+    const st = r.moderation || {};
+    if (st.enabled === false) {
+      box.textContent = '群管没开。打开总开关并保存后，这里才会有记录。';
+      box.className = 'ds-status warn';
       return;
     }
-    const size = m.fileBytes ? ` · ${(m.fileBytes / 1024).toFixed(0)}KB` : '';
-    el.textContent = `记忆：${m.total || 0} 条（${m.grams || 0} 个索引词）${size}` +
-      (ex.buffered ? ` · 待整理 ${ex.buffered} 条` : '');
+    const counts = st.counts || {};
+    const line1 = '计数：' + Object.keys(MOD_FEATURE_LABEL)
+      .map((k) => modFeatureLabel(k) + ' ' + (counts[k] || 0)).join(' · ');
+    const items = (st.decisions || []).slice(0, 20);
+    const line2 = items.length
+      ? items.map((d) => '[' + new Date(d.at).toLocaleTimeString() + '] '
+        + modFeatureLabel(d.feature) + ' · ' + (d.action || '') + ' · '
+        + (d.chatName || d.chatId || '') + (d.userName ? ' · ' + d.userName : '')
+        + (d.detail ? ' · ' + d.detail : '')).join('\n')
+      : '最近还没有拦截/处理记录（演示模式或刚开）。';
+    box.textContent = line1 + '\n' + line2;
+    box.className = 'ds-status';
   } catch (e) {
-    el.textContent = '记忆状态加载失败：' + e.message;
+    box.textContent = '读取失败：' + e.message;
+    box.className = 'ds-status err';
   }
 }
 
-async function showMemoryList() {
-  const box = $('memList');
-  if (box.innerHTML.trim()) { box.innerHTML = ''; return; }   // 再点一次收起
-  box.innerHTML = '<div class="tip">加载中…</div>';
-  try {
-    const r = await api('/api/memory/list?limit=60');
-    if (!r.items || !r.items.length) {
-      box.innerHTML = '<div class="tip">还没记住任何事。它在群里看到「我叫…」「我喜欢…」「周末要…」这类句子时会自己记下来，攒够一批就整理一次。</div>';
-      return;
-    }
-    box.innerHTML = r.items.map((m) => `
-      <div class="sticker-row">
-        <span class="sticker-emoji">${MEM_KIND_LABEL[m.kind] || '记忆'}</span>
-        <span>${escapeHtml(m.text)}<br><small class="tip">${escapeHtml(m.scope || '')} · 权重 ${(m.weight || 1).toFixed(2)} · 命中 ${m.hitCount || 0} 次</small></span>
-        <button class="mini-btn danger-btn mem-del" data-id="${escapeHtml(m.id)}">忘掉</button>
-      </div>`).join('');
-    box.querySelectorAll('.mem-del').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        if (!(await uiConfirm('让它忘掉这条记忆？', { title: '忘记', okText: '忘掉', cancelText: '取消', type: 'warn' }))) return;
-        try {
-          await api('/api/memory/forget', { method: 'POST', body: JSON.stringify({ id: btn.dataset.id }) });
-          box.innerHTML = '';
-          await showMemoryList();
-          refreshMemoryPanel();
-        } catch (e) {
-          uiAlert('删除失败：' + e.message);
-        }
-      });
-    });
-  } catch (e) {
-    box.innerHTML = `<div class="tip">加载失败：${escapeHtml(e.message)}</div>`;
+async function toggleModStats() {
+  const box = $('modStatsBox');
+  if (!box) return;
+  if (box.style.display && !box.style.display.includes('none')) {
+    box.style.display = 'none';
+    return;
   }
+  box.style.display = '';
+  await refreshModStats();
 }
 
 async function refreshProactiveLog() {
@@ -767,11 +798,131 @@ function openWebSite() {
     });
 }
 
+/** QQ 接入模式切换：onebot 显示 WS/Token，qqbot 显示 AppID/Secret，mock 两者都藏 */
+function toggleQqMode() {
+  const mode = $('setMode').value;
+  const onebotBox = $('onebotOnly');
+  const qqbotBox = $('qqbotOnly');
+  if (onebotBox) onebotBox.classList.toggle('hidden', mode !== 'onebot');
+  if (qqbotBox) qqbotBox.classList.toggle('hidden', mode !== 'qqbot');
+}
+
+
+/* ---- QQ 官方机器人：内嵌官方扫码绑定页 ----
+   官方 connect.html 自带二维码和扫码指引；群崽只负责开任务、轮询结果、落盘凭据。 */
+let qqbotBindTimer = null;
+
+function qqbotBindSetStatus(text, cls) {
+  const el = $('qqbotBindStatus');
+  if (el) {
+    el.textContent = text;
+    el.className = 'ds-status ' + (cls || '');
+  }
+}
+
+function stopQqbotBindPolling() {
+  if (qqbotBindTimer) { clearInterval(qqbotBindTimer); qqbotBindTimer = null; }
+}
+
+async function qqbotBindConfirm() {
+  stopQqbotBindPolling();
+  try {
+    const r = await api('/api/qqbot/bind/confirm', { method: 'POST', body: '{}' });
+    if (!r.ok) throw new Error(r.error || '确认失败');
+    qqbotBindSetStatus('绑定成功！已自动填入凭据并切到官方机器人模式。', 'ok');
+    // 几秒后自动收起绑定层（iframe 留着给用户看官方成功页）
+    setTimeout(() => { const box = $('qqbotBindBox'); if (box) box.classList.add('hidden'); }, 2500);
+    // 回读设置回填面板，保证界面与后端一致
+    try {
+      const st = await api('/api/settings');
+      const off = st.qq?.official || {};
+      $('setQqbotAppId').value = off.appId || '';
+      $('setQqbotSecret').value = '';
+      $('setQqbotSecret').placeholder = off.hasSecret ? '已配置（留空保持不变）' : '在 q.qq.com 机器人管理页复制';
+      $('setQqbotSandbox').checked = !!off.sandbox;
+      $('setMode').value = st.qq?.mode || 'qqbot';
+      toggleQqMode();
+    } catch { /* 回读失败不影响绑定结果 */ }
+    refreshEngineStatus();
+  } catch (e) {
+    qqbotBindSetStatus('绑定成功但保存失败：' + e.message + '。可手动填写 AppID/Secret 保存。', 'err');
+  }
+}
+
+function qqbotBindPoll() {
+  stopQqbotBindPolling();
+  qqbotBindTimer = setInterval(async () => {
+    try {
+      const r = await api('/api/qqbot/bind/status');
+      const b = r.bind || {};
+      if (b.status === 'done' && b.credentials) {
+        qqbotBindSetStatus('扫码成功，正在保存凭据…', 'warn');
+        await qqbotBindConfirm();
+        return;
+      }
+      if (b.status === 'pending') qqbotBindSetStatus('等待扫码…用手机 QQ 扫描上方页面里的二维码。', '');
+      if (b.status === 'failed') {
+        qqbotBindSetStatus('绑定失败：' + (b.error || '未知错误'), 'err');
+        stopQqbotBindPolling();
+      }
+    } catch { /* 网络抖动下一轮再试 */ }
+  }, 2000);
+}
+
+function initQqbotBind() {
+  const btn = $('btnQqbotBind');
+  if (btn) btn.addEventListener('click', async () => {
+    const box = $('qqbotBindBox');
+    if (!box) return;
+    btn.disabled = true;
+    btn.textContent = '正在获取二维码…';
+    qqbotBindSetStatus('正在向腾讯官方申请绑定任务…', '');
+    try {
+      const r = await api('/api/qqbot/bind/start', { method: 'POST', body: '{}' });
+      if (!r.ok || !r.connectUrl) throw new Error(r.error || '创建绑定任务失败');
+      box.classList.remove('hidden');
+      $('qqbotBindFrame').src = r.connectUrl;
+      qqbotBindPoll();
+    } catch (e) {
+      qqbotBindSetStatus('启动绑定失败：' + e.message, 'err');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '用手机 QQ 扫码绑定（免填 AppID/Secret）';
+    }
+  });
+  const cancelBtn = $('btnQqbotBindCancel');
+  if (cancelBtn) cancelBtn.addEventListener('click', async () => {
+    stopQqbotBindPolling();
+    try { await api('/api/qqbot/bind/cancel', { method: 'POST', body: '{}' }); } catch { /* noop */ }
+    const box = $('qqbotBindBox');
+    if (box) box.classList.add('hidden');
+    const frame = $('qqbotBindFrame');
+    if (frame) frame.src = 'about:blank';
+  });
+}
+
+
 function toggleEngineDir() {
   const src = $('setEngineSource').value;
-  const wrap = $('setEngineDir').closest('label');
-  if (wrap) wrap.style.opacity = src === 'bundled' ? '.45' : '1';
-  $('setEngineDir').disabled = src === 'bundled';
+  const input = $('setEngineDir');
+  const wrap = input.closest('label');
+  const bundled = src === 'bundled';
+  if (wrap) wrap.style.opacity = bundled ? '.45' : '1';
+  input.disabled = bundled;
+  // ★ 切到「内置的」时必须把目录栏恢复成内置那份的真实路径。
+  //   老逻辑只是把输入框置灰，里面还留着用户上次填的 D:\SnowLuma-...；
+  //   一保存，服务端就把这个旧目录当成「显式覆盖」，内置选项形同虚设
+  //   （用户选了内置，跑的还是 SnowLuma，停止也停不掉）。
+  if (bundled) {
+    if (input.value.trim() && input.value.trim() !== state.bundledEngineDir) {
+      lastCustomEngineDir = input.value.trim();   // 记住用户自己的路径，切回来还给他
+    }
+    input.value = state.bundledEngineDir || '';
+    input.placeholder = '内置：随群崽安装的那一份';
+  } else if (input.value === state.bundledEngineDir) {
+    input.value = lastCustomEngineDir;
+    input.placeholder = '例如 D:\你的OneBot运行时';
+  }
 }
 
 async function refreshEngineStatus() {
@@ -789,14 +940,28 @@ async function refreshEngineStatus() {
 function applyEngineStatus(e) {
   const el = $('engineStatus');
   if (!el) return;
+  if (e.bundledDir && e.bundledDir !== state.bundledEngineDir) {
+    state.bundledEngineDir = e.bundledDir;
+    // loadSettings 执行时还不知道内置目录（status 是异步拿的），这里补一次
+    toggleEngineDir();
+  }
   const who = e.account ? `账号 ${e.account}` : '未指定账号';
   const from = e.kind ? `${e.kind === 'napcat' ? 'NapCat' : e.kind}` : '未知运行时';
   const src = e.source === 'bundled' ? '内置' : (e.source === 'custom' ? '自定义' : '自动');
-  const where = e.dir ? e.dir : '未找到目录';
-  const state = e.running ? '运行中' : (e.needLogin ? '等你扫码登录' : '未运行');
-  el.textContent = `状态：${state} ｜ ${src}·${from} ｜ ${who} ｜ WS ${e.wsPort || '-'} ｜ ${where}` +
+  // 选「内置」时显示内置那份的路径，而不是配置里残留的自定义目录——
+  // 否则面板写着「内置」，路径却是 D:\SnowLuma-...，自相矛盾
+  const where = (e.source === 'bundled' && e.bundledDir)
+    ? e.bundledDir + (e.bundledAvailable ? '' : '（内置那份没找到）')
+    : (e.dir ? e.dir : '未找到目录');
+  // 端口被别的程序占着（例如用户自己另开了一份运行时），群崽管不了它，别说成「运行中」
+  // 注意：这里不能叫 state —— 会遮蔽上面的模块级 state，函数开头读 state.bundledEngineDir 直接 TDZ 报错
+  const runState = e.running ? '运行中'
+    : (e.portTakenByOther ? '端口被别的程序占着'
+      : (e.needLogin ? '等你扫码登录' : '未运行'));
+  el.textContent = `状态：${runState} ｜ ${src}·${from} ｜ ${who} ｜ WS ${e.wsPort || '-'} ｜ ${where}` +
+    (e.portTakenByOther ? ' ｜ 这端口不是群崽启动的，点停止也停不掉它；要接管请先关掉那个程序' : '') +
     (e.lastError ? ` ｜ ${e.lastError}` : '');
-  el.className = 'ds-status ' + (e.running ? 'ok' : (e.lastError ? 'err' : 'warn'));
+  el.className = 'ds-status ' + (e.running ? 'ok' : ((e.lastError || e.portTakenByOther) ? 'err' : 'warn'));
   $('btnEngineWebui').style.display = e.webuiUrl ? '' : 'none';
   // 没登录时才显示二维码；登录成功自动收起
   if (e.needLogin) showEngineQr();
@@ -824,12 +989,12 @@ async function detectEngine() {
     const r = await api('/api/engine/scan', {
       method: 'POST',
       body: JSON.stringify({
-        dir: $('setEngineDir').value.trim(),
+        dir: $('setEngineSource').value === 'bundled' ? '' : $('setEngineDir').value.trim(),
         account: $('setEngineAccount').value.trim()
       })
     });
     if (r.ok) {
-      $('setEngineDir').value = r.engine.dir;
+      if ($('setEngineSource').value !== 'bundled') $('setEngineDir').value = r.engine.dir;
       $('setEngineAccount').value = r.engine.account || $('setEngineAccount').value;
       $('engineStatus').textContent = `已找到：${r.engine.configFile} ｜ 账号 ${r.engine.account || '未命名'} ｜ WS ${r.engine.wsPort} ｜ API ${r.engine.apiPort}`;
       $('engineStatus').className = 'ds-status ok';
@@ -855,12 +1020,12 @@ async function startEngine() {
     const r = await api('/api/engine/start', {
       method: 'POST',
       body: JSON.stringify({
-        dir: $('setEngineDir').value.trim(),
+        dir: $('setEngineSource').value === 'bundled' ? '' : $('setEngineDir').value.trim(),
         account: $('setEngineAccount').value.trim()
       })
     });
     if (r.ok) {
-      $('setEngineDir').value = r.info.dir;
+      if ($('setEngineSource').value !== 'bundled') $('setEngineDir').value = r.info.dir;
       $('setEngineAccount').value = r.info.account || $('setEngineAccount').value;
       if (r.needLogin) {
         $('engineStatus').textContent = r.hint || '第一次登录要扫码：用手机 QQ 扫下面的码，登录后会自动接上';
@@ -1070,7 +1235,6 @@ setInterval(() => {
 async function saveSettings() {
   /* saveSettings 里有些值（阈值、候选类型等）面板上没控件，要沿用服务端现值。
      打开设置时缓存一份，避免这里再发一次 GET。 */
-  const mem = settingsCache.memory || {};
   const interest = settingsCache.interest || {};
   const interestReply = settingsCache.interestReply || {};
   const proactive = settingsCache.proactive || {};
@@ -1112,9 +1276,19 @@ async function saveSettings() {
         wsUrl: $('setWsUrl').value.trim() || 'ws://127.0.0.1:3001',
         accessToken: $('setToken').value
       },
+      official: {
+        appId: $('setQqbotAppId').value.trim(),
+        clientSecret: $('setQqbotSecret').value,
+        sandbox: $('setQqbotSandbox').checked
+      },
       engine: {
         source: $('setEngineSource').value,
-        dir: $('setEngineDir').value.trim(),
+        // 选「内置」时界面里显示的是内置路径，不能把它存成「自定义目录」；
+        // 但也不能存空 —— 那会把用户以前填的路径抹掉，切回「我自己找的」就没了。
+        // 存 lastCustomEngineDir，后端在 bundled 模式下本来就不看这个字段。
+        dir: $('setEngineSource').value === 'bundled'
+          ? (lastCustomEngineDir || '')
+          : $('setEngineDir').value.trim(),
         account: $('setEngineAccount').value.trim(),
         autoStart: $('setEngineAuto').checked
       }
@@ -1123,17 +1297,9 @@ async function saveSettings() {
       manifestUrl: $('setUpdateManifest').value.trim(),
       autoCheck: $('setUpdateAuto').checked
     },
-    /* 这四段必须每次都带上：服务端 configLib.save 是 deepMerge 覆盖写，
-       不传就等于没改；而传了不夹取，前端一个负数就能把闸门锁死。 */
-    memory: {
-      enabled: $('setMemEnabled').checked,
-      autoExtract: true,
-      digestEvery: mem.digestEvery ?? 40,
-      digestMinChars: mem.digestMinChars ?? 6,
-      maxPerScope: mem.maxPerScope ?? 20000,
-      decayDays: mem.decayDays ?? 30,
-      promptTopN: mem.promptTopN ?? 6
-    },
+    /* 这三段必须每次都带上：服务端 configLib.save 是 deepMerge 覆盖写，
+       不传就等于没改；而传了不夹取，前端一个负数就能把闸门锁死。
+       （长期记忆已移除，不再提交 memory 段——服务端也会忽略它） */
     interest: {
       enabled: true,
       capabilities: $('setInterestCaps').value.split(/[,，;；\s]+/).map((s) => s.trim()).filter(Boolean),
@@ -1160,6 +1326,41 @@ async function saveSettings() {
       settleMs: proactive.settleMs ?? 3000,
       targetChatKeys: $('setProactiveTargets').value.split(/[,，;；\s]+/).map((s) => s.trim()).filter(Boolean),
       candidateKinds: proactive.candidateKinds || ['event', 'meme', 'fact']
+    },
+    moderation: {
+      enabled: $('setModEnabled').checked,
+      shadow: $('setModShadow').checked,
+      autoPunish: $('setModAutoPunish').checked,
+      /* 界面统一填 group:群号；服务端 whitelistChats 只收纯群号，这里剥前缀 */
+      whitelistUsers: $('setModWhitelist').value.split(/[,，;；\s]+/).map((s) => s.trim()).filter((s) => s && !s.startsWith('group:')).join(','),
+      whitelistChats: $('setModWhitelist').value.split(/[,，;；\s]+/).map((s) => s.trim()).filter((s) => s.startsWith('group:')).map((s) => s.slice(6)).join(','),
+      spam: {
+        windowSec: Math.min(120, Math.max(3, Number($('setModSpamWin').value) || 10)),
+        maxMsgs: Math.min(60, Math.max(3, Number($('setModSpamMax').value) || 6)),
+        muteMin: Math.min(43200, Math.max(1, Number($('setModSpamMute').value) || 5))
+      },
+      ad: {
+        deleteMsg: $('setModAdDelete').checked,
+        blockLinks: $('setModAdLinks').checked
+      },
+      banned: {
+        words: $('setModBanned').value.trim(),
+        notifyAdmin: $('setModBannedNotify').checked
+      },
+      duplicate: {
+        windowSec: Math.min(600, Math.max(10, Number($('setModDupWin').value) || 60)),
+        times: Math.min(10, Math.max(2, Number($('setModDupTimes').value) || 3)),
+        notice: $('setModDupNotice').checked,
+        deleteMsg: $('setModDupDel').checked
+      },
+      welcome: {
+        text: $('setModWelcome').value
+      },
+      curfew: {
+        from: $('setModCurfewFrom').value || '00:00',
+        to: $('setModCurfewTo').value || '06:00',
+        text: $('setModCurfewText').value
+      }
     }
   };
   const resp = await api('/api/settings', { method: 'POST', body: JSON.stringify(payload) }).catch((e) => {
@@ -1247,9 +1448,6 @@ function connectEvents() {
       /* ---- 长期记忆 / 主动发言 ----
          这几种事件不刷首页 feed：它们频率低、信息是给「诊断」用的，
          塞进消息流只会干扰看聊天。只在设置面板里体现。 */
-      case 'memory_written':
-        refreshMemoryPanel();
-        break;
       case 'speak_decision':
       case 'proactive_decision':
         if (!$('proactiveLog')) break;
@@ -1266,6 +1464,10 @@ function connectEvents() {
         break;
       case 'proactive_skipped':
         if ($('proactiveLog')) refreshProactiveLog();
+        break;
+      case 'moderation':
+        /* 群管事件：拦截/欢迎/宵禁提醒。开关没开时不会有这种事件。 */
+        if ($('modStatsBox') && !$('modStatsBox').style.display.includes('none')) refreshModStats();
         break;
       case 'ai_error':
         pushFeed({
@@ -1326,6 +1528,8 @@ function init() {
     }
   });
   $('btnSaveSettings').addEventListener('click', saveSettings);
+  const modeSel = $('setMode');
+  if (modeSel) modeSel.addEventListener('change', toggleQqMode);
   $('setCooldownEnabled').addEventListener('change', () => {
     $('setCooldownSec').disabled = !$('setCooldownEnabled').checked;
   });
@@ -1360,6 +1564,9 @@ function init() {
   });
   $('setEngineSource').addEventListener('change', toggleEngineDir);
   $('btnUpdateCheck').addEventListener('click', () => checkUpdate(true));
+  const modStatsBtn = $('btnModStats');
+  if (modStatsBtn) modStatsBtn.addEventListener('click', toggleModStats);
+  initQqbotBind();
   $('btnDsExpand').addEventListener('click', showDeepSeekTab);
   $('btnDsOpen').addEventListener('click', async (e) => {
     e.target.textContent = '启动中…';
@@ -1416,6 +1623,23 @@ function init() {
   });
   document.querySelectorAll('.modal').forEach((m) => {
     m.addEventListener('click', (e) => { if (e.target === m) m.classList.add('hidden'); });
+  });
+
+  // API Key 的语义是「留空 = 保持不变」，所以要删掉这把 Key 必须有独立入口
+  if ($('btnApiKeyClear')) $('btnApiKeyClear').addEventListener('click', async () => {
+    if (!(await uiConfirm('清除已保存的 API Key？\n\n清掉后 API 模式将不可用，需要重新填一把才能继续用。', { title: '清除 API Key', okText: '清除', cancelText: '取消', type: 'warn' }))) return;
+    try {
+      await api('/api/settings', {
+        method: 'POST',
+        body: JSON.stringify({ ai: { clearApiKey: true } })
+      });
+      $('setApiKey').value = '';
+      $('setApiKey').placeholder = '留空则不可用';
+      $('btnApiKeyClear').hidden = true;
+      uiAlert('已清除。要重新使用 API 模式，请填一把新的 Key。', { title: '已清除', type: 'ok' });
+    } catch (e) {
+      uiAlert('清除失败：' + e.message, { title: '操作失败', type: 'err' });
+    }
   });
 
   // 表情包
@@ -1511,7 +1735,6 @@ function init() {
   $('btnStickerTest').addEventListener('click', testSticker);
   $('btnStickerClear').addEventListener('click', clearStickers);
   if ($('btnGalleryRefresh')) $('btnGalleryRefresh').addEventListener('click', refreshGalleryForce);
-  if ($('btnMemList')) $('btnMemList').addEventListener('click', showMemoryList);
   if ($('btnProactiveLog')) $('btnProactiveLog').addEventListener('click', refreshProactiveLog);
   if ($('btnProactiveKill')) $('btnProactiveKill').addEventListener('click', killProactive);
   $('btnWebOpen').addEventListener('click', openWebSite);

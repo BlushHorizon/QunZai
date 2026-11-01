@@ -12,6 +12,8 @@
  *   所以候选来源只有记忆，模型只负责把候选说成人话。
  */
 
+const { dbg } = require('./debug');
+
 /**
  * 负反馈词表：命中就熔断。宁可错杀，也不能让用户觉得被机器人顶嘴。
  * 注意「别说话」和「别说了」是两种说法，都得覆盖——
@@ -46,6 +48,8 @@ class ProactiveEngine {
     this._daily = new Map();
     /** 每个群一轮只尝试一次，避免 tick 太密时反复抢大脑 */
     this._lastTry = new Map();
+    /** tick 重入锁：上一轮还没跑完时丢弃新的一拍（见 tick 内注释） */
+    this._ticking = false;
   }
 
   get cfg() { return (this.getConfig() || {}).proactive || {}; }
@@ -90,7 +94,7 @@ class ProactiveEngine {
   _downgradeRecentMemory(chatKey) {
     try {
       const last = this._lastTry.get(String(chatKey));
-      if (!last || !last.memoryId) return;
+      if (!last || !last.memoryId || !this.memory) return;
       const it = this.memory.get(last.memoryId);
       if (!it) return;
       it.weight = Math.max(0.1, (it.weight || 1) * 0.5);
@@ -106,6 +110,13 @@ class ProactiveEngine {
    * 它必须便宜：绝大多数 tick 什么都不做，只在冷场时才去碰记忆。
    */
   async tick() {
+    // 重入保护：tick 每 30 秒来一次，而里面要 await 大脑生成文案（最长 90 秒），
+    // 白名单里有几个群就是几个 90 秒串起来。没有这道锁的话，上一轮还没跑完，
+    // 后面每 30 秒就会再压一轮进来，冷场时间越长堆得越多——最后是一次冷场
+    // 触发几十个并发的 tick 同时翻记忆、同时抢大脑。这里直接丢弃重叠的那一轮，
+    // 等下一拍即可（主动发言本来就不要求准时）。
+    if (this._ticking) return;
+    this._ticking = true;
     try {
       const c = this.cfg;
       if (c.enabled !== true) return;
@@ -138,6 +149,8 @@ class ProactiveEngine {
       }
     } catch (err) {
       console.warn('[主动] tick 出错（已忽略）:', err.message);
+    } finally {
+      this._ticking = false;
     }
   }
 
@@ -156,20 +169,34 @@ class ProactiveEngine {
   }
 
   async _tryInitiate(chatKey, chat) {
-    const cand = this._pickCandidate(chatKey);
-    if (!cand) {
+    // 一次拿一批候选，逐条问决策器，最多试 3 条。
+    // 为什么不能只抽一条：候选是加权随机抽的，抽到「小李住在杭州」这种群里
+    // 没人关心的事会被分数闸门正确地拦下；如果抽一条就收工，这一轮就白费了，
+    // 而下面会记 5 分钟冷却——等于每 5 分钟白白丢一次开口机会。
+    // 逐条试的意义是：只要记忆里有一条「这个群确实在聊」的，就该被说出来。
+    const ranked = this._rankCandidates(chatKey);
+    if (!ranked.length) {
       // 静默 return 是这套系统最难查的失败：面板上什么都看不到。
       // 没记忆可挑是「正常空转」，但必须留痕，否则用户只会觉得「它从来不开口」。
       this._lastTry.set(chatKey, { at: Date.now(), grams: [], memoryId: '' });
       this.broadcast({ type: 'proactive_skipped', chatKey, reason: '没有可聊的记忆', at: Date.now() });
       return;
     }
-    // 用候选文本去问决策器：相关性就是针对这个话题算的
-    // 注意是 cand.item.text —— 候选结构是 {item, score}，写成 cand.text 会拿到 undefined，
-    // 决策器按空文本打分恒为 0，主动发言就永远发不出去。
-    const v = this.policy.verdict({ kind: 'initiate', chatKey, text: cand.item.text });
-    if (!v.ok) {
-      this._lastTry.set(chatKey, { at: Date.now(), grams: v.grams || [], memoryId: '' });
+
+    let cand = null;
+    let v = null;
+    let lastVerdict = null;
+    for (const h of this._sampleOrder(ranked, 3)) {
+      // 用候选文本去问决策器：相关性就是针对这个话题算的
+      // 注意是 h.item.text —— 候选结构是 {item, score}，写成 cand.text 会拿到 undefined，
+      // 决策器按空文本打分恒为 0，主动发言就永远发不出去。
+      const verdict = this.policy.verdict({ kind: 'initiate', chatKey, text: h.item.text });
+      lastVerdict = verdict;
+      if (verdict.ok) { cand = h; v = verdict; break; }
+    }
+    if (!cand) {
+      // 试过的都不过，记下最后一次的原因（面板上能看到是被哪道闸拦的），进冷却
+      this._lastTry.set(chatKey, { at: Date.now(), grams: (lastVerdict && lastVerdict.grams) || [], memoryId: '' });
       return;
     }
     this._lastTry.set(chatKey, { at: Date.now(), grams: v.grams || [], memoryId: cand.item.id });
@@ -182,7 +209,16 @@ class ProactiveEngine {
       shadow, at: Date.now()
     });
     if (shadow) {
-      console.log(`[主动] 演练（不发送）→ ${chatKey}: ${cand.item.text.slice(0, 40)}`);
+      // 演练模式下每次判决通过都会走到这里，一个群一天几十上百条 → 走调试日志
+      dbg(`[主动] 演练（不发送）→ ${chatKey}: ${cand.item.text.slice(0, 40)}`);
+      return;
+    }
+
+    // QQ 断线时 adapter 是 null（server.js 重建适配器期间也会短暂为 null）。
+    // 不在这里挡一下，就会先花一次大脑生成文案（90 秒），再在 sendText 上崩成
+    // 一句「Cannot read properties of null」，面板上只看到一个看不懂的 reason。
+    if (!this.adapter || typeof this.adapter.sendText !== 'function') {
+      this.broadcast({ type: 'proactive_skipped', chatKey, reason: 'QQ 未连接', at: Date.now() });
       return;
     }
 
@@ -200,7 +236,7 @@ class ProactiveEngine {
 
     this.policy.noteSent(chatKey, 'initiate');
     this.interest?.markBotSpoke(chatKey);
-    this.memory.touchHits([cand.item.id]);
+    this.memory?.touchHits?.([cand.item.id]);
     const echo = this._echo(chat, text);
     this.store.addMessage(echo);
     this.broadcast({ type: 'message', message: echo, chat });
@@ -211,14 +247,15 @@ class ProactiveEngine {
   /**
    * 挑候选：只从记忆里挑，且只要「能被问起」的类型。
    * meme（群梗）和 event（结论）最容易被接话，fact 次之，pref 容易变尬聊。
+   * 返回按「值不值得说 × 这个群有多在意」排序后的完整候选池。
    */
-  _pickCandidate(chatKey) {
-    if (!this.memory) return null;
+  _rankCandidates(chatKey) {
+    if (!this.memory) return this._rankFromChatHistory(chatKey);
     const kinds = Array.isArray(this.cfg.candidateKinds) && this.cfg.candidateKinds.length
       ? this.cfg.candidateKinds
       : ['event', 'meme', 'fact'];
     const hits = this.memory.search({ scope: chatKey, text: '', kinds, topN: 12, minScore: 0 });
-    if (!hits.length) return null;
+    if (!hits.length) return [];
 
     // 只按「记忆本身值不值得说」挑是错的：新条目的分数几乎都相同（0.35），
     // 等于纯随机——很容易挑到「小李住在杭州」这种群里根本没人关心的事，
@@ -231,16 +268,71 @@ class ProactiveEngine {
       return { ...h, interestScore: iscore, weight: Math.max(1e-4, h.score) * (0.15 + 0.85 * iscore) };
     });
     ranked.sort((a, b) => b.weight - a.weight);
+    return ranked;
+  }
 
-    // 带点随机的加权抽取：总是挑最高分的那条会反复说同一件事
-    const pool = ranked.slice(0, 5);
-    const total = pool.reduce((n, h) => n + h.weight, 0) || 1;
-    let r = Math.random() * total;
-    for (const h of pool) {
-      r -= h.weight;
-      if (r <= 0) return h;
+  /**
+   * 长期记忆移除后的降级素材源：从会话历史里挑「群里最近聊过什么」。
+   * 挑选标准：别人说的、5~80 字有实际内容、同文本去重、最近的优先。
+   * 候选结构伪装成记忆条目（{item:{id,text,kind}, score}），下游兴趣加权/决策器管线原样复用。
+   * 这样「删除长记忆」和「主动发言有话说」两个需求同时成立——素材从「过去存的」变成「刚聊的」。
+   */
+  _rankFromChatHistory(chatKey) {
+    if (!this.store) return [];
+    try {
+      const msgs = (this.store.getMessages ? this.store.getMessages(chatKey, 40) : [])
+        .filter((m) => m && m.text && !m.self && !m.system);
+      const seen = new Set();
+      const candidates = [];
+      for (let i = msgs.length - 1; i >= 0 && candidates.length < 8; i--) {
+        const m = msgs[i];
+        const text = String(m.text).trim();
+        // 太短（"哈哈""？"）没话可接；太长（贴小说）不适合直接引用
+        if (text.length < 5 || text.length > 80) continue;
+        if (seen.has(text)) continue;
+        seen.add(text);
+        // 越新越值得接话：时间越近 score 越高（0.35~0.6，和记忆分数同量级）
+        const fresh = 1 - Math.min(1, (msgs.length - i) / msgs.length);
+        candidates.push({
+          item: { id: 'chat:' + chatKey + ':' + i, text, kind: 'chat' },
+          score: 0.35 + 0.25 * fresh
+        });
+      }
+      const ranked = candidates.map((h) => {
+        const iscore = this.interest ? this.interest.score(chatKey, h.item.text).score : 0;
+        return { ...h, interestScore: iscore, weight: Math.max(1e-4, h.score) * (0.15 + 0.85 * iscore) };
+      });
+      ranked.sort((a, b) => b.weight - a.weight);
+      return ranked;
+    } catch { return []; }
+  }
+
+  /**
+   * 从候选池里按权重抽 n 条、不重复。
+   * 总是取最高分那条会反复说同一件事，所以保留随机；
+   * 但抽取顺序决定「先问谁」，权重高的先被问更重要——它更可能过闸。
+   */
+  _sampleOrder(ranked, n) {
+    const pool = ranked.slice();
+    const out = [];
+    while (out.length < n && pool.length) {
+      const total = pool.reduce((s, h) => s + h.weight, 0) || 1;
+      let r = Math.random() * total;
+      let idx = pool.length - 1;
+      for (let i = 0; i < pool.length; i++) {
+        r -= pool[i].weight;
+        if (r <= 0) { idx = i; break; }
+      }
+      out.push(pool.splice(idx, 1)[0]);
     }
-    return pool[0];
+    return out;
+  }
+
+  /** 兼容旧调用点：抽一条 */
+  _pickCandidate(chatKey) {
+    const ranked = this._rankCandidates(chatKey);
+    if (!ranked.length) return null;
+    return this._sampleOrder(ranked, 1)[0] || null;
   }
 
   /** 把记忆条目说成人话。失败就不说——宁可不发，也不要发半截 */

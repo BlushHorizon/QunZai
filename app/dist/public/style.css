@@ -561,6 +561,9 @@ input[type="checkbox"] { flex: 0 0 auto; accent-color: var(--ok); width: 16px; h
 textarea { resize: vertical; }
 
 .tip { font-size: 12px; color: var(--text-faint); margin: 6px 0 2px; }
+/* 说明文字里的外链：不专门上色就跟着 .tip 一起灰掉，用户根本看不出那里能点 */
+.tip a { color: var(--blue2, #6aa4ff); text-decoration: underline; text-underline-offset: 2px; }
+.tip a:hover { filter: brightness(1.15); }
 
 /* 一行两个以上「勾选框 + 文字」并排：.field 的 110px 固定标签宽在并排时会撑爆 */
 .chk { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-dim); cursor: pointer; white-space: nowrap; }

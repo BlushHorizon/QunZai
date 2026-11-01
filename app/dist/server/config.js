@@ -21,10 +21,18 @@ const DEFAULT_CONFIG = {
   qq: {
     // mock  = 本地模拟（无需安装任何东西，打开网页即可体验完整链路）
     // onebot = 连接 NapCatQQ 的 OneBot 11 正向 WebSocket（真实 QQ）
-    mode: 'mock',
+    // 默认 onebot：装好就要连真 QQ，mock 只是老用户/首次体验的兜底
+    mode: 'onebot',
     onebot: {
       wsUrl: 'ws://127.0.0.1:3001',
       accessToken: ''
+    },
+    // qqbot = QQ 官方机器人（q.qq.com 开放平台 v2 API）。
+    // 限制：只能收 @机器人 消息；主动消息个人 4 条/月；被动回复 5 分钟窗口；链接要 ICP 备案
+    official: {
+      appId: '',
+      clientSecret: '',
+      sandbox: false          // true = 走 sandbox.api.sgroup.qq.com 测试环境
     },
     // 群崽 QQ 内核：只做本机运行时的发现/启动/配置同步，不打包第三方运行时
     engine: {
@@ -75,19 +83,8 @@ const DEFAULT_CONFIG = {
     historyTurns: 8,             // 送给模型的上下文轮数
     replyDelayMs: 900            // 模拟“正在输入”的思考时间
   },
-  // 长期记忆：只记不说。
-  // 默认开启是安全的——它不改变任何对外行为，最坏情况只是「记得不准」，
-  // 而用户永远不会遇到「机器人突然乱说话」。
-  memory: {
-    enabled: true,               // 总开关
-    backend: 'json',             // json = 单文件（2 万条内够用）；预留 sqlite
-    digestEvery: 40,             // 每累积多少条群消息抽取一次
-    digestMinChars: 6,           // 短于此长度的消息不进抽取
-    autoExtract: true,           // 规则档自动抽取
-    maxPerScope: 20000,          // 单个会话的记忆上限，超了淘汰低价值的
-    decayDays: 30,               // event 类记忆的半衰期（天）
-    promptTopN: 6                // 回复时最多拼几条记忆进提示词
-  },
+  // 长期记忆功能已整体移除（2026-11-01 用户要求）：不观察、不提取、不注入提示词。
+  // interest/proactive 里对 MemoryStore 的引用保留为只读候选素材，存量耗尽后自然归零。
   // 兴趣画像：给「该不该插话」提供相关性分数，本身不说话
   interest: {
     enabled: true,
@@ -118,6 +115,39 @@ const DEFAULT_CONFIG = {
     settleMs: 3000,              // 最后一条消息后至少安静这么久
     targetChatKeys: [],          // 白名单：空 = 一个群都不主动（安全默认）
     candidateKinds: ['event', 'meme', 'fact']
+  },
+  // 群管理：宣传片上的六条（刷屏限流/广告拦截/违禁词/重复合并/新人欢迎/深夜宵禁）
+  // 总开关默认关——装上就自动删别人的消息是不可接受的，必须用户自己打开。
+  // 字段说明见 server/moderation.js 的 DEFAULT_MODERATION（那边是运行时真值，
+  // 这里必须保持一致，否则面板显示的和实际跑的不是一套）。
+  moderation: {
+    enabled: false,
+    shadow: false,
+    autoPunish: false,
+    whitelistUsers: '',
+    whitelistChats: '',
+    spam: { enabled: true, windowSec: 10, maxMsgs: 6, strikesDecayMin: 10, muteMin: 5 },
+    ad: { enabled: true, deleteMsg: true, blockLinks: false },
+    banned: {
+      enabled: true,
+      words: '色情,裸聊,约炮,赌博,博彩,网赌,毒品,冰毒,枪支,代开发票,办证,洗钱,诈骗,刷单,裸条',
+      deleteMsg: false,
+      notifyAdmin: true
+    },
+    duplicate: { enabled: true, windowSec: 60, times: 3, minChars: 6, notice: true, deleteMsg: true },
+    welcome: {
+      enabled: true,
+      text: '欢迎 {name} 加入本群 👋 群公告里有规则，有问题直接问就好。',
+      delaySec: 2
+    },
+    curfew: {
+      enabled: true,
+      from: '00:00',
+      to: '06:00',
+      text: '夜深了，{name} 早点睡吧，明天再聊 🌙',
+      maxPerNight: 3,
+      gapMin: 30
+    }
   },
   // 自动更新：只检查，下载/安装必须用户确认
   update: {

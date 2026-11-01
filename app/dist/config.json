@@ -9,6 +9,11 @@
       "wsUrl": "ws://127.0.0.1:3001",
       "accessToken": ""
     },
+    "official": {
+      "appId": "",
+      "clientSecret": "",
+      "sandbox": false
+    },
     "engine": {
       "enabled": true,
       "autoStart": true,
@@ -46,16 +51,6 @@
     "minIntervalMs": 2500,
     "historyTurns": 8,
     "replyDelayMs": 900
-  },
-  "memory": {
-    "enabled": true,
-    "backend": "json",
-    "digestEvery": 40,
-    "digestMinChars": 6,
-    "autoExtract": true,
-    "maxPerScope": 20000,
-    "decayDays": 30,
-    "promptTopN": 6
   },
   "interest": {
     "enabled": true,
@@ -96,6 +91,52 @@
       "meme",
       "fact"
     ]
+  },
+  "moderation": {
+    "enabled": false,
+    "shadow": false,
+    "autoPunish": false,
+    "whitelistUsers": "",
+    "whitelistChats": "",
+    "spam": {
+      "enabled": true,
+      "windowSec": 10,
+      "maxMsgs": 6,
+      "strikesDecayMin": 10,
+      "muteMin": 5
+    },
+    "ad": {
+      "enabled": true,
+      "deleteMsg": true,
+      "blockLinks": false
+    },
+    "banned": {
+      "enabled": true,
+      "words": "色情,裸聊,约炮,赌博,博彩,网赌,毒品,冰毒,枪支,代开发票,办证,洗钱,诈骗,刷单,裸条",
+      "deleteMsg": false,
+      "notifyAdmin": true
+    },
+    "duplicate": {
+      "enabled": true,
+      "windowSec": 60,
+      "times": 3,
+      "minChars": 6,
+      "notice": true,
+      "deleteMsg": true
+    },
+    "welcome": {
+      "enabled": true,
+      "text": "欢迎 {name} 加入本群 👋 群公告里有规则，有问题直接问就好。",
+      "delaySec": 2
+    },
+    "curfew": {
+      "enabled": true,
+      "from": "00:00",
+      "to": "06:00",
+      "text": "夜深了，{name} 早点睡吧，明天再聊 🌙",
+      "maxPerNight": 3,
+      "gapMin": 30
+    }
   },
   "update": {
     "manifestUrl": "https://blushhorizon.github.io/QunZai/update.json",

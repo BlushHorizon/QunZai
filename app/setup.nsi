@@ -13,8 +13,10 @@ SetCompressor /SOLID lzma
 !define APPNAME "群崽 QunZai"
 !define REGKEY "Software\QunZai"
 !define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\QunZai"
+; 正常情况下 build-package.js --installer 会传 /DVERSION=<package.json 里的版本>，
+; 这里的值只是不经打包脚本、手工跑 makensis 时的兜底，别当成真实版本号。
 !ifndef VERSION
-  !define VERSION "1.4.13"
+  !define VERSION "1.4.14"
 !endif
 
 Name "${APPNAME}"

@@ -209,6 +209,8 @@ class AIResponder {
       }
     }
     // 主动群聊回复概率：群里的非 @ 消息按概率随机回复（@机器人的消息必回；私聊不受影响）
+    let viaInterject = false;
+    let interjectScore = 0;
     if (msg.chatType === 'group' && !msg.mentionsMe) {
       const chance = c.groupReplyChance ?? 100;
       if (chance < 100 && Math.random() * 100 >= chance) {
@@ -218,7 +220,9 @@ class AIResponder {
         // 放行后继续走下面的冷却判断，不能在这里直接 return ok。
         const verdict = this._interestVerdict(msg);
         if (!verdict.ok) return { ok: false, reason: verdict.reason || '群聊主动回复概率未命中' };
-        console.log(`[AI] 概率未命中，但兴趣相关度 ${Number(verdict.score || 0).toFixed(2)} → 放行`);
+        viaInterject = true;
+        interjectScore = Number(verdict.score || 0);
+        console.log(`[AI] 概率未命中，但兴趣相关度 ${interjectScore.toFixed(2)} → 放行`);
       }
     }
 
@@ -228,7 +232,10 @@ class AIResponder {
     if (cooldownMs > 0 && Date.now() - last < cooldownMs) {
       return { ok: false, reason: '冷却中' };
     }
-    return { ok: true };
+    // via 让 handle() 知道这条回复是「兴趣插话」抢来的名额：
+    // 插话和主动发言共享同一个预算池，发出去就必须记账，
+    // 否则用户以为「每小时最多 2 条」，实际是「2 条 + 无限条插话」。
+    return viaInterject ? { ok: true, via: 'interject', score: interjectScore } : { ok: true };
   }
 
   /* ---------------- QQ 远程指令 ---------------- */
@@ -321,6 +328,11 @@ class AIResponder {
           console.warn('[指令] 保存闭嘴状态失败:', err.message);
         }
         try { this.proactive?.kill?.(); } catch { /* noop */ }
+        // 从 QQ 里点急停后，面板上的开关还停在「开」——用户打开设置会以为没生效，
+        // 再点一次保存反而把它又打开。这里主动通知前端重新拉一次状态。
+        // 必须带上 ai 字段：前端的 settings_changed 分支是 `state.status.ai = evt.ai`，
+        // 少了它会把整个状态置空。
+        try { this.broadcast?.({ type: 'settings_changed', ai: this.status(), at: Date.now() }); } catch { /* noop */ }
         await say('🤐 已闭嘴：主动发言和兴趣插话全部停止（正常 @ 我仍会回；发 /开 恢复自动回复）');
         return true;
       }
@@ -478,6 +490,15 @@ class AIResponder {
       this.broadcast({ type: 'message', message: echo, chat: this.store.chats.get(chatKey) || chat });
 
       console.log(`[AI] 已回复 → ${msg.chatType === 'group' ? '群' : '私'}${msg.chatId}: ${display.slice(0, 60)}${stickerPicks.length ? `（+表情x${stickerPicks.length}）` : ''}`);
+      // 插话抢来的名额要记账：和主动发言共用预算池，不然「每小时最多 2 条」只是纸面约束。
+      // 只对 via==='interject' 记账 —— @ 被点名、私聊都是用户来找它，不该吃主动发言的配额。
+      if (check.via === 'interject' && this.policy && typeof this.policy.noteSent === 'function') {
+        try { this.policy.noteSent(chatKey, 'interject'); } catch { /* noop */ }
+        // 记账之外还要通知兴趣画像「我刚说过话了」：
+        // 2 分钟内有人接 → +0.15；10 分钟没人接 → -0.20。
+        // 不记这一笔，插话就永远学不到「这个群爱不爱聊这个」，兴趣权重只会单向前进。
+        try { this.interest?.markBotSpoke?.(chatKey); } catch { /* noop */ }
+      }
       this.broadcast({ type: 'ai_replied', chatId: chatKey, text: display, at: Date.now() });
     } catch (err) {
       console.warn('[ai] 自动回复失败:', err.message);
@@ -493,7 +514,10 @@ class AIResponder {
     if (provider === 'deepseek-web') return this._askWeb(history, context, msg);
     if (provider === 'openai-compatible') {
       if (!this.cfg.apiKey) throw new Error('未配置 API Key，请在设置里填写，或改用「网页版 DeepSeek」');
-      return this._askOpenAI(history, context, msg);
+      // 必须把 chatKey 传下去：长期记忆/兴趣提示块是按会话算的，
+      // 少了它 API 模式下记忆永远进不了提示词（功能看着开了、其实一句话都没记住）
+      const ck = msg && msg.chatType && msg.chatId ? this.store.chatKey(msg.chatType, msg.chatId) : '';
+      return this._askOpenAI(history, context, msg, ck);
     }
     return this._builtin(history, msg);
   }
@@ -626,17 +650,23 @@ class AIResponder {
     }
     if (provider === 'openai-compatible') {
       if (!this.cfg.apiKey) throw new Error('未配置 API Key');
-      return this._askOpenAI([], '', { text: prompt });
+      return this._askOpenAI([], '', { text: prompt }, chatKey);
     }
     return '';
   }
 
   /** OpenAI 兼容接口 */
-  async _askOpenAI(history, context, msg) {    const c = this.cfg;
+  async _askOpenAI(history, context, msg, chatKey) {
+    const c = this.cfg;
     const base = String(c.baseUrl || '').replace(/\/+$/, '');
     const url = base.endsWith(OPENAI_CHAT_PATH) ? base : base + OPENAI_CHAT_PATH;
+    // 和网页版走同一套 _fullPrompt：人设 + 表情包能力 + 长期记忆/兴趣提示块。
+    // 之前这里只用 c.systemPrompt，导致 API 模式下「它记得你」这个卖点完全不存在。
+    let sys = '';
+    try { sys = this._fullPrompt(chatKey); } catch { sys = ''; }
+    if (!sys) sys = c.systemPrompt || '';
     const messages = [
-      { role: 'system', content: [c.systemPrompt, this.sticker ? this._stickerPrompt() : '', context].filter(Boolean).join('\n') },
+      { role: 'system', content: [sys, context].filter(Boolean).join('\n') },
       ...history,
       { role: 'user', content: msg.text }
     ];

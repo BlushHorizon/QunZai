@@ -186,14 +186,40 @@ class SpeakPolicy {
       if (r) {
         const decision = { ...base, ok: false, reason: r.reason, gate: gate.name };
         this._record(decision);
-        this.broadcast({ type: 'speak_decision', ...decision, at: now });
+        this._announce(decision, now);
         return decision;
       }
     }
     const decision = { ...base, ok: true };
     this._record(decision);
-    this.broadcast({ type: 'speak_decision', ...decision, at: now });
+    this._announce(decision, now);
     return decision;
+  }
+
+  /**
+   * 对外广播判决。
+   * 这个函数对**每一条**非 @ 群消息都会被调用一次，而前端收到 speak_decision 会立刻
+   * 发一次 HTTP 请求刷新面板。活跃群里一秒几十条消息 = 几十个请求，
+   * 浏览器会被自己的面板拖死。所以这里必须限流：
+   *   - 拦下的判决：同一 chatKey 同一 reason 每 10 秒最多广播一次（面板看到的是
+   *     「它现在为什么不说」，不是逐条流水账）
+   *   - 通过的判决：永远广播（这是真事件，不能丢）
+   */
+  _announce(decision, now) {
+    try {
+      if (!decision.ok) {
+        if (!this._announceAt) this._announceAt = new Map();
+        const k = `${decision.chatKey}|${decision.reason}`;
+        const last = this._announceAt.get(k) || 0;
+        if (now - last < 10000) return;
+        this._announceAt.set(k, now);
+        // 顺手清理过期键，避免被无限多个不同的 reason 撑大
+        if (this._announceAt.size > 500) {
+          for (const [kk, at] of this._announceAt) if (now - at > 60000) this._announceAt.delete(kk);
+        }
+      }
+      this.broadcast({ type: 'speak_decision', ...decision, at: now });
+    } catch { /* 广播失败不影响判决 */ }
   }
 
   /** 闸门实现：返回 null = 通过；返回 {reason} = 拦下 */

@@ -181,7 +181,26 @@ if ($Stop) {
             }
     } catch { }
 
-    # 5) 等候选端口释放（最多约 3 秒）
+    # 5) ★ 连同 QQ 运行时一起停（NapCat / SnowLuma 是 detached 拉起的，
+    #      不在服务的进程树里，服务一退它还活着，用户就会看到「停不掉的内核」）。
+    #      只认安装目录下的 engine\，绝不碰用户自己别处的 node。
+    try {
+        $engineRoot = (Join-Path $PSScriptRoot 'engine')
+        $engineNorm = $engineRoot.TrimEnd('\', '/')
+        Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue |
+            Where-Object {
+                $exe = [string]$_.ExecutablePath
+                $cmd = [string]$_.CommandLine
+                ($exe -and (($exe -replace '/', '\').StartsWith($engineNorm, [System.StringComparison]::OrdinalIgnoreCase))) -or
+                ($cmd -and (($cmd -replace '/', '\').IndexOf($engineNorm, [System.StringComparison]::OrdinalIgnoreCase) -ge 0))
+            } |
+            ForEach-Object {
+                Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+                $killed++
+            }
+    } catch { }
+
+    # 6) 等候选端口释放（最多约 3 秒）
     for ($i = 0; $i -lt 10; $i++) {
         $still = @($candidatePorts | Where-Object { Test-Port $_ })
         if ($still.Count -eq 0) { break }

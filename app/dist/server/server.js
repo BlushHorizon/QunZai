@@ -25,13 +25,15 @@ const { DeepSeekWeb, siteList } = require('./deepseek-web');
 const { StickerLibrary } = require('./stickers');
 const { OnlineGallery } = require('./sticker-gallery');
 const { resolveDataDir, platformInfo } = require('./platform');
-// 三能力（长期记忆 / 兴趣画像 / 主动发言）
-const { MemoryStore } = require('./memory-store');
-const { MemoryExtractor } = require('./memory-extract');
+// 三能力（兴趣画像 / 主动发言）—— 长期记忆已整体移除（用户要求，2026-11-01）
 const { InterestProfile } = require('./interest');
 const { SpeakPolicy } = require('./speak-policy');
 const { BrainGate } = require('./brain-gate');
 const { ProactiveEngine } = require('./proactive');
+// 群管理（刷屏/广告/违禁词/重复/欢迎/宵禁）
+const { Moderation } = require('./moderation');
+// QQ 官方机器人扫码绑定（q.qq.com 官方绑定页内嵌 + 轮询凭据）
+const { QqBotBindManager } = require('./qqbot-bind');
 
 /* ---------------- 日志系统：控制台实时显示 + data\app.log 持久落盘（追加、不截断） ---------------- */
 const _tsNow = () => {
@@ -118,6 +120,8 @@ function bindAdapterEvents(a = adapter) {
     if (s.connected && qqStatus.mode === 'onebot') seedContacts();
   });
   a.on('event', onAdapterEvent);
+  // 群通知（进群/退群/禁言）——新人欢迎靠它
+  a.on('notice', onAdapterNotice);
 }
 bindAdapterEvents();
 
@@ -140,9 +144,14 @@ function rebuildAdapter(reason = '') {
   // 主动发言也持有 adapter：漏了这一行，它会对着已经 close() 的旧连接发消息
   // （界面看着一切正常，主动发言却永远失败，且日志里只有「OneBot 未连接」）
   try { proactive.adapter = next; } catch { /* 同上 */ }
+  // 群管同理：漏了它，删消息/禁言/欢迎全部对着旧连接发，必然失败
+  try { moderation.adapter = next; } catch { /* 同上 */ }
   qqStatus = { connected: false, message: '正在重连…', mode: qqCfg.mode };
   broadcast({ type: 'qq_status', status: qqStatus, ai: ai.status() });
-  console.log(`[qq] 按新配置重建适配器${reason ? '（' + reason + '）' : ''}：${qqCfg.mode === 'onebot' ? qqCfg.onebot?.wsUrl : '演示模式'}`);
+  const modeDesc = qqCfg.mode === 'onebot' ? qqCfg.onebot?.wsUrl
+    : qqCfg.mode === 'qqbot' ? ('官方机器人 AppID ' + (qqCfg.official?.appId || '未填'))
+    : '演示模式';
+  console.log(`[qq] 按新配置重建适配器${reason ? '（' + reason + '）' : ''}：${modeDesc}`);
   // 连点「保存」会短时间内调用多次：只保留最后一个待连实例，
   // 否则几次 300ms 定时器一起触发，会同时建出多条 OneBot 连接
   if (adapterRetryTimer) { clearTimeout(adapterRetryTimer); adapterRetryTimer = null; }
@@ -217,19 +226,40 @@ function onAdapterEvent(msg) {
   // 表情包素材收集（内置功能），出错不影响主流程
   try { stickerLib.collect(msg); } catch { /* noop */ }
 
-  // 长期记忆：观察 -> 攒批 -> 抽取。必须同步、廉价、绝不抛错，
-  // 它挂在消息主链路上，抛一次就可能吞掉一条真实消息。
-  try { memoryExtract.observe(msg); } catch (err) { console.warn('[记忆] observe 失败:', err.message); }
-
-  // 兴趣画像：同一条消息既进记忆也进画像，两者不要混在一个模块里
+  // 兴趣画像：消息进画像，不进记忆（记忆已移除）
   try { interestProfile.observeMessage(msg); } catch { /* noop */ }
   try { if (msg.mentionsMe) interestProfile.observeMention(msg); } catch { /* noop */ }
 
   // 主动发言：更新冷场计时/当日活跃度/负反馈熔断
   try { proactive.notifyInbound(msg); } catch (err) { console.warn('[主动] 信号失败:', err.message); }
 
-  // 触发 AI 自动回复（EAgent 式自动应答）
-  ai.handle(msg).catch((e) => console.warn('[ai] handle 出错:', e.message));
+  // 群管理：刷屏/广告/违禁词/重复消息。必须放在 ai.handle 之前——
+  // 被群管拦下的消息不该再进模型（跟发广告的对聊没有任何意义），
+  // 而且拦下后 handled=true 就直接 return，省一次模型调用。
+  const mod = moderation.observe(msg);
+  const finish = (result) => {
+    if (result && result.handled) {
+      console.log(`[群管] 拦截(${result.reason}) ← ${msg.fromName || msg.fromId}: ${String(msg.text || '').slice(0, 50)}`);
+      stats.skips += 1;
+      return;
+    }
+    // 触发 AI 自动回复（EAgent 式自动应答）
+    ai.handle(msg).catch((e) => console.warn('[ai] handle 出错:', e.message));
+  };
+  if (mod && typeof mod.then === 'function') mod.then(finish).catch(() => finish({ handled: false }));
+  else finish(mod);
+}
+
+/**
+ * 收到一条群通知（有人进群 / 退群 / 被禁言）。
+ * 用函数声明是为了和 onAdapterEvent 一样能在 rebuildAdapter 时重新挂到新实例上。
+ */
+function onAdapterNotice(notice) {
+  try {
+    moderation.onNotice(notice).catch((e) => console.warn('[群管] 通知处理出错:', e.message));
+  } catch (err) {
+    console.warn('[群管] 通知处理出错:', err.message);
+  }
 }
 
 /* ---------------- AI ---------------- */
@@ -281,26 +311,24 @@ const ai = new AIResponder({
 // 之后启动自动发、②新建对话、50 轮换轮、保存设置、每条消息补发——全部用它。
 deepseek.configure({ site: cfg.ai?.webProvider || 'deepseek', prompt: ai._fullPrompt(), maxRounds: cfg.ai?.webMaxRounds || 50 });
 
-/* ---------------- 长期记忆 / 兴趣 / 决策器 / 主动发言 ---------------- */
-// 顺序有讲究：记忆先建（它是所有能力的底座），再兴趣画像，
-// 再决策器（同时依赖前两者），最后主动发言（依赖决策器 + 大脑闸门）。
+/* ---------------- 兴趣 / 决策器 / 主动发言 ---------------- */
+// 顺序有讲究：兴趣画像先建，再决策器，最后主动发言（依赖决策器 + 大脑闸门）。
 // 任何一环抛错都不能拖垮主服务——聊天是主线，这些是增强。
-const memoryStore = new MemoryStore({
-  dataDir: DATA_DIR,
-  log: (t) => console.log(`[记忆] ${t}`),
-  getConfig: () => configLib.get()
-});
-try { memoryStore.load(); } catch (err) { console.warn('[记忆] 载入失败，按空库继续:', err.message); }
+// （长期记忆已整体移除：speak-policy / proactive 的 memory 传 null，候选逻辑自行判空）
 
 const interestProfile = new InterestProfile({
   getConfig: () => configLib.get(),
-  broadcast
+  broadcast,
+  // dataDir 必须给：兴趣权重是慢慢长起来的（每条约 +0.01），
+  // 不落盘等于用户每次关机就从头学，功能永远长不到阈值
+  dataDir: DATA_DIR,
+  log: (t) => console.log(`[兴趣] ${t}`)
 });
 
 const speakPolicy = new SpeakPolicy({
   getConfig: () => configLib.get(),
   interest: interestProfile,
-  memory: memoryStore,
+  memory: null,
   broadcast
 });
 
@@ -308,16 +336,10 @@ const brainGate = new BrainGate({
   log: (t) => console.log(`[大脑] ${t}`)
 });
 
-const memoryExtract = new MemoryExtractor({
-  memory: memoryStore,
-  getConfig: () => configLib.get(),
-  broadcast
-});
-
 const proactive = new ProactiveEngine({
   interest: interestProfile,
   policy: speakPolicy,
-  memory: memoryStore,
+  memory: null,
   gate: brainGate,
   store,
   adapter,
@@ -336,7 +358,21 @@ const proactive = new ProactiveEngine({
 });
 
 // 接线：AI 侧的决策器/记忆/闸门一次性挂上
-ai.setEngines({ policy: speakPolicy, memory: memoryStore, interest: interestProfile, gate: brainGate, proactive });
+ai.setEngines({ policy: speakPolicy, memory: null, interest: interestProfile, gate: brainGate, proactive });
+
+/* ---------------- 群管理 ---------------- */
+// 和上面那套是两件事：上面决定「bot 自己说不说话」，这里管「别人发的消息」。
+// 默认关（config.moderation.enabled=false），用户自己打开才生效。
+const moderation = new Moderation({
+  getConfig: () => configLib.get(),
+  adapter,
+  store,
+  broadcast,
+  log: (t) => console.log(`[群管] ${t}`)
+});
+
+// QQ 官方机器人扫码绑定管理器（设置面板内嵌官方绑定页用）
+const qqBotBind = new QqBotBindManager({ log: (t) => console.log(t) });
 
 // 防抽风看门狗：DeepSeek 驱动思考卡死超时自动复位（每分钟检查一次）
 setInterval(() => {
@@ -347,9 +383,10 @@ setInterval(() => {
 setInterval(() => {
   let dsState = '-';
   try { dsState = deepseek.status ? deepseek.status().state : '-'; } catch { /* noop */ }
-  const memCount = (() => { try { return memoryStore.stats().total; } catch { return '-'; } })();
   const proOn = configLib.get().proactive?.enabled === true ? '开' : '关';
-  console.log(`[心跳] QQ=${qqStatus.connected ? '已连接' : '断开'} | 会话=${store.chats.size} | 收信=${stats.inMsgs} AI回=${stats.aiReplies} 跳过=${stats.skips} | 记忆=${memCount} 主动=${proOn} ${brainGate.busy ? '大脑=忙' : ''} | DeepSeek=${dsState}`);
+  const modOn = configLib.get().moderation?.enabled === true
+    ? `群管=开(${moderation.status().handled})` : '群管=关';
+  console.log(`[心跳] QQ=${qqStatus.connected ? '已连接' : '断开'} | 会话=${store.chats.size} | 收信=${stats.inMsgs} AI回=${stats.aiReplies} 跳过=${stats.skips} | 主动=${proOn} ${modOn} ${brainGate.busy ? '大脑=忙' : ''} | DeepSeek=${dsState}`);
 }, 60 * 1000).unref?.();
 
 // 主动发言调度：30 秒一次。它绝大多数时候什么都不做（配置默认关），
@@ -358,14 +395,12 @@ setInterval(() => {
   proactive.tick().catch((e) => console.warn('[主动] tick 异常:', e.message));
 }, 30 * 1000).unref?.();
 
-// 记忆落盘 & 抽取兜底：5 分钟一次，避免攒着的观察一直不写盘
+// 兴趣衰减兜底：5 分钟一次（记忆已移除，只剩兴趣画像的衰减）
 setInterval(() => {
-  try { memoryExtract.tick(); } catch (e) { console.warn('[记忆] tick 异常:', e.message); }
-  try { memoryStore.decay(); } catch { /* noop */ }
   try { interestProfile.decay(); } catch { /* noop */ }
 }, 5 * 60 * 1000).unref?.();
 setInterval(() => {
-  try { memoryStore.flush(); } catch { /* noop */ }
+  try { interestProfile.flush(); } catch { /* noop */ }
 }, 60 * 1000).unref?.();
 
 /* ---------------- 工具 ---------------- */
@@ -541,15 +576,22 @@ async function handleApi(req, res, url) {
             ...c.qq.onebot,
             accessToken: token ? '********' + token.slice(-4) : '',
             hasToken: !!token
+          },
+          official: {
+            ...(c.qq.official || {}),
+            // AppSecret 全掩码：面板可截图，secret 一个字符都不回显
+            clientSecret: c.qq.official?.clientSecret ? '********' : '',
+            hasSecret: !!c.qq.official?.clientSecret
           }
         },
         ai: { ...c.ai, apiKey: c.ai.apiKey ? '********' : '', hasKey: !!c.ai.apiKey },
         // 记忆/兴趣/主动发言默认值是写在 config.js 里的，
         // 但老 config.json 里没有这几段——这里必须回默认值，否则面板打开全是空白
-        memory: { ...(configLib.DEFAULT_CONFIG.memory || {}), ...(c.memory || {}) },
+        // memory 已随功能移除，不再下发
         interest: { ...(configLib.DEFAULT_CONFIG.interest || {}), ...(c.interest || {}) },
         interestReply: { ...(configLib.DEFAULT_CONFIG.interestReply || {}), ...(c.interestReply || {}) },
         proactive: { ...(configLib.DEFAULT_CONFIG.proactive || {}), ...(c.proactive || {}) },
+        moderation: { ...(configLib.DEFAULT_CONFIG.moderation || {}), ...(c.moderation || {}) },
         update: { ...(c.update || {}) }
       });
     }
@@ -558,15 +600,38 @@ async function handleApi(req, res, url) {
       const patch = {};
       if (body.ai) {
         patch.ai = { ...body.ai };
-        if (!body.ai.apiKey || /^\*{3,}$/.test(String(body.ai.apiKey))) patch.ai.apiKey = configLib.get().ai.apiKey;
+        // hasKey/hasToken 是 GET 时算给面板看的「是否已配置」提示位，
+        // 不是配置项。原样回写会把它固化进 config.json（模板文件里就会多出
+        // 一堆没用的字段），所以保存时一律剔除，后端每次都重新算。
+        delete patch.ai.hasKey;
+        // API Key 的语义和 AccessToken 不同：留空 = 保持不变（面板上也这么写的），
+        // 所以必须有个显式清除的入口，否则用户永远删不掉这把 Key ——
+        // 想换回网页版、想清掉一把废弃的 Key，面板上没有任何办法做到。
+        const clearKey = body.ai.clearApiKey === true;
+        delete patch.ai.clearApiKey;
+        if (clearKey) patch.ai.apiKey = '';
+        else if (!body.ai.apiKey || /^\*{3,}$/.test(String(body.ai.apiKey))) patch.ai.apiKey = configLib.get().ai.apiKey;
       }
       if (body.qq) {
         patch.qq = { ...body.qq };
         const nextOb = patch.qq.onebot;
+        if (nextOb && typeof nextOb === 'object') delete nextOb.hasToken;
         if (nextOb && typeof nextOb.accessToken === 'string') {
           const prev = configLib.get().qq?.onebot?.accessToken || '';
           // 掩码原样回传 → 保留原值（用户没动这一栏）；留空 → 明确清除
           if (/^\*{4,}[A-Za-z0-9_-]{0,8}$/.test(nextOb.accessToken)) nextOb.accessToken = prev;
+        }
+        // 官方机器人 AppSecret：掩码回传=保留原值；**留空也=保留原值**。
+        // 为什么空不清除：扫码绑定把 secret 写进配置后，用户在面板上习惯性点一下「保存」，
+        // 空的输入框就会把刚绑定的 secret 清掉 —— 然后永远 100016，这是真实发生过的死循环。
+        // 真要换号：重新走扫码绑定即可（bind confirm 会覆盖写入）。
+        const nextOf = patch.qq.official;
+        if (nextOf && typeof nextOf === 'object') {
+          delete nextOf.hasSecret;
+          if (typeof nextOf.clientSecret === 'string') {
+            const prevSecret = configLib.get().qq?.official?.clientSecret || '';
+            if (!nextOf.clientSecret || /^\*{4,}$/.test(nextOf.clientSecret)) nextOf.clientSecret = prevSecret;
+          }
         }
       }
       /* 先记下旧的 QQ 接入配置，判断是否需要重建适配器 */
@@ -587,18 +652,7 @@ async function handleApi(req, res, url) {
         return /^([01]\d|2[0-3]):[0-5]\d$/.test(s) ? s : dflt;
       };
       const D = configLib.DEFAULT_CONFIG;
-      if (body.memory && typeof body.memory === 'object') {
-        patch.memory = {
-          enabled: asBool(body.memory.enabled, true),
-          backend: 'json',
-          digestEvery: Math.round(clamp(body.memory.digestEvery, 5, 200, D.memory.digestEvery)),
-          digestMinChars: Math.round(clamp(body.memory.digestMinChars, 2, 20, D.memory.digestMinChars)),
-          autoExtract: asBool(body.memory.autoExtract, true),
-          maxPerScope: Math.round(clamp(body.memory.maxPerScope, 100, 200000, D.memory.maxPerScope)),
-          decayDays: Math.round(clamp(body.memory.decayDays, 1, 3650, D.memory.decayDays)),
-          promptTopN: Math.round(clamp(body.memory.promptTopN, 0, 12, D.memory.promptTopN))
-        };
-      }
+      // memory 设置块已随功能移除：前端就算提交也会被忽略，不再写进配置
       if (body.interest && typeof body.interest === 'object') {
         const caps = Array.isArray(body.interest.capabilities)
           ? body.interest.capabilities.map((s) => String(s || '').trim().slice(0, 8)).filter(Boolean).slice(0, 30)
@@ -643,6 +697,60 @@ async function handleApi(req, res, url) {
         // 安全阀：演练模式下允许开着 enabled 观察行为；生产模式下必须先关 shadow 才会真发。
         // 面板「一键闭嘴」走 /api/proactive/kill，比这里更直接。
       }
+      /* ---- 群管理 ----
+         和上面一样逐字段白名单 + 夹取：这几个值是「删别人消息」的开关，
+         前端一个笔误把 maxMsgs 写成 0，整群的人都会被当成刷屏。 */
+      if (body.moderation && typeof body.moderation === 'object') {
+        const m = body.moderation;
+        const Dm = D.moderation;
+        const asText = (v, dflt, max) => String(v ?? dflt).slice(0, max);
+        patch.moderation = {
+          enabled: asBool(m.enabled, false),
+          shadow: asBool(m.shadow, false),
+          autoPunish: asBool(m.autoPunish, false),
+          whitelistUsers: asText(m.whitelistUsers, '', 500),
+          whitelistChats: asText(m.whitelistChats, '', 500),
+          spam: {
+            enabled: asBool(m.spam?.enabled, true),
+            windowSec: Math.round(clamp(m.spam?.windowSec, 1, 600, Dm.spam.windowSec)),
+            maxMsgs: Math.round(clamp(m.spam?.maxMsgs, 2, 100, Dm.spam.maxMsgs)),
+            strikesDecayMin: Math.round(clamp(m.spam?.strikesDecayMin, 1, 1440, Dm.spam.strikesDecayMin)),
+            muteMin: Math.round(clamp(m.spam?.muteMin, 1, 43200, Dm.spam.muteMin))
+          },
+          ad: {
+            enabled: asBool(m.ad?.enabled, true),
+            deleteMsg: asBool(m.ad?.deleteMsg, true),
+            blockLinks: asBool(m.ad?.blockLinks, false)
+          },
+          banned: {
+            enabled: asBool(m.banned?.enabled, true),
+            words: asText(m.banned?.words, Dm.banned.words, 2000),
+            deleteMsg: asBool(m.banned?.deleteMsg, false),
+            notifyAdmin: asBool(m.banned?.notifyAdmin, true)
+          },
+          duplicate: {
+            enabled: asBool(m.duplicate?.enabled, true),
+            windowSec: Math.round(clamp(m.duplicate?.windowSec, 5, 3600, Dm.duplicate.windowSec)),
+            times: Math.round(clamp(m.duplicate?.times, 2, 20, Dm.duplicate.times)),
+            minChars: Math.round(clamp(m.duplicate?.minChars, 2, 100, Dm.duplicate.minChars)),
+            notice: asBool(m.duplicate?.notice, true),
+            deleteMsg: asBool(m.duplicate?.deleteMsg, true)
+          },
+          welcome: {
+            enabled: asBool(m.welcome?.enabled, true),
+            text: asText(m.welcome?.text, Dm.welcome.text, 300),
+            delaySec: Math.round(clamp(m.welcome?.delaySec, 0, 60, Dm.welcome.delaySec))
+          },
+          curfew: {
+            enabled: asBool(m.curfew?.enabled, true),
+            from: asTime(m.curfew?.from, Dm.curfew.from),
+            to: asTime(m.curfew?.to, Dm.curfew.to),
+            text: asText(m.curfew?.text, Dm.curfew.text, 300),
+            maxPerNight: Math.round(clamp(m.curfew?.maxPerNight, 1, 50, Dm.curfew.maxPerNight)),
+            gapMin: Math.round(clamp(m.curfew?.gapMin, 0, 1440, Dm.curfew.gapMin))
+          }
+        };
+      }
       const beforeQQ = JSON.stringify(configLib.get().qq);
       configLib.save(patch);
       if (patch.ai) {
@@ -672,6 +780,44 @@ async function handleApi(req, res, url) {
 
   /* ---------------- 网页版模型（切换模型） ---------------- */
   /* ---------------- 群崽 QQ 内核 ---------------- */
+  /* ---------------- 群管理 ---------------- */
+  if (p === '/api/moderation' && req.method === 'GET') {
+    return sendJson(res, 200, { ok: true, moderation: moderation.status() });
+  }
+
+  /* ---------------- QQ 官方机器人：扫码绑定 ---------------- */
+  if (p === '/api/qqbot/bind/start' && req.method === 'POST') {
+    try {
+      const url = await qqBotBind.start();
+      return sendJson(res, 200, { ok: true, connectUrl: url });
+    } catch (e) {
+      return sendJson(res, 200, { ok: false, error: e.message });
+    }
+  }
+  if (p === '/api/qqbot/bind/status' && req.method === 'GET') {
+    return sendJson(res, 200, { ok: true, bind: qqBotBind.statusSnapshot() });
+  }
+  // 前端确认拿到凭据：落盘（写 config.official + 切 qqbot 模式）→ 重建适配器 → 清任务
+  if (p === '/api/qqbot/bind/confirm' && req.method === 'POST') {
+    const cred = qqBotBind.confirmTaken();
+    if (!cred || !cred.appId || !cred.appSecret) {
+      return sendJson(res, 200, { ok: false, error: '没有待确认的绑定凭据' });
+    }
+    configLib.save({
+      qq: {
+        mode: 'qqbot',
+        official: { appId: cred.appId, clientSecret: cred.appSecret, sandbox: false }
+      }
+    });
+    console.log('[qqbot-bind] 凭据已写入配置，切到官方机器人模式');
+    rebuildAdapter('扫码绑定完成');
+    return sendJson(res, 200, { ok: true });
+  }
+  if (p === '/api/qqbot/bind/cancel' && req.method === 'POST') {
+    qqBotBind.cancel();
+    return sendJson(res, 200, { ok: true });
+  }
+
   if (p === '/api/engine/status' && req.method === 'GET') {
     return sendJson(res, 200, { ok: true, engine: await engine.status() });
   }
@@ -1038,61 +1184,10 @@ if (p === '/api/qq/reconnect' && req.method === 'POST') {
     return;
   }
 
-  /* ---------------- 长期记忆 / 兴趣 / 主动发言 API ---------------- */
-  // 全部只读或显式写：面板要用它们展示「它记住了什么」「它想说什么」「为什么没说」。
+  /* ---------------- 兴趣 / 主动发言 API ---------------- */
+  // 面板要用它们展示「它想说什么」「为什么没说」。
   // 这几个接口是这套能力唯一的可观测入口——没有它们，用户只能看到「机器人好像变了」。
-  if (p === '/api/memory/stats' && req.method === 'GET') {
-    let st = {};
-    try { st = memoryStore.stats(); } catch (err) { st = { error: err.message }; }
-    let ex = {};
-    try { ex = memoryExtract.state(); } catch { /* noop */ }
-    return sendJson(res, 200, { ok: true, memory: st, extractor: ex, enabled: configLib.get().memory?.enabled !== false });
-  }
-
-  if (p === '/api/memory/list' && req.method === 'GET') {
-    const u = new URL(req.url, 'http://localhost');
-    const scope = String(u.searchParams.get('scope') || '');
-    const kind = String(u.searchParams.get('kind') || '');
-    const status = String(u.searchParams.get('status') || 'active');
-    const limit = Math.min(200, Math.max(1, Number(u.searchParams.get('limit')) || 50));
-    const offset = Math.max(0, Number(u.searchParams.get('offset')) || 0);
-    const r = memoryStore.list({ scope: scope || undefined, kind: kind || undefined, status, limit, offset });
-    return sendJson(res, 200, { ok: true, ...r });
-  }
-
-  if (p === '/api/memory/search' && req.method === 'GET') {
-    const u = new URL(req.url, 'http://localhost');
-    const scope = String(u.searchParams.get('scope') || '');
-    const q = String(u.searchParams.get('q') || '');
-    const topN = Math.min(50, Math.max(1, Number(u.searchParams.get('topN')) || 10));
-    const hits = memoryStore.search({ scope: scope || undefined, text: q, topN, minScore: 0 })
-      .map((h) => ({ ...h.item, score: Number(h.score.toFixed(3)) }));
-    return sendJson(res, 200, { ok: true, items: hits });
-  }
-
-  if (p === '/api/memory/upsert' && req.method === 'POST') {
-    const body = await readBody(req);
-    const text = String(body.text || '').trim();
-    if (!text) return sendJson(res, 400, { error: '缺少 text' });
-    const r = memoryStore.upsert({
-      scope: String(body.scope || ''),
-      kind: ['fact', 'event', 'meme', 'pref', 'relation'].includes(body.kind) ? body.kind : 'fact',
-      text,
-      subject: body.subject ? String(body.subject) : '',
-      weight: Number(body.weight) || 1,
-      conf: Number(body.conf) || 0.9,
-      origin: 'manual'
-    });
-    return sendJson(res, 200, { ok: true, ...r });
-  }
-
-  if (p === '/api/memory/forget' && req.method === 'POST') {
-    const body = await readBody(req);
-    const id = String(body.id || '');
-    if (!id) return sendJson(res, 400, { error: '缺少 id' });
-    const gone = memoryStore.forget(id, body.hard === true);
-    return sendJson(res, gone ? 200 : 404, { ok: gone, error: gone ? undefined : '没有这条记忆' });
-  }
+  // （长期记忆的 /api/memory/* 已随功能一并移除）
 
   if (p === '/api/interest/profile' && req.method === 'GET') {
     const u = new URL(req.url, 'http://localhost');
@@ -1271,6 +1366,9 @@ setInterval(() => broadcast({ type: 'ping', t: Date.now() }), 30000).unref?.();
 const shutdown = () => {
   console.log('\n退出中…');
   try { ports.writeRuntime(ROOT, { serverPort: 0, stopped: true }); } catch { /* noop */ }
+  // 服务退出必须连带把 QQ 运行时停掉：它是 detached 拉起的，不主动停就会留在后台，
+  // 用户下次启动会撞端口，或者看到一个「界面已关掉、内核还在跑」的幽灵进程。
+  try { engine.stop(); } catch { /* noop */ }
   try { adapter.close(); } catch { /* noop */ }
   try { store.save(); } catch { /* noop */ }
   try { server.close(); } catch { /* noop */ }

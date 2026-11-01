@@ -302,6 +302,65 @@ function cleanup(dir) { try { fs.rmSync(dir, { recursive: true, force: true }); 
     cleanup(w.dir);
   }
 
+  section('9. tick 重入保护：上一轮没跑完时不能叠着压进来');
+  {
+    // 真实场景：tick 每 30 秒一拍，而里面要 await 大脑（最长 90 秒）。
+    // 没有这道锁，冷场时间越长就堆得越多——一次冷场会触发几十个并发 tick
+    // 同时翻记忆、同时抢大脑。用桩替掉 _tryInitiate，只数调用次数。
+    const chats = new Map([
+      ['group:1', { id: '1', type: 'group', targetId: '1' }],
+      ['group:2', { id: '2', type: 'group', targetId: '2' }]
+    ]);
+    const pro = new ProactiveEngine({
+      interest: null,
+      policy: { noteIgnored() {}, verdict() { return { ok: false }; } },
+      memory: null,
+      gate: null,
+      store: { chats, addMessage() {} },
+      adapter: {},
+      broadcast: () => {},
+      getConfig: () => ({ ai: { enabled: true }, proactive: { enabled: true, targetChatKeys: ['group:1', 'group:2'], idleMin: 1, minGroupMsgsToday: 0, maxPerHour: 9, maxPerDay: 99, minGapMs: 0 } }),
+      compose: async () => ''
+    });
+    let calls = 0;
+    pro._tryInitiate = async () => { calls++; await new Promise((r) => setTimeout(r, 120)); };
+    for (const k of ['group:1', 'group:2']) pro._daily.set(k, { day: new Date().toDateString(), count: 100 });
+
+    await Promise.all([pro.tick(), pro.tick(), pro.tick(), pro.tick(), pro.tick()]);
+    ok('5 拍重叠只跑了一轮（两个群各一次 = 2，无锁会是 10）', calls === 2, { calls });
+
+    const before = calls;
+    pro._lastTry.clear();
+    await pro.tick();
+    ok('锁在 finally 里放开，下一拍还能正常跑', calls > before, { before, after: calls });
+  }
+
+  section('10. QQ 断线时不白烧一次大脑，也不报看不懂的错');
+  {
+    // 真实场景：OneBot 没起来或正在重建适配器时 adapter 为 null。
+    // 不挡这一下，就会先花 90 秒让大脑生成文案，再崩在 sendText 上，
+    // 面板上只看到「Cannot read properties of null」。
+    const chats = new Map([['group:1', { id: '1', type: 'group', targetId: '1', name: 'g1' }]]);
+    const evts = [];
+    let composed = 0;
+    const pro = new ProactiveEngine({
+      interest: { settleBotSpeak: () => null, expireBotSpeak: () => false, markBotSpoke() {}, score: () => ({ score: 0.9 }) },
+      policy: { verdict: () => ({ ok: true, score: 0.9, grams: [] }), noteSent() {}, notePicked() {}, noteIgnored() {}, isMuted: () => false },
+      memory: { search: () => [{ item: { id: 'm1', text: '小王想买机械键盘', kind: 'fact' }, score: 0.5 }], touchHits() {} },
+      gate: null,
+      store: { chats, addMessage() {}, getMessages: () => [] },
+      adapter: null, // ← 断线
+      broadcast: (e) => evts.push(e),
+      getConfig: () => ({ ai: { enabled: true }, proactive: { enabled: true, shadow: false, targetChatKeys: ['group:1'], idleMin: 1, minGroupMsgsToday: 0, maxPerHour: 9, maxPerDay: 99, minGapMs: 0, candidateKinds: ['fact'] } }),
+      compose: async () => { composed++; return '键盘买了吗？'; }
+    });
+    pro._daily.set('group:1', { day: new Date().toDateString(), count: 50 });
+    await pro.tick();
+    const skip = evts.find((e) => e.type === 'proactive_skipped');
+    ok('断线时给出可读原因「QQ 未连接」', !!skip && skip.reason === 'QQ 未连接', skip || evts.map((e) => e.type));
+    ok('断线时不该白烧一次大脑生成', composed === 0, { composed });
+  }
+
   /* ---------------- 汇总 ---------------- */
   console.log(`\n=== ${pass} 通过 / ${fail} 失败 ===`);
   if (fail) {

@@ -29,6 +29,119 @@ function exists(p) {
   try { return fs.existsSync(p); } catch { return false; }
 }
 
+/**
+ * 找出「命令行里出现 dir 这个目录」的进程并结束。
+ * 为什么需要它：运行时是 launcher.ps1 用 detached 拉起的，不在群崽进程树里，
+ * startedProcess 拿不到它 —— 只按 pid 杀会出现「点停止服务，NapCat 还在后台跑」。
+ * 只比精确目录前缀，不用模糊匹配，避免误杀别处的 node（用户可能同时开着自己的项目）。
+ */
+/**
+ * 目录归一化：Windows 的 \\ 与 / 混用很常见，比较前必须统一。
+ * 反斜杠用 String.fromCharCode 取，避免源码转义把正则写坏。
+ */
+const SEP_BACK = String.fromCharCode(92);
+function normDir(s) {
+  return String(s || '').split(SEP_BACK).join('/').toLowerCase().replace(/\/+$/, '');
+}
+
+/**
+ * 从候选运行时里挑「这次该用的那一份」。
+ *
+ * ★ 为什么需要它（真实踩坑，用户报「QQ 连不上」）：
+ *   候选列表的顺序是「内置 NapCat → 用户填的目录 → 扫到的目录」。
+ *   用户机器上真正在跑的往往是外部运行时（比如 SnowLuma），而内置那份从没登录过。
+ *   老逻辑按顺序取第一个能读出配置的目录就 return —— 于是：
+ *     1. 群崽认定运行时要启动的是那个从没登录过的内置运行时；
+ *     2. 拿它配置里的账号 A 的 token 去连 3001；
+ *     3. 3001 上真正在听的是外部运行时的另一个号 B，token 对不上 → unauthorized；
+ *     4. 每 5 秒重连一次，刷了 1MB 日志，界面上只有一句「连接错误」。
+ *
+ *   规则：正在跑的优先；都没在跑才退回列表顺序的第一个。
+ *
+ * @param {Array} candidates 已探测成功（能读出 OneBot 配置）的运行时
+ * @param {Array<string>} liveDirs 端口在听且归属对得上的目录
+ */
+function pickRuntime(candidates, liveDirs) {
+  const list = Array.isArray(candidates) ? candidates.filter(Boolean) : [];
+  if (!list.length) return null;
+  const live = new Set((Array.isArray(liveDirs) ? liveDirs : []).map(normDir).filter(Boolean));
+  return list.find((c) => live.has(normDir(c.dir))) || list[0];
+}
+
+/**
+ * 查「谁在监听这个端口」，判断它是不是我们的运行时。
+ * 返回 'ours' | 'other' | 'unknown'（查不出来就当 unknown，保持旧行为不误判）。
+ * 为什么要单独查：端口开着不等于我们自己的运行时装起来了 —— 用户另跑一份
+ * SnowLuma 占着同一个 3001 时，只看端口会报「运行中」，而他点停止也停不掉。
+ */
+function portOwnerOf(port, dir) {
+  if (!IS_WIN || !port) return 'unknown';
+  try {
+    const ps = "[Console]::OutputEncoding=[Text.Encoding]::UTF8; "
+      + "Get-NetTCPConnection -LocalPort " + Number(port) + " -State Listen -ErrorAction SilentlyContinue | "
+      + "Select-Object -First 1 -ExpandProperty OwningProcess";
+    const r = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], {
+      windowsHide: true, encoding: 'utf8', timeout: 8000
+    });
+    const pid = parseInt(String(r.stdout || '').trim(), 10);
+    if (!(pid > 0)) return 'unknown';
+    const ps2 = "[Console]::OutputEncoding=[Text.Encoding]::UTF8; "
+      + "(Get-CimInstance Win32_Process -Filter \"ProcessId=" + pid + "\").CommandLine";
+    const r2 = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps2], {
+      windowsHide: true, encoding: 'utf8', timeout: 8000
+    });
+    const cmd = String(r2.stdout || '').trim();
+    if (!cmd) return 'unknown';
+    const sep = String.fromCharCode(92);
+    const norm = (s) => String(s || '').split(sep).join('/').toLowerCase();
+    return norm(cmd).includes(norm(dir).replace(/\/+$/, '')) ? 'ours' : 'other';
+  } catch {
+    return 'unknown';
+  }
+}
+
+function killByInstallDir(dir) {
+  if (!IS_WIN || !dir) return [];
+  const killed = [];
+  try {
+    // 用 PowerShell 而不是 wmic：wmic 在 Win11 已被移除。
+    // ★ 两个坑都实测踩过：
+    //   1) 不设 [Console]::OutputEncoding=UTF8 时 PowerShell 用 GBK 输出，
+    //      中文安装目录读回来是乱码；
+    //   2) 匹配**不能放在 PowerShell 里做** —— 目录参数可能是 D:/x/y（正斜杠）
+    //      而 CommandLine 里是 D:\x\y（反斜杠），-like 永远不命中。
+    //   所以这里只取「pid|命令行」原始数据，分隔符归一和历史匹配全在 JS 里做。
+    const ps = "[Console]::OutputEncoding=[Text.Encoding]::UTF8; "
+      + "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | "
+      + "ForEach-Object { $_.ProcessId.ToString() + '|' + [string]$_.CommandLine }";
+    const r = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], {
+      windowsHide: true, encoding: 'utf8', timeout: 8000
+    });
+    // 反斜杠用 String.fromCharCode 取，避免源码里的转义把正则/路径写坏
+    const sep = String.fromCharCode(92);
+    const norm = (s) => String(s || '').split(sep).join('/').toLowerCase();
+    const want = norm(dir).replace(/\/+$/, '');
+    if (!want) return killed;
+
+    const pids = [];
+    for (const ln of String(r.stdout || '').split(/\r?\n/)) {
+      const i = ln.indexOf('|');
+      if (i <= 0) continue;
+      const pid = parseInt(ln.slice(0, i), 10);
+      const cmd = ln.slice(i + 1);
+      // 只认「命令行里出现这个目录」的 node，精确到目录前缀，不误伤别处
+      if (pid > 0 && norm(cmd).includes(want)) pids.push(pid);
+    }
+    for (const p of pids) {
+      try {
+        spawnSync('taskkill.exe', ['/PID', String(p), '/T', '/F'], { windowsHide: true, timeout: 8000 });
+        killed.push(p);
+      } catch { /* 单个杀不掉不影响其余 */ }
+    }
+  } catch { /* 拿不到进程列表就只靠 pid 那条路 */ }
+  return killed;
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function readJson(p) {
@@ -203,10 +316,11 @@ class QQEngine {
           } catch { /* 盘符不存在或没权限 */ }
         }
       }
-    } else {
-      // 只认内置的，但「自定义目录」栏填了就当作显式覆盖，仍然尊重
-      add(cfg.qq?.engine?.dir);
     }
+    // ★ bundled 模式这里以前会 add(cfg.qq?.engine?.dir)「当作显式覆盖」。
+    //   结果：用户把「用哪一份」切回内置，配置里那个旧的 D:\SnowLuma-... 还在，
+    //   于是照样被当成候选，跑起来的仍是 SnowLuma —— 内置选项形同虚设，
+    //   「停止服务」也只认 SnowLuma 的目录。选了内置就只认内置。
     return dirs;
   }
 
@@ -370,9 +484,6 @@ class QQEngine {
 
     const target = path.join(configDir, `onebot11_${account || ''}.json`);
     const generic = path.join(configDir, 'onebot11.json');
-    // 未指定账号时先写公共模板，NapCat 登录后会自动派生 onebot11_<uin>.json
-    const file = account ? target : generic;
-    if (exists(file)) return { ok: true, created: false, file };
 
     const cfg = {
       network: {
@@ -414,9 +525,54 @@ class QQEngine {
       imageDownloadProxy: '',
       timeout: { baseTimeout: 10000, uploadSpeedKBps: 256, downloadSpeedKBps: 256, maxTimeout: 1800000 }
     };
+
+    const created = [];
+    const repaired = [];
     try {
-      writeFileAtomic(file, JSON.stringify(cfg, null, 2));
-      return { ok: true, created: true, file };
+      // ★ 公共模板必须一起写：NapCat 是照着 onebot11.json 给**每个新登录的号**
+      // 派生 onebot11_<uin>.json 的。只写 account 那一份的话，用户换号扫码后
+      // 派生出来的是空配置（没有 websocketServers），3001 根本不会监听 ——
+      // 表现就是「扫完码没变成已连接、发消息不理我」。
+      if (!exists(generic)) {
+        writeFileAtomic(generic, JSON.stringify(cfg, null, 2));
+        created.push(generic);
+      }
+      if (account && !exists(target)) {
+        writeFileAtomic(target, JSON.stringify(cfg, null, 2));
+        created.push(target);
+      }
+
+      // 兜底修复：已经存在的派生文件如果是空的（没有可用的网络监听器），
+      // 说明它就是那次「换号扫码」留下的坑，补上默认监听。只补空壳，
+      // 用户自己配过 token / 端口的一律不碰。
+      for (const name of fs.readdirSync(configDir)) {
+        if (!/^onebot\d*_?[0-9]*\.json$/i.test(name)) continue;
+        const f = path.join(configDir, name);
+        const cur = readJson(f);
+        if (!cur || typeof cur !== 'object') continue;
+        if (this._readNetwork(cur)) continue;  // 已经有监听器，不动
+        const net = cur.network || cur.networks;
+        // 结构完全缺 network 段才补；有 network 但被用户显式关掉的不算空壳
+        if (net && typeof net === 'object') {
+          const wsList = net.websocketServers || net.wsServers || [];
+          const httpList = net.httpServers || [];
+          const hadAny = (Array.isArray(wsList) && wsList.length)
+            || (Array.isArray(httpList) && httpList.length);
+          if (hadAny) continue;  // 有监听器条目但没填端口/被禁用 → 用户自己的选择
+        }
+        cur.network = cfg.network;
+        writeFileAtomic(f, JSON.stringify(cur, null, 2));
+        repaired.push(f);
+      }
+
+      return {
+        ok: true,
+        created: created.length > 0,
+        repaired: repaired.length > 0,
+        file: created[0] || repaired[0] || generic,
+        createdFiles: created,
+        repairedFiles: repaired
+      };
     } catch (err) {
       return { ok: false, error: '写入 NapCat 配置失败：' + err.message };
     }
@@ -482,9 +638,19 @@ class QQEngine {
     };
   }
 
+  /**
+   * 找出这次该用的运行时。
+   *
+   * ★ 老实现按候选顺序「取第一个能读出配置的目录就返回」，这在用户机器上会选错：
+   *   内置的 engine/napcat 排在最前，但它可能从没登录过；真正在跑的是列表后面
+   *   用户自己装的 SnowLuma。选错目录 = 拿错账号的 token 去连端口 = 永远 unauthorized。
+   *   现在改成「先把所有候选都探测一遍，再挑正在跑的那一个」。
+   */
   async discover(override = {}) {
     const wanted = override.account || this.getConfig().qq?.engine?.account || '';
     const tried = [];
+    /** 探测成功的候选（能读出 OneBot 配置） */
+    const found = [];
     for (const dir of this._candidateDirs(override.dir)) {
       tried.push(dir);
       if (!exists(dir)) continue;
@@ -495,18 +661,30 @@ class QQEngine {
         if (!made.ok) { this.lastError = made.error; continue; }
       }
       const info = this._inspect(dir, wanted);
-      if (info) {
-        this.lastInfo = info;
-        return { ...info, tried };
-      }
+      if (info) found.push(info);
     }
-    return {
-      ok: false,
-      error: wanted
-        ? `没有找到账号 ${wanted} 的 OneBot 配置；内置的监视器需要先启动一次并扫码登录`
-        : '没有找到兼容的 OneBot 运行时，请在设置里填写监视器目录',
-      tried
-    };
+    if (!found.length) {
+      return {
+        ok: false,
+        error: wanted
+          ? `没有找到账号 ${wanted} 的 OneBot 配置；内置的监视器需要先启动一次并扫码登录`
+          : '没有找到兼容的 OneBot 运行时，请在设置里填写监视器目录',
+        tried
+      };
+    }
+
+    // 端口在听、且归属对得上的目录 = 真正在跑的那份
+    const liveDirs = [];
+    for (const info of found) {
+      const port = info.wsPort || info.apiPort;
+      if (!port) continue;
+      if (!(await isPortOpen(port))) continue;
+      if (portOwnerOf(port, info.dir) === 'other') continue;
+      liveDirs.push(info.dir);
+    }
+    const info = pickRuntime(found, liveDirs);
+    this.lastInfo = info;
+    return { ...info, tried, candidates: found.length, pickedRunning: liveDirs.some((d) => normDir(d) === normDir(info.dir)) };
   }
 
   async status() {
@@ -517,7 +695,16 @@ class QQEngine {
     const port = info?.apiPort || Number(engineCfg.apiPort) || DEFAULT_API_PORT;
     // 用户在设置里填的 WS 地址优先——他可能手动接了别的监听器
     const configuredWs = String(cfg.qq?.onebot?.wsUrl || '');
-    const running = wsPort ? await isPortOpen(wsPort) : await isPortOpen(port);
+    const portOpen = wsPort ? await isPortOpen(wsPort) : await isPortOpen(port);
+    // ★ 端口开着 ≠ 我们自己的运行时开着。
+    //   本机上很常见「用户自己另跑了一个 SnowLuma/NapCat 占着 3001」，
+    //   只判端口就会报「运行中」，用户点停止也停不掉（那个进程根本不归群崽）。
+    //   这里查一下监听者是谁：属于当前运行时目录才算我们的，判不出来时保持旧行为。
+    //   注意目录要回落到配置里的 dir —— 服务刚启动还没 detect 时 info 是 null，
+    //   只用 info.dir 会永远算成 unknown，等于这条判断没生效。
+    const dirForOwner = info?.dir || engineCfg.dir || '';
+    const owner = portOpen && dirForOwner ? portOwnerOf(wsPort || port, dirForOwner) : 'unknown';
+    const running = portOpen && owner !== 'other';
     // 运行时的面板开着但 OneBot 端口没开 —— 多半是还没扫码登录
     const webuiOpen = info ? await this._webuiOpen(info) : false;
     return {
@@ -530,6 +717,8 @@ class QQEngine {
       kind: info?.public?.kind || '',
       bundled: !!info?.public?.bundled,
       running,
+      /** 端口被别的程序占着（例如你自己另开的运行时），群崽管不了它 */
+      portTakenByOther: owner === 'other',
       /** 面板开着、OneBot 没开 = 在等你扫码 */
       needLogin: !running && webuiOpen,
       startedByApp: !!this.startedProcess,
@@ -540,7 +729,9 @@ class QQEngine {
       lastError: this.lastError,
       configFile: info?.public?.configFile || '',
       entry: info?.public?.entry || '',
-      bundledAvailable: exists(this.bundledRoot)
+      bundledAvailable: exists(this.bundledRoot),
+      /** 内置那份的真实目录：前端选「内置」时要把目录栏恢复成它 */
+      bundledDir: this.bundledRoot
     };
   }
 
@@ -551,7 +742,15 @@ class QQEngine {
 
   async _anyOpen(info) {
     for (const p of this._waitPorts(info)) {
-      if (await isPortOpen(p)) return p;
+      if (!(await isPortOpen(p))) continue;
+      // ★ 端口开着不等于「是我们的运行时开着」。
+      // 用户机器上常常还跑着另一套 OneBot 实现（SnowLuma / 老 NapCat / LLOneBot），
+      // 它们会占住同一个 3001。只看端口就会得出「已经在跑了」的结论，
+      // 于是 start() 直接返回 alreadyRunning:true、根本不启动，用户点什么都没反应。
+      // 这里必须问清端口归属：被别的程序占着就跳过，继续往下去启动我们自己的那份。
+      const owner = portOwnerOf(p, info.dir);
+      if (owner === 'other') continue;
+      return p;
     }
     return 0;
   }
@@ -632,6 +831,25 @@ class QQEngine {
             }
             return res;
           }
+          // ★ 换号扫码的坑：登录成功后 NapCat 会派生 onebot11_<新号>.json，
+          // 但端口是按 info（老号配置）算的，新号的派生文件如果没带监听器，
+          // 3001 永远不会开 —— 这里就一直等到 10 分钟超时，用户看到的是
+          // 「扫完码没反应」。所以除了等端口，还必须盯着配置目录：
+          // 出现新号的派生文件就说明登录成功了，立刻按新号补齐并重新发现。
+          const fresh = this._detectFreshAccount(info);
+          if (fresh) {
+            try { this._ensureNapCatConfig(info.dir, fresh); } catch { /* noop */ }
+            const again = await this.discover({ dir: info.dir, account: fresh });
+            if (again.ok) {
+              Object.assign(info, again, { account: again.account || fresh });
+              info.public = again.public || info.public;
+              const res = await this._sync(info, started);
+              if (res.ok && typeof this.onReady === 'function') {
+                try { this.onReady(res); } catch { /* noop */ }
+              }
+              return res;
+            }
+          }
           if (this.startedProcess && this.startedProcess.exitCode !== null
             && this.startedProcess.exitCode !== undefined) break;
         }
@@ -642,6 +860,40 @@ class QQEngine {
       }
     })();
     return this.pending;
+  }
+
+  /**
+   * 看配置目录里有没有「这次登录才出现」的账号文件。
+   * 有 = NapCat 已经登录成功并派生了该账号的配置，返回账号号；
+   * 没有 = 还没登录（或就是原来那个号），返回 ''。
+   *
+   * ★ 必须按 mtime 过滤：目录里往往同时躺着**好几个**历史账号的派生文件
+   * （换过号就会留下）。只按「和当前账号不同」判断的话，刚切到新号，
+   * 老号的旧文件立刻又被当成「新登录」，两个号来回切，永远连不上。
+   */
+  _detectFreshAccount(info) {
+    if (!info?.dir) return '';
+    const known = String(info.account || '');
+    // 本次启动之后写的才算「这次登录」派生的；留 2 分钟余量防止时钟误差
+    const since = (this.lastStartedAt || 0) - 120000;
+    const dirs = [path.join(info.dir, 'config'), path.join(info.dir, 'napcat', 'config')];
+    let best = '';
+    let bestAt = 0;
+    for (const d of dirs) {
+      let names = [];
+      try { names = fs.readdirSync(d); } catch { continue; }
+      for (const name of names) {
+        const m = /^onebot\d*_([0-9]{5,})\.json$/i.exec(name);
+        if (!m) continue;
+        const uin = m[1];
+        if (known && uin === known) continue;
+        let st = null;
+        try { st = fs.statSync(path.join(d, name)); } catch { continue; }
+        if (since && st.mtimeMs < since) continue;  // 历史遗留文件，不是这次登录的
+        if (st.mtimeMs > bestAt) { bestAt = st.mtimeMs; best = uin; }
+      }
+    }
+    return best;
   }
 
   /** 目录里最新的那个日志文件的最后一行，用来把「启动超时」说得具体点 */
@@ -679,9 +931,16 @@ class QQEngine {
       }
     }
     const loginId = login?.data?.user_id != null ? String(login.data.user_id) : '';
-    if (info.account && loginId && loginId !== String(info.account)) {
-      this.lastError = `监视器登录的是 ${loginId}，与目标机器人号 ${info.account} 不一致，已停止同步`;
-      return { ok: false, error: this.lastError, info: info.public };
+    // ★ 账号不一致不能直接判定失败：用户换号扫码是常见操作（登错了 / 换了个小号）。
+    // 老逻辑在这里 return ok:false，engine.account 又一直停在老号上，
+    // 于是新号虽然登录成功，配置同步却被自己的「账号不一致」挡死，
+    // 表现就是「扫完码没变成已连接」。正确做法是跟着实际登录的号走。
+    const switched = !!(info.account && loginId && loginId !== String(info.account));
+    if (switched) {
+      console.log(`[engine] 检测到换号登录：配置里是 ${info.account}，实际登录 ${loginId}，已切换`);
+      // 换了号就得按新号补配置，否则 NapCat 派生出来的可能是空的
+      try { this._ensureNapCatConfig(info.dir, loginId); } catch { /* noop */ }
+      info.account = loginId;
     }
 
     const before = this.getConfig().qq || {};
@@ -689,9 +948,14 @@ class QQEngine {
       wsUrl: `ws://127.0.0.1:${info.wsPort}`,
       accessToken: info.wsToken
     };
+    /* mode 是用户的显式选择（onebot / qqbot / mock），引擎只负责把 OneBot 连接参数同步对。
+       以前这里无条件写 mode:'onebot' —— 用户在面板上选了「QQ 官方机器人」，
+       只要内置 NapCat 还登录着，每次内核自动同步都会把模式偷偷改回 onebot，
+       表现就是「我根本没换过模式，它自己换了」。只允许 mock → onebot 自动升级。 */
+    const keepMode = before.mode === 'qqbot' ? 'qqbot' : 'onebot';
     this.saveConfig({
       qq: {
-        mode: 'onebot',
+        mode: keepMode,
         onebot: nextOnebot,
         engine: {
           ...(before.engine || {}),
@@ -703,7 +967,7 @@ class QQEngine {
       }
     });
     this.lastError = '';
-    const changed = before.mode !== 'onebot'
+    const changed = before.mode !== keepMode
       || before.onebot?.wsUrl !== nextOnebot.wsUrl
       || before.onebot?.accessToken !== nextOnebot.accessToken;
 
@@ -800,22 +1064,29 @@ class QQEngine {
   }
 
   stop() {
-    if (!this.startedProcess) {
-      return { ok: false, error: '当前没有由群崽启动的监视器；为避免误杀，未停止其他进程' };
-    }
-    const pid = this.startedProcess.pid;
-    try {
-      if (IS_WIN) {
-        spawnSync('taskkill.exe', ['/PID', String(pid), '/T', '/F'], { windowsHide: true });
-      } else {
-        this.startedProcess.kill('SIGTERM');
-      }
-    } catch (err) {
-      return { ok: false, error: '停止失败：' + err.message };
+    // ★ NapCat/SnowLuma 是 launcher.ps1 独立拉起的（detached），不在群崽的进程树里，
+    //   所以 startedProcess 经常是 null —— 只靠它会导致「点停止服务，运行时还在后台跑」。
+    //   这里改成：先按 pid 杀已知子进程，再按安装目录兜底扫一遍。
+    const killed = [];
+    const pid = this.startedProcess?.pid;
+    if (pid) {
+      try {
+        if (IS_WIN) spawnSync('taskkill.exe', ['/PID', String(pid), '/T', '/F'], { windowsHide: true });
+        else this.startedProcess.kill('SIGTERM');
+        killed.push(pid);
+      } catch { /* 后面还有目录兜底 */ }
     }
     this.startedProcess = null;
-    return { ok: true, pid };
+
+    // 目录兜底：结束命令行里出现「本次使用的运行时目录」的进程。
+    // 只认 info.dir 精确前缀，避免误杀别处的 node / 用户自己的程序。
+    const dir = this.lastInfo?.dir || '';
+    if (dir) for (const p of killByInstallDir(dir)) killed.push(p);
+    if (!killed.length) {
+      return { ok: false, error: '当前没有由群崽启动的监视器；为避免误杀，未停止其他进程' };
+    }
+    return { ok: true, pid: pid || null, killed };
   }
 }
 
-module.exports = { QQEngine };
+module.exports = { QQEngine, pickRuntime, normDir };

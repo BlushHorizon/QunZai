@@ -71,6 +71,25 @@ class OneBotAdapter extends EventEmitter {
     this._pending = new Map();
     this._closedByUser = false;
     this._retryTimer = null;   // 重连定时器句柄（close() 要靠它清理）
+    /** 这一轮连接里有没有成功握手过——用来区分「根本没起来」和「被拒了」 */
+    this._everOpened = false;
+  }
+
+  /**
+   * 把「连不上」翻译成用户能照着做的动作。
+   *
+   * ★ 老文案只有一句「本机 OneBot 运行时未启动？」，实测把排查带沟里了：
+   *   真实情况是端口通着、对方也在跑，只是 accessToken 对不上，
+   *   SnowLuma 回的是「rejected unauthorized WebSocket upgrade」。
+   *   三种失败长得一模一样，用户只能瞎猜。这里按「有没有填 token」先分叉。
+   */
+  _diagnoseError() {
+    if (this._everOpened) return '连接中断，正在重连…';
+    if (this.accessToken) {
+      return '连接被拒绝：Token 对不上。去 OneBot 运行时的面板核对 accessToken，'
+        + '填进「设置 → QQ 接入」后保存（也可能是端口上跑的不是你配置的那个号）';
+    }
+    return '连接错误：本机 OneBot 运行时没在监听这个端口，或它要求 Token 而群崽没填';
   }
 
   connect() {
@@ -101,8 +120,13 @@ class OneBotAdapter extends EventEmitter {
 
     ws.addEventListener('open', async () => {
       if (this.ws !== ws) return;   // 已被新连接取代，旧 socket 的事件全部忽略
-      this.connected = true;
-      this.emit('status', { connected: true, message: '已连接 OneBot 服务' });
+      this._everOpened = true;
+      // ★ 连上 WS 服务器 ≠ QQ 在线。
+      //   NapCat/SnowLuma 的 OneBot 端在「未扫码登录」时照样接受 WS 连接，
+      //   只有 get_login_info 返回真实账号才算真的可用。
+      //   这里先标记「已连上服务、等确认」，确认拿到账号后才置 connected。
+      this.connected = false;
+      this.emit('status', { connected: false, message: '已连上 OneBot 服务，正在确认 QQ 登录状态…' });
       try {
         // 账号切换窗口期该调用可能瞬时失败，做几次重试
         let info = null;
@@ -110,13 +134,31 @@ class OneBotAdapter extends EventEmitter {
           try { info = await this.call('get_login_info'); }
           catch { await new Promise(r => setTimeout(r, 1500)); }
         }
-        if (info && this.ws === ws) {
+        if (this.ws !== ws) return;
+        // ★ 没登录时运行时有两种回法：直接报错，或者回 user_id=0 的空壳。
+        //   后者最阴险——不判就会显示「已连接：(0)」，用户以为好了，发消息却没人理。
+        const uid = info && Number(info.user_id);
+        if (info && uid) {
+          this.connected = true;
           this.self = { userId: info.user_id, nickname: info.nickname || '' };
           this.emit('status', { connected: true, message: `已连接：${this.self.nickname}(${this.self.userId})`, self: this.self });
+        } else {
+          // WS 通着但 QQ 没登录：必须报「未登录」，否则面板会骗人
+          this.connected = false;
+          this.emit('status', {
+            connected: false,
+            message: 'OneBot 服务已连上，但 QQ 还没登录（去运行时面板扫码）',
+            needLogin: true
+          });
         }
-      } catch { /* 忽略取登录信息失败 */ }
+      } catch (err) {
+        if (this.ws === ws) {
+          this.connected = false;
+          this.emit('status', { connected: false, message: '已连上 OneBot 服务，但取不到 QQ 登录信息（QQ 未登录？）', needLogin: true });
+        }
+      }
       try {
-        if (this.ws === ws) await this.call('get_version_info');
+        if (this.ws === ws && this.connected) await this.call('get_version_info');
       } catch { /* 可选动作 */ }
     });
 
@@ -144,7 +186,12 @@ class OneBotAdapter extends EventEmitter {
 
     ws.addEventListener('error', () => {
       if (this.ws !== ws) return;
-      this.emit('status', { connected: false, message: '连接错误（本机 OneBot 运行时未启动？）' });
+      this.emit('status', {
+        connected: false,
+        message: this._diagnoseError(),
+        // 有 token 却没连上，八成是被拒了——面板据此提示「去运行时面板核对 Token」
+        tokenRejected: !!(this.accessToken && !this._everOpened)
+      });
     });
   }
 
@@ -258,6 +305,13 @@ class OneBotAdapter extends EventEmitter {
       this.emit('meta', data.meta_event_type);
       return;
     }
+    // 群通知（有人进群/退群/被禁言）。群管功能要用它欢迎新人。
+    // 以前这里直接 return 把通知全丢了，所以「新人自动欢迎」做不了。
+    if (data.post_type === 'notice') {
+      const notice = normalizeNotice(data, this.self?.userId);
+      if (notice) this.emit('notice', notice);
+      return;
+    }
     if (data.post_type !== 'message' && data.post_type !== 'message_sent') return;
 
     const isGroup = data.message_type === 'group';
@@ -287,6 +341,45 @@ class OneBotAdapter extends EventEmitter {
     };
     this.emit('event', msg);
   }
+}
+
+/**
+ * 群通知归一化（post_type = notice）。
+ * 只认四类，其余返回 null 让上层忽略：
+ *   group_increase 有人进群 / group_decrease 有人退群 / group_ban 有人被禁言 / group_admin 管理员变动
+ * 字段名两套：OneBot 11 标准用 sub_type+operator_id，NapCat 有时把 target_id 写成 user_id，
+ * 这里都兜一遍，缺字段就返回 null，绝不让 undefined 流到欢迎语里。
+ */
+function normalizeNotice(data, selfUserId) {
+  const t = String(data.notice_type || '');
+  if (!t) return null;
+  const isGroup = data.group_id != null;
+  if (!isGroup) return null;                       // 好友相关通知暂时用不上
+  const chatId = String(data.group_id);
+  const selfId = String(data.self_id || selfUserId || '');
+  const base = { chatId, chatName: String(data.group_name || ''), selfId, time: Date.now(), raw: data };
+
+  if (t === 'group_increase') {
+    const userId = String(data.user_id ?? data.target_id ?? '');
+    if (!userId) return null;
+    return { ...base, type: 'group_increase', userId, userName: String(data.user_name || ''), operatorId: String(data.operator_id || '') };
+  }
+  if (t === 'group_decrease') {
+    const userId = String(data.user_id ?? data.target_id ?? '');
+    if (!userId) return null;
+    return { ...base, type: 'group_decrease', userId, subType: String(data.sub_type || ''), operatorId: String(data.operator_id || '') };
+  }
+  if (t === 'group_ban') {
+    const userId = String(data.user_id ?? data.target_id ?? '');
+    if (!userId) return null;
+    return { ...base, type: 'group_ban', userId, duration: Number(data.duration || 0), operatorId: String(data.operator_id || '') };
+  }
+  if (t === 'group_admin') {
+    const userId = String(data.user_id ?? '');
+    if (!userId) return null;
+    return { ...base, type: 'group_admin', userId, subType: String(data.sub_type || '') };
+  }
+  return null;
 }
 
 /** OneBot CQ 码字符串转义还原（& → &amp;、[ → &#91;、] → &#93;、, → &#44;）。
@@ -468,7 +561,16 @@ function createAdapter(qqConfig) {
       accessToken: qqConfig.onebot?.accessToken
     });
   }
+  // QQ 官方机器人（开放平台 v2）：AppID + AppSecret，WebSocket 网关长连接，无需公网
+  if (qqConfig.mode === 'qqbot') {
+    const { QQOfficialAdapter } = require('./qq-official-adapter');
+    return new QQOfficialAdapter({
+      appId: qqConfig.official?.appId,
+      clientSecret: qqConfig.official?.clientSecret,
+      sandbox: qqConfig.official?.sandbox
+    });
+  }
   return new MockAdapter();
 }
 
-module.exports = { createAdapter, OneBotAdapter, MockAdapter, normalizeText };
+module.exports = { createAdapter, OneBotAdapter, MockAdapter, normalizeText, normalizeNotice };

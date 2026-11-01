@@ -106,11 +106,20 @@ class MemoryStore {
 
   load() {
     const tmp = this.file + '.tmp';
+    // 构造函数已经 load 过一次，server.js 又显式 load 了一次（调用方还想在运行时重载）。
+    // 不清空的话第二次会把同一批条目再 _index 一遍：日志重复、索引工作量翻倍，
+    // 而且若两次读之间文件变了，旧条目会残留在索引里变成幽灵数据。
+    // 所以 load() 必须自带清场，保证「调几次结果都一样」。
+    this._byId.clear();
+    this._byScope.clear();
+    this._grams.clear();
+    this._seq = 0;
     const absorb = (raw) => {
       for (const it of raw.items || []) {
         if (!it || !it.id) continue;
         this._byId.set(it.id, it);
-        this._index(it);
+        // 已删的条目只留在 _byId 里供面板显示，不进检索索引
+        if (it.status === 'active') this._index(it);
         // 自增序号要接上已有 id，否则重启后会从 mem_000000 重号
         const m = /^mem_([0-9a-z]+)$/.exec(it.id);
         if (m) this._seq = Math.max(this._seq, parseInt(m[1], 36) || 0);
@@ -293,7 +302,13 @@ class MemoryStore {
       this._unindex(it);
       this._byId.delete(it.id);
     } else {
+      // 软删也要从索引里摘掉。
+      // 只改 status 的话，条目永远挂在 _byScope/_grams 里：前端每点一次「忘掉」，
+      // 内存里其实一条都没少，search() 每轮还要全量遍历并跳过它们。
+      // 用户的直觉是「忘掉了 = 不占地方了」，索引必须跟着一起忘。
       it.status = 'deleted';
+      this._unindex(it);
+      it.tokens = [];
     }
     this.scheduleSave();
     return true;
@@ -400,7 +415,15 @@ class MemoryStore {
       if (it.status !== 'active') continue;
       if (it.kind === 'fact' || it.kind === 'meme') continue;   // 人设和群梗不自动清
       const last = Math.max(it.ts || 0, it.lastHitAt || 0);
-      if (now - last > cutoff * 6 && (it.weight || 1) < 0.3) { it.status = 'deleted'; n++; }
+      if (now - last > cutoff * 6 && (it.weight || 1) < 0.3) {
+        // 归档必须同时踢出索引：否则「已归档」的条目还躺在 _byScope/_grams 里，
+        // search() 每轮全量扫过去再跳过它们——跑上几个月，库里的死条目会越积越多，
+        // 用户看到统计里 total 很小，检索却越来越慢。
+        this._unindex(it);
+        it.tokens = [];
+        it.status = 'deleted';
+        n++;
+      }
     }
     if (n) { this.scheduleSave(); this.log(`衰减整理：归档 ${n} 条低价值记忆`); }
     return n;

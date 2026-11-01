@@ -14,6 +14,7 @@
  *      默认关的原因：它要抢大脑，而大脑是单飞的（deepseek-web.js 的 _busy）。
  */
 const { normalizeText } = require('./memory-store');
+const { dbg } = require('./debug');
 
 /** 规则库：每条 = 一个正则 + 产出（type 用于判 kind 与置信度） */
 const RULES = [
@@ -26,7 +27,7 @@ const RULES = [
   { re: /我[^，。！？,.!?\s]{0,6}?(?:讨厌|不喜欢|受不了|恶心)([了过])?\s*([一-鿿A-Za-z0-9_]{2,16})/, type: 'pref', conf: 0.75, subject: 'self' },
   { re: /我(?:在|住在|人在)\s*([一-鿿A-Za-z0-9_]{2,12})(?=[，。！？,.!?\s]|$)/, type: 'fact', conf: 0.6, subject: 'self' },
   { re: /我(?:在做|在弄|在写|在学|在研究|在搞)\s*([一-鿿A-Za-z0-9_]{2,20})/, type: 'fact', conf: 0.7, subject: 'self' },
-  { re: /我(?:养了|有)(?:一)?(?:只|条|个)\s*([一-鿿A-Za-z0-9_]{1,10})/, type: 'fact', conf: 0.8, subject: 'self' },
+  { re: /我(?:养了|有)(?:一)?(?:只|条|个)\s*([一-鿿A-Za-z0-9_]{1,10})/, type: 'fact', conf: 0.8, subject: 'self', minLen: 1 },
   { re: /(?:明天|后天|周末|下周[一二三四五六日天]?)\s*(?:要|得|会)?\s*([一-鿿A-Za-z0-9_]{2,20})/, type: 'event', conf: 0.5, subject: 'when' },
   { re: /(?:最后|结论|决定)(?:是|就)?\s*([一-鿿A-Za-z0-9_，,。.]{2,40})/, type: 'event', conf: 0.6, subject: 'conclusion' },
   { re: /(?:以后|从今往后|下次)(?:就)?\s*([一-鿿A-Za-z0-9_]{2,30})/, type: 'event', conf: 0.5, subject: 'conclusion' }
@@ -117,7 +118,10 @@ class MemoryExtractor {
         // 命中词固定取最后一个捕获组：前面若有权态的「了/过」之类可选中缀，
         // 写死 m[1] 会把「了」当成「我喜欢的东西」存进记忆。
         const hit = String(m[m.length - 1] || '').trim();
-        if (!hit || hit.length < 2) continue;
+        // 「我养了一只猫」里命中词是「猫」，一个字也是完整信息。
+        // 默认仍要求 ≥2 字（挡掉「我住在A」这类噪音），规则可自己放宽。
+        const minHit = Number.isFinite(rule.minLen) ? rule.minLen : 2;
+        if (!hit || hit.length < minHit) continue;
         // 「我是谁」「我喜欢什么」这种带疑问的不算陈述
         if (/[?？]/.test(text)) continue;
         const entity = rule.subject === 'self'
@@ -168,7 +172,8 @@ class MemoryExtractor {
         console.warn('[记忆] 抽取失败（已忽略）:', err.message);
       }
     }
-    if (written) console.log(`[记忆] 本轮写入 ${written} 条`);
+    // 高频日志：每 40 条消息就一行，走 app.log 时会把真正重要的行埋掉 → 只在调试模式打
+    if (written) dbg(`[记忆] 本轮写入 ${written} 条`);
     return written;
   }
 

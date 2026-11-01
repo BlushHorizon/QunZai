@@ -96,7 +96,8 @@
 3. 双击桌面「群崽 QunZai」打开监控台 → 点「① 打开该网站」扫码登录一次 DeepSeek 网页版，之后它自己开工；服务启停在窗口右上角
 
 系统要求：Windows 10/11 + 本机已装桌面版 QQ（NTQQ）+ Edge/Chrome + 一台 QQ（建议小号）。
-想用自己那份 OneBot 11 运行时（SnowLuma / NapCat / LLOneBot 都行）就在同一处选「我自己找的」填目录。
+想用自己那份 OneBot 11 运行时就在同一处选「我自己找的」填目录：[SnowLuma](https://snowluma.github.io/zh/)（[下载](https://github.com/SnowLuma/SnowLuma/releases)）、[NapCat](https://github.com/NapNeko/NapCatQQ)、LLOneBot 都行。
+> SnowLuma 的许可不允许把它打进别人的安装包，所以群崽只内置 NapCat；想要 SnowLuma 的话自己下载解压，把目录填进去即可，群崽只连它的 OneBot 端口，不分发它的任何文件。
 
 ## 目录结构
 

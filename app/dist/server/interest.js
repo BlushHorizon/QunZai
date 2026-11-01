@@ -13,7 +13,10 @@
  *   有人接话 +0.15，无人接话 −0.20——
  *   因为「说错话」的代价远大于「少说一句」。
  */
+const fs = require('fs');
+const path = require('path');
 const { bigrams } = require('./memory-store');
+const { writeFileAtomic, readJson } = require('./atomic');
 
 const MAX_GRAMS_PER_SCOPE = 4000;
 
@@ -23,9 +26,10 @@ class InterestProfile {
    * @param {()=>object} opts.getConfig
    * @param {(evt:object)=>void} [opts.broadcast]
    */
-  constructor({ getConfig, broadcast }) {
+  constructor({ getConfig, broadcast, dataDir, log }) {
     this.getConfig = getConfig;
     this.broadcast = typeof broadcast === 'function' ? broadcast : () => {};
+    this.log = typeof log === 'function' ? log : () => {};
     /** @type {Map<string, Map<string, number>>} chatKey -> gram -> weight */
     this._interest = new Map();
     /** @type {Set<string>} 能力词：机器人「会」的话题，默认从配置来 */
@@ -33,6 +37,78 @@ class InterestProfile {
     /** chatKey -> 最近一次机器人发言（等接话结果用） */
     this._lastBotAt = new Map();
     this._seedCapability();
+
+    // 必须落盘：兴趣权重每条群消息只 +0.01，要几十上百条才长得起来。
+    // 之前的版本只存内存，用户每天关机重启一次，学到的权重全部清零，
+    // 这个功能在真实使用中永远长不到阈值——看起来是「从来不触发」，
+    // 实际是「每次开机都从零开始」。
+    this.file = dataDir ? path.join(dataDir, 'interest.json') : '';
+    this._dirty = false;
+    this._timer = null;
+    if (this.file) this.load();
+  }
+
+  /* ---------------- 持久化 ---------------- */
+
+  load() {
+    if (!this.file) return;
+    try {
+      if (!fs.existsSync(this.file)) return;
+      const raw = readJson(this.file);
+      const buckets = raw && raw.buckets ? raw.buckets : {};
+      let n = 0;
+      for (const [chatKey, obj] of Object.entries(buckets)) {
+        const m = new Map();
+        for (const [g, w] of Object.entries(obj || {})) {
+          const num = Number(w);
+          // 必须保留负值：负权重来自「说了话没人接」（−0.20），
+          // 是这套系统里唯一能学到「这个群不爱聊这个」的信号。
+          // 只收正数等于每次重启都把负面反馈清零，系统永远学不会闭嘴。
+          if (Number.isFinite(num) && Math.abs(num) >= 0.001) m.set(g, num);
+        }
+        if (m.size) { this._interest.set(chatKey, m); n += m.size; }
+      }
+      this._seedCapability();
+      if (n) this.log(`已载入兴趣画像 ${n} 个词（${this._interest.size} 个会话）`);
+    } catch (err) {
+      // 画像坏掉不影响聊天：当空的重来，旧文件留档
+      this.log(`兴趣画像载入失败（已忽略）：${err.message}`);
+      try { fs.renameSync(this.file, this.file + '.broken-' + Date.now()); } catch { /* noop */ }
+    }
+  }
+
+  scheduleSave() {
+    if (!this.file) return;
+    this._dirty = true;
+    if (this._timer) return;
+    this._timer = setTimeout(() => {
+      this._timer = null;
+      if (this._dirty) this.save();
+    }, 5000);
+    this._timer.unref?.();
+  }
+
+  save() {
+    if (!this.file) return;
+    try {
+      const buckets = {};
+      for (const [chatKey, m] of this._interest) {
+        const obj = {};
+        for (const [g, w] of m) obj[g] = Math.round(w * 1000) / 1000;
+        buckets[chatKey] = obj;
+      }
+      fs.mkdirSync(path.dirname(this.file), { recursive: true });
+      writeFileAtomic(this.file, JSON.stringify({ version: 1, ts: Date.now(), buckets }));
+      this._dirty = false;
+    } catch (err) {
+      this.log(`兴趣画像保存失败（已忽略）：${err.message}`);
+    }
+  }
+
+  /** 关停时把没落盘的一次写完 */
+  flush() {
+    if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+    if (this._dirty) this.save();
   }
 
   get cfg() {
@@ -80,6 +156,7 @@ class InterestProfile {
         if (cur < 2) bucket.set(g, cur + 0.01);
       }
       this._trim(chatKey);
+      this.scheduleSave();
     } catch { /* noop */ }
   }
 
@@ -93,6 +170,7 @@ class InterestProfile {
         bucket.set(g, Math.min(2, (bucket.get(g) || 0) + 0.30));
       }
       this._trim(chatKey);
+      this.scheduleSave();
     } catch { /* noop */ }
   }
 
@@ -117,6 +195,7 @@ class InterestProfile {
       if (dt <= 2 * 60 * 1000) {
         for (const g of topicGrams || []) bucket.set(g, Math.min(2, (bucket.get(g) || 0) + 0.15));
         this._lastBotAt.delete(String(chatKey));
+        this.scheduleSave();
         return 'picked';
       }
       // 2~10 分钟：还没到判无视的时候，保持观察（返回 null 不清时间戳）
@@ -134,6 +213,7 @@ class InterestProfile {
       const bucket = this._bucket(key);
       for (const g of topicGrams || []) bucket.set(g, Math.max(-1, (bucket.get(g) || 0) - 0.20));
       this._lastBotAt.delete(key);
+      this.scheduleSave();
       return true;
     } catch { return false; }
   }
@@ -149,6 +229,7 @@ class InterestProfile {
       for (const g of bigrams(clean)) { bucket.set(g, 2.0); n++; }
     }
     console.log(`[兴趣] 人工标记 ${chatKey}: ${list.filter(Boolean).join('/')}（${n} 个 gram）`);
+    this.scheduleSave();
     return n;
   }
 
@@ -163,6 +244,7 @@ class InterestProfile {
         else bucket.set(g, next);
       }
     }
+    this.scheduleSave();
   }
 
   _trim(chatKey) {
@@ -198,9 +280,13 @@ class InterestProfile {
       let sum = 0;
       const hits = [];
       let capHit = 0;
+      let negHit = 0;
       for (const g of grams) {
         const w = bucket ? (bucket.get(g) || 0) : 0;
         if (w > 0) { sum += w; hits.push({ gram: g, weight: w }); }
+        // 负权重 = 「这群人上次没接这个话」。它不能当成「没聊过」（w=0），
+        // 否则负面学习的结论一点都传不到打分上，系统会反复去撩冷掉的话题。
+        else if (w < 0) negHit++;
         if (this._capability.has(g)) capHit++;
       }
       if (!hits.length && !capHit) return { score: 0, grams, hits: [] };
@@ -209,11 +295,14 @@ class InterestProfile {
       const strength = Math.min(1, avgW / 0.5);
       // 主项看覆盖率（贴不贴题），强度做加权（聊得热不热）
       const base = 0.70 * Math.sqrt(coverage) + 0.30 * Math.sqrt(strength);
+      // 冷话题惩罚：命中负权重的比例越高，压得越狠（最多砍掉 45%）
+      const coldRatio = negHit / grams.length;
+      const coldPenalty = 1 - Math.min(0.45, coldRatio * 0.9);
       // 能力命中率加成：命中的是机器人真能聊的话题，最多 +0.15
       const capBonus = Math.min(0.15, (capHit / grams.length) * 0.30);
       hits.sort((a, b) => b.weight - a.weight);
       return {
-        score: Math.max(0, Math.min(1, base + capBonus)),
+        score: Math.max(0, Math.min(1, (base + capBonus) * coldPenalty)),
         grams,
         hits: hits.slice(0, 8)
       };

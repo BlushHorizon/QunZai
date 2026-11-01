@@ -208,8 +208,56 @@ for (const junk of ['setup.nsi', 'data', 'precheck-package.js', 'server/atomic.j
   }
 }
 
-console.log('\n=== 4. 隐私闸门 ===');
-const pre = spawnSync(process.execPath, [path.join(ROOT, 'precheck-package.js')], { encoding: 'utf8' });
+/* ---------------------------------------------------------------------------
+ * 版本号注入：package.json 是唯一来源，改这一处，全项目跟着走。
+ *
+ * 为什么必须在这里做：版本号原先有 4 个手写副本（package.json、server/version.js、
+ * public/index.html 的顶栏和关于栏、setup.nsi），打包只读 package.json 命名 exe，
+ * 其余三个原样拷贝 —— 每次升版 HTML 里的版本号必然停在旧值。页面之所以还能显示对，
+ * 全靠 app.js 运行时用服务端 state.version 覆盖 DOM；一旦页面在服务端响应前渲染
+ * （首帧闪烁），或有人直接打开 dist/public/index.html 看，看到的就是错的版本号。
+ * 收敛成「打包时注入」而不是「靠前端覆盖」，才是这一处真正修好。
+ * ------------------------------------------------------------------------- */
+const VERSION_TARGETS = [
+  {
+    file: path.join(DIST, 'server', 'version.js'),
+    re: /(version:\s*')([^']*)(')/,
+    why: '服务端 /api/status 的 version 字段'
+  },
+  {
+    file: path.join(DIST, 'public', 'index.html'),
+    re: /(<span[^>]*id="appVersion"[^>]*>v)([^<]*)(<)/,
+    why: '监控台顶栏'
+  },
+  {
+    file: path.join(DIST, 'public', 'index.html'),
+    re: /(<span[^>]*id="aboutVersion"[^>]*>v)([^<]*)(<)/,
+    why: '关于栏'
+  }
+];
+let versionInjected = 0;
+let versionAlready = 0;
+const versionMissed = [];
+for (const t of VERSION_TARGETS) {
+  if (!fs.existsSync(t.file)) { versionMissed.push(t.why + '（文件不存在）'); continue; }
+  const before = fs.readFileSync(t.file, 'utf8');
+  const m = before.match(t.re);
+  if (!m) { versionMissed.push(t.why + '（找不到注入点，模板可能改过）'); continue; }
+  if (m[2] === VERSION) { versionAlready++; continue; }
+  fs.writeFileSync(t.file, before.replace(t.re, (s, a, old, b) => a + VERSION + b));
+  versionInjected++;
+  console.log('  ✓ ' + t.why + '：' + m[2] + ' → ' + VERSION);
+}
+/* 漏了就得吼出来：版本号对不上是发版事故，不能让安装包带着旧版本号出厂 */
+if (versionMissed.length) {
+  console.error('\n✗ 版本号注入失败（应为 ' + VERSION + '）：');
+  for (const m of versionMissed) console.error('    · ' + m);
+  console.error('  修好模板里的 id="appVersion" / id="aboutVersion" / version.js 再打包。');
+  process.exit(1);
+}
+console.log('  ✓ 版本号统一为 v' + VERSION + '（' + versionInjected + ' 处更正，' + versionAlready + ' 处本就正确）');
+
+console.log('\n=== 4. 隐私闸门 ===');const pre = spawnSync(process.execPath, [path.join(ROOT, 'precheck-package.js')], { encoding: 'utf8' });
 process.stdout.write((pre.stdout || '') + (pre.stderr || ''));
 if (pre.status !== 0) {
   console.error('\n✗ 闸门没过，拒绝打包。先处理上面列出的问题。');
