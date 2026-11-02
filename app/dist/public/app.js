@@ -260,7 +260,12 @@ function renderStatus() {
   const pill = $('qqStatusPill');
   pill.classList.toggle('on', !!qq.connected);
   pill.classList.toggle('off', !qq.connected);
-  $('qqStatusText').textContent = qq.message || (qq.connected ? '已连接' : '未连接');
+  // 顶栏放不下整句诊断，摘要 + 完整文案进 title（悬停可看全）
+  const qqMsg = qq.message || (qq.connected ? '已连接' : '未连接');
+  $('qqStatusText').textContent = qq.connected ? '已连接'
+    : (qq.needLogin ? 'QQ 未登录'
+    : (qq.mode === 'mock' ? '演示模式' : '未连接'));
+  pill.title = 'QQ 接入状态：' + qqMsg;
 
   const self = state.self || {};
   // 「连上 OneBot 服务」和「QQ 真的登录了」是两件事：NapCat 没扫码时 WS 也是通的。

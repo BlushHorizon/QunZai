@@ -107,7 +107,11 @@ body {
   color: var(--text-dim);
 }
 
-.pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); }
+/* QQ 状态是整句诊断文案（"连接错误：本机 OneBot 运行时没在监听这个端口…"），
+   原样铺进顶栏会把它撑到窗口外面。这里限宽省略，完整文案走 title。 */
+.pill { min-width: 0; max-width: min(320px, 32vw); }
+.pill > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pill .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); }
 .pill.on .dot { background: var(--ok); box-shadow: 0 0 8px rgba(47, 212, 122, 0.8); }
 .pill.on { color: var(--ok); border-color: rgba(47, 212, 122, 0.35); }
 .pill.off .dot { background: var(--bad); }
