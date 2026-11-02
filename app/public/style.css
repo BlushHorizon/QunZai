@@ -1149,20 +1149,31 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb { background: #c5d4e3; }
 }
 @media (max-width: 720px) {
   .shell { flex-direction: column; }
+  /* 窄屏下侧栏变一条横向可滑动的胶囊条：只占一行高，
+     不能让 13 个入口换行堆起来把内容区挤没。 */
   .sidebar {
-    flex: none;
+    flex: 0 0 auto;
     width: auto;
+    height: 46px;
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    align-items: center;
     gap: 4px;
+    padding: 0 8px;
     border-right: 0;
     border-bottom: 1px solid var(--line);
     overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
   }
-  .nav-group { flex-direction: row; flex-wrap: wrap; }
+  .sidebar::-webkit-scrollbar { display: none; }
+  .nav-group { flex: 0 0 auto; flex-direction: row; flex-wrap: nowrap; gap: 4px; }
+  .nav-item { white-space: nowrap; }
   .nav-title { display: none; }
   .nav-foot { display: none; }
   .bot-grid { grid-template-columns: 1fr; }
+  .views { padding: 16px 14px 28px; }
+  .view-head-row { flex-wrap: wrap; gap: 10px; }
 }
 
 /* 浅色主题：新主区细节 */
