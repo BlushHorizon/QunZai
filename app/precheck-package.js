@@ -184,6 +184,40 @@ function checkEngine(dir = path.join(DIST, 'engine'), depth = 0) {
 }
 checkEngine();
 
+/* 内容级扫描：上面所有规则都按「文件名」拦。万一 store.json 被改名（比如塞进 assets/x.json），
+ * 文件名规则全部失效。这里按**内容结构**兜底：会话存储的 messages 表、以及对话轮次的
+ * role/content 成对出现——正常代码里不会有这种 JSON 密度。
+ * 2026-11-02 加：用户要求确认安装包不含聊天记录，逐项验证后把这道防线前置到构建时。 */
+const CHAT_CONTENT_SIGNS = [
+  { re: /"messages"\s*:\s*\{/, why: '会话存储结构（messages 表）' },
+  { re: /"role"\s*:\s*"user"[\s\S]{0,200}"content"/, why: '对话轮次数据（role/content）' },
+  { re: /"chatKey"\s*:\s*"(group|private):/, why: '会话键（含群号/openid）' }
+];
+function checkChatLeak(dir = DIST, depth = 0) {
+  if (depth > 8) return;
+  let ents;
+  try { ents = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+  for (const e of ents) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) { checkChatLeak(p, depth + 1); continue; }
+    // 只扫文本类，二进制跳过（exe/dll/png 里的字节偶然匹配会误报）
+    if (!/\.(json|js|txt|md|html|log|csv)$/i.test(e.name)) continue;
+    let txt;
+    try {
+      const st = fs.statSync(p);
+      if (st.size > 8 * 1024 * 1024) continue;
+      txt = fs.readFileSync(p, 'utf8');
+    } catch { continue; }
+    for (const s of CHAT_CONTENT_SIGNS) {
+      if (s.re.test(txt)) {
+        problems.push(`${path.relative(DIST, p)} :: 疑似聊天数据 —— ${s.why}`);
+        break;
+      }
+    }
+  }
+}
+checkChatLeak();
+
 /* ---------------- 执行全部检查 ---------------- */
 if (!fs.existsSync(DIST)) { console.error('✗ 没有 dist/ 目录'); process.exit(1); }
 
