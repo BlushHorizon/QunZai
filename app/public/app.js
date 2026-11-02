@@ -252,6 +252,7 @@ function renderStatus() {
     const label = 'v' + state.version;
     if ($('appVersion')) $('appVersion').textContent = label;
     if ($('aboutVersion')) $('aboutVersion').textContent = label;
+    if ($('appVersionSide')) $('appVersionSide').textContent = label;
   }
   const qq = state.status.qq || {};
   const pill = $('qqStatusPill');
