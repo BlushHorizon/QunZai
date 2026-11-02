@@ -281,7 +281,9 @@ class QQEngine {
     // 用户显式指定的目录永远排最前
     add(overrideDir);
 
-    const source = cfg.qq?.engine?.source || 'auto';
+    // 缺省按内置：设置界面只有「内置/自定义」两项，缺省值必须和界面一致。
+    // 老配置里存着的 'auto' 仍按下面的 auto 分支走，行为不变。
+    const source = cfg.qq?.engine?.source || 'bundled';
 
     // 随包内置的那一份：<安装目录>\engine\（engine\napcat、engine\snowluma 之类）
     const bundled = this.bundledRoot;
@@ -711,7 +713,7 @@ class QQEngine {
       enabled: engineCfg.enabled !== false,
       autoStart: engineCfg.autoStart !== false,
       /** bundled = 用随包内置的 QQ 桥接；custom = 用用户自己找的；auto = 老版本的「自动」，设置界面已移除，仅为旧配置兼容保留 */
-      source: engineCfg.source || 'auto',
+      source: engineCfg.source || 'bundled',
       dir: info?.dir || engineCfg.dir || '',
       account: engineCfg.account || info?.account || '',
       kind: info?.public?.kind || '',

@@ -39,8 +39,10 @@ const DEFAULT_CONFIG = {
       enabled: true,
       autoStart: true,
       // source: bundled = 只用随包内置的那份；custom = 只用用户填的目录；
-      //         auto = 老版本的「自动」，设置界面已移除这一项，仅为旧配置兼容保留
-      source: 'auto',
+      //         auto = 老版本的「自动」，设置界面已移除这一项，仅为旧配置兼容保留。
+      // 新装默认 bundled：面板上只有「内置/自定义」两项，默认就该是「内置」，
+      // 不能让配置说 auto、面板说内置，跑起来却去扫盘找别人的运行时。
+      source: 'bundled',
       dir: '',
       account: '',
       apiPort: 3000
