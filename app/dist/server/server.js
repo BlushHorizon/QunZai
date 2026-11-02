@@ -107,6 +107,11 @@ function broadcast(evt) {
 let adapter = createAdapter(cfg.qq);
 let qqStatus = { connected: false, message: '未连接', mode: cfg.qq.mode };
 
+/* 重复状态日志的压缩状态（见 bindAdapterEvents 里的说明） */
+let lastQqStatusSig = '';
+let repeatQqStatus = 0;
+let lastQqStatusLogAt = 0;
+
 /**
  * 把适配器的事件绑到当前外壳。
  * 重建适配器后必须重新绑一遍——不然新实例收不到任何消息，
@@ -115,7 +120,26 @@ let qqStatus = { connected: false, message: '未连接', mode: cfg.qq.mode };
 function bindAdapterEvents(a = adapter) {
   a.on('status', (s) => {
     qqStatus = { ...s, mode: configLib.get().qq.mode };
-    console.log(`[qq:${qqStatus.mode}] ${s.message}`);
+    // OneBot 运行时没起来时，适配器每 5 秒重试一次，状态一模一样。
+    // 原样打日志 = 一天 3 万多行，5MB 的日志很快把真正有用的信息滚掉。
+    // 同样的状态只打第一行，之后按次数合并成一行汇总。
+    const sig = `${qqStatus.connected}|${s.message}`;
+    if (sig === lastQqStatusSig) {
+      repeatQqStatus++;
+      // 每分钟最多提醒一次「还在重试」，别彻底静音（不然看起来像卡死了）
+      if (Date.now() - lastQqStatusLogAt > 60000) {
+        console.log(`[qq:${qqStatus.mode}] ${s.message}（已重试 ${repeatQqStatus} 次，仍在继续）`);
+        lastQqStatusLogAt = Date.now();
+      }
+    } else {
+      if (repeatQqStatus > 0) {
+        console.log(`[qq:${qqStatus.mode}] 上一条状态重复了 ${repeatQqStatus} 次`);
+      }
+      lastQqStatusSig = sig;
+      repeatQqStatus = 0;
+      lastQqStatusLogAt = Date.now();
+      console.log(`[qq:${qqStatus.mode}] ${s.message}`);
+    }
     broadcast({ type: 'qq_status', status: qqStatus, ai: ai.status() });
     if (s.connected && qqStatus.mode === 'onebot') seedContacts();
   });

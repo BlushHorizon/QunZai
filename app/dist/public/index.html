@@ -37,96 +37,263 @@
           <span class="service-dot"></span>停止服务
         </button>
         <button class="icon-btn" id="btnTheme" title="切换浅色主题">☾</button>
-        <button class="icon-btn" id="btnSettings" title="设置">⚙</button>
       </div>
     </header>
 
-    <main class="dash">
-      <!-- 状态卡 -->
-      <section class="cards">
-        <div class="card">
-          <div class="card-title">QQ 接入</div>
-          <div class="card-main" id="cardQqMain">—</div>
-          <div class="card-sub" id="cardQqSub">—</div>
-        </div>
-        <div class="card">
-          <div class="card-title">AI 大脑</div>
-          <div class="card-main" id="cardAiMain">—</div>
-          <div class="card-sub" id="cardAiSub">—</div>
-        </div>
-        <div class="card">
-          <div class="card-title" id="cardDsTitle">DeepSeek 网页版</div>
-          <div class="card-main" id="cardDsMain">—</div>
-          <div class="card-sub" id="cardDsSub">—</div>
-          <div class="row-btns" id="dsWebBtns">
-            <button class="mini-btn" id="btnDsOpen">① 打开 DeepSeek 登录</button>
-            <button class="mini-btn alt" id="btnDsNew">② 新建对话</button>
-          </div>
-          <div class="row-btns" id="dsApiBtns" hidden>
-            <button class="mini-btn alt" id="btnCardApiTest">测速 / 检查可用 / 余额</button>
-            <button class="mini-btn" id="btnCardApiNew">新建对话</button>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-title">今日动态</div>
-          <div class="card-main" id="cardStatMain">—</div>
-          <div class="card-sub" id="cardStatSub">—</div>
-        </div>
-      </section>
+    <div class="shell">
+      <aside class="sidebar">
+        <nav class="nav-group">
+          <button type="button" class="nav-item active" data-view="welcome"><span class="nav-ico">👋</span><span>欢迎</span></button>
+          <button type="button" class="nav-item" data-view="bots"><span class="nav-ico">🤖</span><span>机器人</span></button>
+          <button type="button" class="nav-item" data-view="models"><span class="nav-ico">🧠</span><span>模型提供商</span></button>
+        </nav>
+        <div class="nav-title">配置文件</div>
+        <nav class="nav-group">
+          <button type="button" class="nav-item" data-view="cfg-ai"><span class="nav-ico">💬</span><span>AI 回复</span></button>
+          <button type="button" class="nav-item" data-view="cfg-proactive"><span class="nav-ico">🌊</span><span>主动发言</span></button>
+          <button type="button" class="nav-item" data-view="cfg-moderation"><span class="nav-ico">🛡</span><span>群管理</span></button>
+          <button type="button" class="nav-item" data-view="cfg-stickers"><span class="nav-ico">😀</span><span>表情包</span></button>
+          <button type="button" class="nav-item" data-view="cfg-qq"><span class="nav-ico">🔌</span><span>QQ 接入</span></button>
+          <button type="button" class="nav-item" data-view="cfg-engine"><span class="nav-ico">🔗</span><span>QQ 桥接</span></button>
+        </nav>
+        <div class="nav-title">数据</div>
+        <nav class="nav-group">
+          <button type="button" class="nav-item" data-view="chats"><span class="nav-ico">📋</span><span>会话</span><span class="nav-badge" id="navChatCount"></span></button>
+          <button type="button" class="nav-item" data-view="activity"><span class="nav-ico">📡</span><span>实时动态</span></button>
+        </nav>
+        <div class="nav-title">其他</div>
+        <nav class="nav-group">
+          <button type="button" class="nav-item" data-view="cfg-update"><span class="nav-ico">⬆</span><span>自动更新</span></button>
+          <button type="button" class="nav-item" data-view="cfg-about"><span class="nav-ico">ℹ</span><span>关于</span></button>
+          <a class="nav-item" href="https://github.com/BlushHorizon/QunZai" target="_blank" rel="noopener"><span class="nav-ico">🐙</span><span>GitHub</span></a>
+        </nav>
+        <div class="nav-foot">群崽 QunZai <span id="appVersionSide"></span></div>
+      </aside>
 
-      <!-- 双栏：会话概览 + 实时动态 -->
-      <section class="panels">
-        <div class="panel">
-          <div class="panel-head">会话概览 <span class="panel-hint" id="ovHint"></span></div>
-          <ul id="overviewList" class="overview"></ul>
-        </div>
-        <div class="panel feed-panel">
-          <div class="feed-split">
-            <section class="feed-col">
-              <div class="panel-head">实时动态 <span class="live-dot" title="SSE 实时推送"></span></div>
-              <ul id="feedList" class="feed"></ul>
-            </section>
-            <section class="ds-col">
-              <div class="panel-head">
-                <span class="ds-head-title">DeepSeek <span class="ds-badge">内嵌</span></span>
-                <button class="ds-expand" id="btnDsExpand" type="button" title="全屏显示 DeepSeek">⛶ 全屏</button>
-              </div>
-              <div class="ds-slot" id="dsSlot">
-                <div class="ds-slot-fallback" id="dsSlotFallback">
-                  <div class="ds-slot-title">DeepSeek 内嵌窗口</div>
-                  <p>桌面版会在这里直接显示 DeepSeek，和实时动态各占一半。</p>
-                  <a class="mini-btn alt" href="https://chat.deepseek.com" target="_blank" rel="noopener">在浏览器打开 DeepSeek</a>
+      <main class="views" id="views">
+        <section class="view active" data-view="welcome">
+          <div class="view-head">
+            <h2>欢迎使用群崽</h2>
+            <p>三步让它上岗。做完一步这里会自动打勾；没做完会告诉你该点哪里。</p>
+          </div>
+
+          <div class="steps">
+            <article class="step" id="stepQq">
+              <div class="step-num">1</div>
+              <div class="step-body">
+                <div class="step-title">连上 QQ<span class="step-state" id="stepQqState">检查中</span></div>
+                <p class="step-desc">群崽自己不登录 QQ。它靠内置的 NapCat（就是「QQ 桥接」）登录你的号，第一次要扫码，登录一次之后会记住。</p>
+                <div class="step-actions">
+                  <button type="button" class="mini-btn primary-btn" id="btnWelcomeQq">扫码登录 QQ</button>
+                  <button type="button" class="mini-btn" data-view="cfg-engine">桥接设置</button>
                 </div>
+                <div class="step-note" id="stepQqNote">正在读取状态…</div>
               </div>
-            </section>
-          </div>
-        </div>
-      </section>
-    </main>
-  </div>
+            </article>
 
-  <!-- 设置弹窗 -->
-  <div class="modal hidden" id="settingsModal">
-    <div class="modal-card wide">
-      <div class="modal-head">
-        <h3>设置</h3>
-        <button class="close-btn" data-close="settingsModal">✕</button>
-      </div>
-      <div class="modal-body set-split">
-        <aside class="set-nav" id="setNav">
-          <button type="button" class="set-nav-item active" data-panel="ai"><span class="set-nav-ico">💬</span>AI 回复</button>
-          <button type="button" class="set-nav-item" data-panel="proactive"><span class="set-nav-ico">🌊</span>主动发言</button>
-          <button type="button" class="set-nav-item" data-panel="moderation"><span class="set-nav-ico">🛡</span>群管理</button>
-          <button type="button" class="set-nav-item" data-panel="stickers"><span class="set-nav-ico">😀</span>表情包</button>
-          <button type="button" class="set-nav-item" data-panel="qq"><span class="set-nav-ico">🔌</span>QQ 接入</button>
-          <button type="button" class="set-nav-item" data-panel="engine"><span class="set-nav-ico">🔗</span>QQ 桥接</button>
-          <button type="button" class="set-nav-item" data-panel="update"><span class="set-nav-ico">⬆</span>自动更新</button>
-          <button type="button" class="set-nav-item" data-panel="about"><span class="set-nav-ico">ℹ</span>关于</button>
-        </aside>
-        <div class="set-content" id="setContent">
-          <section class="set-panel active" data-panel="ai">
-          <h4 class="set-panel-title">AI 自动回复<span class="set-panel-desc">决定哪些消息会被回复、回复的边界和频率</span></h4>
-          <label class="field">
+            <article class="step" id="stepAi">
+              <div class="step-num">2</div>
+              <div class="step-body">
+                <div class="step-title">给它一个大脑<span class="step-state" id="stepAiState">检查中</span></div>
+                <p class="step-desc">默认用 DeepSeek 网页版：群崽会拉起一个浏览器窗口，你在里面登录一次 DeepSeek 账号即可，不用 API Key、不花钱。想用 API 也能换。</p>
+                <div class="step-actions">
+                  <button type="button" class="mini-btn primary-btn" id="btnWelcomeDs">打开 DeepSeek 登录</button>
+                  <button type="button" class="mini-btn" data-view="cfg-ai">模型设置</button>
+                </div>
+                <div class="step-note" id="stepAiNote">正在读取状态…</div>
+              </div>
+            </article>
+
+            <article class="step" id="stepReply">
+              <div class="step-num">3</div>
+              <div class="step-body">
+                <div class="step-title">打开自动回复<span class="step-state" id="stepReplyState">检查中</span></div>
+                <p class="step-desc">打开之后，别人发消息它才会回。默认全部会话都回，也可以只在指定群里回、限频率、设免打扰时段。</p>
+                <div class="step-actions">
+                  <button type="button" class="mini-btn primary-btn" id="btnWelcomeReply">开启自动回复</button>
+                  <button type="button" class="mini-btn" data-view="cfg-ai">回复规则</button>
+                </div>
+                <div class="step-note" id="stepReplyNote">正在读取状态…</div>
+              </div>
+            </article>
+          </div>
+
+          <div class="done-card" id="welcomeDone" hidden>
+            <div class="done-title">✅ 都配好了，它已经能自己聊天了</div>
+            <p>接下来去「会话」看它在跟谁聊，去「实时动态」看每一句收发。人设和脾气在「配置文件 → AI 回复」里改。</p>
+            <div class="step-actions">
+              <button type="button" class="mini-btn" data-view="chats">看会话</button>
+              <button type="button" class="mini-btn" data-view="activity">看动态</button>
+              <button type="button" class="mini-btn" data-view="cfg-ai">改人设</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" data-view="bots">
+          <div class="view-head">
+            <h2>机器人</h2>
+            <p>群崽能用三种方式接上 QQ。同一时间只启用一种，打开一个另一个会自动关掉。</p>
+          </div>
+          <div class="bot-grid">
+            <article class="bot-card" data-bot="onebot">
+              <div class="bot-head">
+                <span class="bot-name">OneBot · 内置 NapCat</span>
+                <label class="switch" title="启用这一种接入方式">
+                  <input type="checkbox" id="botOnebotToggle" />
+                  <span class="switch-track"><span class="switch-knob"></span></span>
+                </label>
+              </div>
+              <div class="bot-logo">1:1</div>
+              <div class="bot-status card-main" id="cardQqMain">—</div>
+              <div class="bot-sub card-sub" id="cardQqSub">—</div>
+              <div class="bot-actions">
+                <button type="button" class="mini-btn" data-view="cfg-engine">编辑</button>
+                <button type="button" class="mini-btn" id="btnBotOnebotStart">启动桥接</button>
+              </div>
+            </article>
+
+            <article class="bot-card" data-bot="qqbot">
+              <div class="bot-head">
+                <span class="bot-name">QQ 官方机器人</span>
+                <label class="switch" title="启用这一种接入方式">
+                  <input type="checkbox" id="botQqbotToggle" />
+                  <span class="switch-track"><span class="switch-knob"></span></span>
+                </label>
+              </div>
+              <div class="bot-logo">QQ</div>
+              <div class="bot-status" id="botQqbotState">未启用</div>
+              <div class="bot-sub">腾讯直连，不用装运行时；群里只能收到 @机器人 的消息，主动消息额度很小。</div>
+              <div class="bot-actions">
+                <button type="button" class="mini-btn" data-view="cfg-qq">编辑</button>
+              </div>
+            </article>
+
+            <article class="bot-card" data-bot="mock">
+              <div class="bot-head">
+                <span class="bot-name">演示模式</span>
+                <label class="switch" title="启用这一种接入方式">
+                  <input type="checkbox" id="botMockToggle" />
+                  <span class="switch-track"><span class="switch-knob"></span></span>
+                </label>
+              </div>
+              <div class="bot-logo">DEMO</div>
+              <div class="bot-status" id="botMockState">未启用</div>
+              <div class="bot-sub">不连真 QQ，用内置的假会话跑一遍完整链路。想先看看它长什么样就开这个。</div>
+              <div class="bot-actions">
+                <button type="button" class="mini-btn" data-view="cfg-qq">编辑</button>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" data-view="models">
+          <div class="view-head">
+            <h2>模型提供商</h2>
+            <p>群崽用哪个大脑回消息。同一时间只启用一种，默认是 DeepSeek 网页版。</p>
+          </div>
+          <div class="stat-strip">
+            <div class="stat-cell"><span class="stat-k">大脑</span><span class="stat-v"><span class="card-main" id="cardAiMain">—</span></span></div>
+            <div class="stat-cell"><span class="stat-k">配置</span><span class="stat-v"><span class="card-sub" id="cardAiSub">—</span></span></div>
+          </div>
+          <div class="bot-grid">
+            <article class="bot-card" data-model="deepseek-web">
+              <div class="bot-head">
+                <span class="bot-name" id="cardDsTitle">DeepSeek 网页版</span>
+                <label class="switch" title="启用这一种大脑">
+                  <input type="checkbox" id="botDsToggle" />
+                  <span class="switch-track"><span class="switch-knob"></span></span>
+                </label>
+              </div>
+              <div class="bot-logo">DS</div>
+              <div class="bot-status card-main" id="cardDsMain">—</div>
+              <div class="bot-sub card-sub" id="cardDsSub">—</div>
+              <div class="row-btns" id="dsWebBtns">
+                <button class="mini-btn" id="btnDsOpen">① 打开 DeepSeek 登录</button>
+                <button class="mini-btn alt" id="btnDsNew">② 新建对话</button>
+              </div>
+              <div class="bot-sub" style="margin-top:8px">不用 API Key、不花钱，靠本机浏览器模拟操作。缺点是慢一点，且违反 DeepSeek 用户协议，账号可能被限制。</div>
+            </article>
+
+            <article class="bot-card" data-model="openai-compatible">
+              <div class="bot-head">
+                <span class="bot-name">DeepSeek API</span>
+                <label class="switch" title="启用这一种大脑">
+                  <input type="checkbox" id="botApiToggle" />
+                  <span class="switch-track"><span class="switch-knob"></span></span>
+                </label>
+              </div>
+              <div class="bot-logo">API</div>
+              <div class="bot-status" id="botApiState">未启用</div>
+              <div class="bot-sub">走 OpenAI 兼容接口，要自己填一把 Key，按量计费。比网页版稳，也不违反协议。</div>
+              <div class="row-btns" id="dsApiBtns" hidden>
+                <button class="mini-btn alt" id="btnCardApiTest">测速 / 检查可用 / 余额</button>
+                <button class="mini-btn" id="btnCardApiNew">新建对话</button>
+              </div>
+              <div class="bot-actions">
+                <button type="button" class="mini-btn" data-view="cfg-ai">填 Key</button>
+              </div>
+            </article>
+
+            <article class="bot-card" data-model="builtin">
+              <div class="bot-head">
+                <span class="bot-name">内置规则引擎</span>
+                <label class="switch" title="启用这一种大脑">
+                  <input type="checkbox" id="botBuiltinToggle" />
+                  <span class="switch-track"><span class="switch-knob"></span></span>
+                </label>
+              </div>
+              <div class="bot-logo">RUL</div>
+              <div class="bot-status" id="botBuiltinState">未启用</div>
+              <div class="bot-sub">离线关键词匹配，不会真的理解你说什么。没网的时候能跑，别指望它聪明。</div>
+            </article>
+          </div>
+
+          <div class="panel ds-panel">
+            <div class="panel-head">
+              <span class="ds-head-title">DeepSeek 内嵌窗口 <span class="ds-badge">桌面版</span></span>
+              <button class="ds-expand" id="btnDsExpand" type="button" title="全屏显示 DeepSeek">⛶ 全屏</button>
+            </div>
+            <div class="ds-slot" id="dsSlot">
+              <div class="ds-slot-fallback" id="dsSlotFallback">
+                <div class="ds-slot-title">DeepSeek 内嵌窗口</div>
+                <p>桌面版会在这里直接显示 DeepSeek 页面，登录、新建对话都在这个窗口里完成。</p>
+                <a class="mini-btn alt" href="https://chat.deepseek.com" target="_blank" rel="noopener">在浏览器打开 DeepSeek</a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" data-view="chats">
+          <div class="view-head">
+            <h2>会话 <span class="panel-hint" id="ovHint"></span></h2>
+            <p>它最近聊过的人和群，按最后一条消息时间排。</p>
+          </div>
+          <div class="panel">
+            <ul id="overviewList" class="overview"></ul>
+          </div>
+        </section>
+
+        <section class="view" data-view="activity">
+          <div class="view-head">
+            <h2>实时动态 <span class="live-dot" title="SSE 实时推送"></span></h2>
+            <p>每一句收发都在这儿，收到、回复、跳过、出错都会写一行。</p>
+          </div>
+          <div class="stat-strip">
+            <div class="stat-cell"><span class="stat-k">今日</span><span class="stat-v card-main" id="cardStatMain">—</span></div>
+            <div class="stat-cell"><span class="stat-k">明细</span><span class="stat-v card-sub" id="cardStatSub">—</span></div>
+          </div>
+          <div class="panel">
+            <ul id="feedList" class="feed"></ul>
+          </div>
+        </section>
+
+        <section class="view" data-view="cfg-ai">
+          <div class="view-head">
+            <div class="view-head-row"><h2>AI 自动回复</h2><button type="button" class="primary-btn" data-save-settings>保存</button></div>
+            <p>决定哪些消息会被回复、回复的边界和频率</p>
+          </div>
+          <div class="cfg-body">
+<label class="field">
             <span>回复对象</span>
             <select id="setReplyMode">
               <option value="all">全部会话都回复</option>
@@ -261,11 +428,16 @@
           </label>
           <div class="ds-status" id="apiStatus">状态：未测试</div>
           </div>
-  
-          </section>
-          <section class="set-panel" data-panel="proactive">
-          <h4 class="set-panel-title">主动发言<span class="set-panel-desc">群崽什么时候自己开口、说什么、说多频繁</span></h4>
-          <p class="tip">两个开关：<b>感兴趣时插话</b>、<b>冷场时主动开口</b>。它们会真的发消息，默认关闭。（长期记忆功能已移除：机器人不再记录和引用历史记忆）</p>
+          </div>
+        </section>
+
+        <section class="view" data-view="cfg-proactive">
+          <div class="view-head">
+            <div class="view-head-row"><h2>主动发言</h2><button type="button" class="primary-btn" data-save-settings>保存</button></div>
+            <p>群崽什么时候自己开口、说什么、说多频繁</p>
+          </div>
+          <div class="cfg-body">
+<p class="tip">两个开关：<b>感兴趣时插话</b>、<b>冷场时主动开口</b>。它们会真的发消息，默认关闭。（长期记忆功能已移除：机器人不再记录和引用历史记忆）</p>
   
           <div class="field" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
             <label class="chk"><input type="checkbox" id="setInterestReply" /> 感兴趣时插一句</label>
@@ -304,11 +476,16 @@
             </label>
             <p class="tip">频率不是礼貌问题：QQ 对高频发送会判骚扰（result=120）。默认每小时 2 条、每天 8 条，已经不算保守。</p>
           </details>
-  
-          </section>
-          <section class="set-panel" data-panel="moderation">
-          <h4 class="set-panel-title">群管理<span class="set-panel-desc">防刷屏、违禁词、欢迎新人、深夜禁言</span></h4>
-          <p class="tip">防刷屏、拦广告、管违禁词、欢迎新人、深夜宵禁。默认全关——开关打开才会生效；主人（上面 QQ 接入里填的指令发送者）永远不受管。</p>
+          </div>
+        </section>
+
+        <section class="view" data-view="cfg-moderation">
+          <div class="view-head">
+            <div class="view-head-row"><h2>群管理</h2><button type="button" class="primary-btn" data-save-settings>保存</button></div>
+            <p>防刷屏、违禁词、欢迎新人、深夜禁言</p>
+          </div>
+          <div class="cfg-body">
+<p class="tip">防刷屏、拦广告、管违禁词、欢迎新人、深夜宵禁。默认全关——开关打开才会生效；主人（上面 QQ 接入里填的指令发送者）永远不受管。</p>
           <div class="field">
             <span>总开关与模式</span>
             <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:4px">
@@ -355,11 +532,16 @@
             <button class="mini-btn" id="btnModStats">查看最近拦截记录</button>
           </div>
           <div id="modStatsBox" class="ds-status" style="display:none;white-space:pre-wrap"></div>
-  
-          </section>
-          <section class="set-panel" data-panel="stickers">
-          <h4 class="set-panel-title">表情包<span class="set-panel-desc">让它回复时能带图，表情从哪来、怎么用</span></h4>
-          <p class="tip">机器人自动收藏群友们发的商城表情/图片当素材库，AI 聊天时<b>自己看着办</b>发表情包（提示词内置「表情包能力」，告诉它怎么触发、什么时候发）。给机器人私聊丢几个表情包或在群里发，它马上收藏。</p>
+          </div>
+        </section>
+
+        <section class="view" data-view="cfg-stickers">
+          <div class="view-head">
+            <div class="view-head-row"><h2>表情包</h2><button type="button" class="primary-btn" data-save-settings>保存</button></div>
+            <p>让它回复时能带图，表情从哪来、怎么用</p>
+          </div>
+          <div class="cfg-body">
+<p class="tip">机器人自动收藏群友们发的商城表情/图片当素材库，AI 聊天时<b>自己看着办</b>发表情包（提示词内置「表情包能力」，告诉它怎么触发、什么时候发）。给机器人私聊丢几个表情包或在群里发，它马上收藏。</p>
           <div class="field" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <span class="tip" id="stickerStats">素材：加载中…</span>
             <button class="mini-btn primary-btn" id="btnStickerTest">发一个到我 QQ 看看</button>
@@ -373,11 +555,16 @@
             <button class="mini-btn" id="btnGalleryRefresh">刷新图库</button>
           </div>
           <div id="galleryList" class="sticker-list gallery-list"></div>
-  
-          </section>
-          <section class="set-panel" data-panel="qq">
-          <h4 class="set-panel-title">QQ 接入<span class="set-panel-desc">群崽通过什么方式连上你的 QQ 号</span></h4>
-          <label class="field">
+          </div>
+        </section>
+
+        <section class="view" data-view="cfg-qq">
+          <div class="view-head">
+            <div class="view-head-row"><h2>QQ 接入</h2><button type="button" class="primary-btn" data-save-settings>保存</button></div>
+            <p>群崽通过什么方式连上你的 QQ 号</p>
+          </div>
+          <div class="cfg-body">
+<label class="field">
             <span>模式</span>
             <select id="setMode">
               <option value="mock">演示模式（模拟）</option>
@@ -420,11 +607,16 @@
           <p class="tip">保存后会自动按新配置重连 QQ，不用重启服务；若没连上，先检查电脑上的 OneBot 运行时是否已启动、端口是否一致。</p>
   
           <p class="tip" id="qqTipMobile" hidden>安卓版没有内置 Windows 版 QQ 运行时，所以「QQ 桥接」那一栏已隐藏。请在电脑上装一个 OneBot 11 兼容运行时（如 <a href="https://github.com/NapNeko/NapCatQQ" target="_blank" rel="noopener">NapCat</a> 或 <a href="https://snowluma.github.io/zh/" target="_blank" rel="noopener">SnowLuma</a>），在下面填它的 WebSocket 地址（例如 <code>ws://192.168.1.10:3001</code>），群崽就能连上去。</p>
-  
-          </section>
-          <section class="set-panel" data-panel="engine">
-          <h4 class="set-panel-title">QQ 桥接<span class="set-panel-desc">真正登录 QQ、把消息转给群崽的那个程序（OneBot 运行时）</span></h4>
-          <div id="engineBlock">
+          </div>
+        </section>
+
+        <section class="view" data-view="cfg-engine">
+          <div class="view-head">
+            <div class="view-head-row"><h2>QQ 桥接</h2><button type="button" class="primary-btn" data-save-settings>保存</button></div>
+            <p>真正登录 QQ、把消息转给群崽的那个程序（OneBot 运行时）</p>
+          </div>
+          <div class="cfg-body" id="engineSection">
+<div id="engineBlock">
           <p class="tip">「QQ 桥接」就是真正登录 QQ、把消息转成群崽能读的 OneBot 11 的那个程序。群崽自己不登录 QQ。安装包里已经内置了一份 NapCat，开箱即用；你也可以换成自己找的那一份。</p>
           <p class="tip">想试试另一套运行时？这里有一份 <a href="https://snowluma.github.io/zh/" target="_blank" rel="noopener">SnowLuma 官网</a>（<a href="https://github.com/SnowLuma/SnowLuma/releases" target="_blank" rel="noopener">下载页</a>，GitHub 打不开时走官网）。它的许可不允许群崽把它打进安装包，所以这里只放官方地址——自己下载解压后，把上面的「用哪一份」选成「自定义」，再把解压目录填进去就能用。</p>
           <label class="field">
@@ -459,10 +651,16 @@
           </div>
           <p class="tip">第一次用内置那份时，它会弹二维码让你扫码登录 QQ（只支持扫码，这是它的限制）。登录一次之后会记住，下次自动续上。</p>
           </div>
-          </section>
-          <section class="set-panel" data-panel="update">
-          <h4 class="set-panel-title">自动更新<span class="set-panel-desc">有新版本时怎么提醒、从哪下载</span></h4>
-          <div id="updateBlock">
+          </div>
+        </section>
+
+        <section class="view" data-view="cfg-update">
+          <div class="view-head">
+            <div class="view-head-row"><h2>自动更新</h2><button type="button" class="primary-btn" data-save-settings>保存</button></div>
+            <p>有新版本时怎么提醒、从哪下载</p>
+          </div>
+          <div class="cfg-body" id="updateSection">
+<div id="updateBlock">
           <label class="field column">
             <span>更新清单地址（留空则读取 data/update.json）</span>
             <input type="text" id="setUpdateManifest" placeholder="https://…/update.json 或本地路径" />
@@ -477,11 +675,16 @@
           </div>
           <p class="tip">发现新版本后会先询问“更新 / 不更新”，你同意后才下载；下载完成后还会再确认是否安装。不会静默更新。</p>
           </div>
-  
-          </section>
-          <section class="set-panel" data-panel="about">
-          <h4 class="set-panel-title">关于与声明<span class="set-panel-desc">版本、开源协议、联系方式和数据说明</span></h4>
-          <div class="about-box">
+          </div>
+        </section>
+
+        <section class="view" data-view="cfg-about">
+          <div class="view-head">
+            <div class="view-head-row"><h2>关于与声明</h2></div>
+            <p>版本、开源协议、联系方式和数据说明</p>
+          </div>
+          <div class="cfg-body">
+<div class="about-box">
             <p><b>群崽 QunZai</b> <span id="aboutVersion">v1.4.15</span> · MIT 开源 · 创建于 2026 年 10 月 · 玩具级学习作品，非生产级产品</p>
             <p>· 本项目<b>不是反代、没有第三方中转、没有逆向 DeepSeek 网页</b>；原理是用 Node 连接本机浏览器调试端口（CDP）模拟操作，<b>这与反代一样均违反 DeepSeek 用户协议，账号可能被临时限制或封禁</b>。</p>
             <p>· 它会把 AI 生成的内容<b>自动发到 QQ</b>，无审核无黑名单，<b>请勿用于骚扰、刷屏、恶作剧，建议使用小号</b>。</p>
@@ -497,13 +700,9 @@
               · <b>问题反馈：</b><a href="https://github.com/BlushHorizon/QunZai/issues" target="_blank" rel="noopener">GitHub Issues</a>
             </p>
           </div>
-          </section>
-        </div><!-- /.set-content -->
-      </div><!-- /.modal-body -->
-      <div class="modal-foot">
-        <button class="ghost-btn" data-close="settingsModal">取消</button>
-        <button class="primary-btn" id="btnSaveSettings">保存</button>
-      </div>
+          </div>
+        </section>
+      </main>
     </div>
   </div>
 

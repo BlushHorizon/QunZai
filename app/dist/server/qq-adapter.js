@@ -180,7 +180,13 @@ class OneBotAdapter extends EventEmitter {
       this.connected = false;
       for (const [, p] of this._pending) { clearTimeout(p.timer); p.reject(new Error('连接已断开')); }
       this._pending.clear();
-      this.emit('status', { connected: false, message: '连接已断开' });
+      // 从来没连上过就不该说「已断开」——什么都没连上，断的哪门子开？
+      // 而且这句话和紧跟的错误提示交替出现，正好把日志去重给废掉：
+      // 运行时没起来时，日志每 5 秒固定两行，一天三万多行。
+      this.emit('status', {
+        connected: false,
+        message: this._everOpened ? '连接已断开' : this._diagnoseError()
+      });
       if (!this._closedByUser) this._reconnect();
     });
 

@@ -17,7 +17,7 @@
     "engine": {
       "enabled": true,
       "autoStart": true,
-      "source": "auto",
+      "source": "bundled",
       "dir": "",
       "account": "",
       "apiPort": 3000
