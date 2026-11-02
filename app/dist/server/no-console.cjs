@@ -3,21 +3,21 @@
  * 群崽 · 无控制台补丁（no-console）
  * ---------------------------------------------------------------------------
  * 解决的问题
- *   内置的 QQ 监视器（NapCat 等）由群崽在后台拉起，群崽自己是 GUI 程序，
+ *   内置的 QQ QQ 桥接（NapCat 等）由群崽在后台拉起，群崽自己是 GUI 程序，
  *   本来不该出现任何命令行黑框。但这些第三方运行时的内部实现常常会再 fork
  *   一个 worker 子进程，并且 fork 时不传 windowsHide。Windows 上父进程没有
  *   控制台时，子进程带 inherit 的 stdio 就会**新开一个控制台窗口**——
  *   这就是用户看到的那个黑色命令行框（标题是 node.exe 路径）。
  *
  * 为什么在群崽这边修
- *   监视器是第三方程序，源码不能改（改了也没法跟着版本更新）。
- *   Node 的 NODE_OPTIONS 环境变量可以给监视器主进程预加载一段脚本，
+ *   QQ 桥接是第三方程序，源码不能改（改了也没法跟着版本更新）。
+ *   Node 的 NODE_OPTIONS 环境变量可以给QQ 桥接主进程预加载一段脚本，
  *   从进程内部把 child_process 的 spawn / fork / execFile 统一补上
- *   windowsHide: true。监视器自己是察觉不到的，行为完全不变，
+ *   windowsHide: true。QQ 桥接自己是察觉不到的，行为完全不变，
  *   只是不再给子进程开窗口。
  *
  * 注意
- *   · 只加 windowsHide，不动 detached / stdio / env，避免影响监视器的进程模型；
+ *   · 只加 windowsHide，不动 detached / stdio / env，避免影响QQ 桥接的进程模型；
  *   · 用 Object.assign 生成新对象，不改调用方传进来的 options；
  *   · 这个文件要随 server/ 一起打包，engine.js 用绝对路径引用它。
  */
@@ -25,7 +25,7 @@ function patchOnce() {
   let cp;
   try { cp = require('child_process'); } catch { return; }
 
-  // 幂等：重复 require（例如监视器自己也 require 了一次）时不会套娃
+  // 幂等：重复 require（例如QQ 桥接自己也 require 了一次）时不会套娃
   if (cp.__qunzaiNoConsole) return;
   try { Object.defineProperty(cp, '__qunzaiNoConsole', { value: true, enumerable: false }); } catch { /* noop */ }
 

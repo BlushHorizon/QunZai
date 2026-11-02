@@ -1,5 +1,5 @@
 ﻿# 群崽 QunZai · 安装器专用停止脚本
-# 按「安装目录」精准结束本程序的所有进程：桌面宿主 + Node 服务 + 内置监视器(NapCat/SnowLuma)。
+# 按「安装目录」精准结束本程序的所有进程：桌面宿主 + Node 服务 + 内置QQ 桥接(NapCat/SnowLuma)。
 # 只杀命令行 / 可执行路径落在 $Root 里的进程，绝不误杀其他 Node 程序。
 param(
     [Parameter(Mandatory = $true)]
@@ -39,8 +39,8 @@ try {
 
 # 2) 结束安装目录内的所有 node 进程：
 #    - server\server.js（主服务）
-#    - engine\napcat\node.exe index.js / napcat.mjs（内置 NapCat 监视器）
-#    - engine\snowluma\node.exe ...（内置 SnowLuma 监视器）
+#    - engine\napcat\node.exe index.js / napcat.mjs（内置 NapCat QQ 桥接）
+#    - engine\snowluma\node.exe ...（内置 SnowLuma QQ 桥接）
 try {
     Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
         Where-Object {

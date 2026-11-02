@@ -16,7 +16,7 @@ SetCompressor /SOLID lzma
 ; 正常情况下 build-package.js --installer 会传 /DVERSION=<package.json 里的版本>，
 ; 这里的值只是不经打包脚本、手工跑 makensis 时的兜底，别当成真实版本号。
 !ifndef VERSION
-  !define VERSION "1.4.14"
+  !define VERSION "1.4.15"
 !endif
 
 Name "${APPNAME}"
@@ -66,7 +66,7 @@ Section "主程序" SecMain
   ExecWait 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\stop-service.ps1" -Root "$INSTDIR"' $0
 
   ; ---------- Node.js 检测（22+；网页驱动依赖内置 WebSocket） ----------
-  ; 安装包里带了内置监视器（含 node.exe）时就不用再要求用户装 Node。
+  ; 安装包里带了内置QQ 桥接（含 node.exe）时就不用再要求用户装 Node。
   ; 注意：这里必须是编译期判断（!if），运行期 $INSTDIR 里还没有解出文件。
   !if /FileExists "dist\engine\napcat\node.exe"
     StrCpy $0 "0"
@@ -110,7 +110,7 @@ Section "主程序" SecMain
   File /r "dist\public"
   File /r "dist\assets"
   File /r "dist\desktop"
-  ; 内置 QQ 监视器（NapCat 等）：存在才打进去，瘦包这里没有 dist\engine
+  ; 内置 QQ QQ 桥接（NapCat 等）：存在才打进去，瘦包这里没有 dist\engine
   !if /FileExists "dist\engine"
     File /r "dist\engine"
   !endif

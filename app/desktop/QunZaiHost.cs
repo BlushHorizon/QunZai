@@ -862,7 +862,7 @@ namespace QunZai
 
         private static string FindNode()
         {
-            // 优先用安装包内置的 Node（随内置 QQ 监视器一起来的那份），
+            // 优先用安装包内置的 Node（随内置 QQ QQ 桥接一起来的那份），
             // 这样用户不用自己装 Node.js，双击就能跑。
             try
             {

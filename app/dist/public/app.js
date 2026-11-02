@@ -202,7 +202,7 @@ const state = {
   /** 随包内置那份运行时的真实目录，由 /api/engine/status 的 bundledDir 带回来 */
   bundledEngineDir: ''
 };
-/** 用户自己填过的监视器目录，切到「内置」再切回来时还原 */
+/** 用户自己填过的 QQ 桥接目录，切到「内置」再切回来时还原 */
 let lastCustomEngineDir = '';
 
 /* ---------------- 工具 ---------------- */
@@ -427,7 +427,7 @@ function applyPlatform() {
   if (webOnly && p.webSupported === false) {
     webOnly.classList.add('hidden');
   }
-  // 安卓版不内置 Windows 版 QQ 运行时，隐藏「监视器」整块，换成手机端说明
+  // 安卓版不内置 Windows 版 QQ 运行时，隐藏「QQ 桥接」整块，换成手机端说明
   const engSec = $('engineSection');
   if (engSec && p.engineSupported === false) {
     const engBlock = $('engineBlock') || engSec;
@@ -574,6 +574,7 @@ async function openSettings() {
   } catch { /* 忽略 */ }
   refreshStickers();
   refreshGallery();
+  switchSetPanel('ai');   // 每次打开回到第一个分类，避免停在晦涩的末页
   $('settingsModal').classList.remove('hidden');
 }
 
@@ -796,6 +797,19 @@ function openWebSite() {
       btn.textContent = '① 打开该网站（首次需登录）';
       uiAlert('❌ ' + e.message);
     });
+}
+
+/** 设置弹窗分类切换：只切显示，不动数据 */
+function switchSetPanel(key) {
+  if (!key) return;
+  document.querySelectorAll('#setNav .set-nav-item').forEach((b) => {
+    b.classList.toggle('active', b.dataset.panel === key);
+  });
+  document.querySelectorAll('#setContent .set-panel').forEach((p) => {
+    p.classList.toggle('active', p.dataset.panel === key);
+  });
+  const content = $('setContent');
+  if (content) content.scrollTop = 0;
 }
 
 /** QQ 接入模式切换：onebot 显示 WS/Token，qqbot 显示 AppID/Secret，mock 两者都藏 */
@@ -1528,6 +1542,11 @@ function init() {
     }
   });
   $('btnSaveSettings').addEventListener('click', saveSettings);
+  /* 设置弹窗左侧分类导航：点击切换面板。所有控件仍在同一 DOM 里，
+     只是显示/隐藏，所以 openSettings/saveSettings 的取值逻辑完全不用改。 */
+  document.querySelectorAll('#setNav .set-nav-item').forEach((btn) => {
+    btn.addEventListener('click', () => switchSetPanel(btn.dataset.panel));
+  });
   const modeSel = $('setMode');
   if (modeSel) modeSel.addEventListener('change', toggleQqMode);
   $('setCooldownEnabled').addEventListener('change', () => {

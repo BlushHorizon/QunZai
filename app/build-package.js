@@ -126,13 +126,13 @@ for (const f of FILES) {
   console.log('  ' + f);
 }
 
-/* 内置 QQ 监视器（可选）：把 engine-src/napcat 之类拷进 dist/engine/<name>。
+/* 内置 QQ QQ 桥接（可选）：把 engine-src/napcat 之类拷进 dist/engine/<name>。
    只拷程序本体，绝不拷 config/ data/ logs/ —— 那里面有别人的 token 和登录态。
    用 --with-engine 或默认「存在就带」；用 --no-engine 可以出瘦包。 */
 const ENGINE_SRC = path.join(ROOT, 'engine-src');
 const wantEngine = !process.argv.includes('--no-engine');
 if (wantEngine && fs.existsSync(ENGINE_SRC)) {
-  console.log('\n=== 1b. 内置 QQ 监视器 ===');
+  console.log('\n=== 1b. 内置 QQ QQ 桥接 ===');
   rmrf(path.join(DIST, 'engine'));
   const engines = fs.readdirSync(ENGINE_SRC, { withFileTypes: true }).filter((e) => e.isDirectory());
   for (const e of engines) {
@@ -155,10 +155,10 @@ if (wantEngine && fs.existsSync(ENGINE_SRC)) {
     }
   }
 } else if (!wantEngine) {
-  console.log('\n=== 1b. 跳过内置监视器（--no-engine，出瘦包）===');
+  console.log('\n=== 1b. 跳过内置QQ 桥接（--no-engine，出瘦包）===');
   rmrf(path.join(DIST, 'engine'));
 } else {
-  console.log('\n=== 1b. 没有 engine-src/，出瘦包（不含内置监视器）===');
+  console.log('\n=== 1b. 没有 engine-src/，出瘦包（不含内置QQ 桥接）===');
   rmrf(path.join(DIST, 'engine'));
 }
 console.log('\n=== 2. 现生成 dist/config.json（唯一来源：DEFAULT_CONFIG + 出厂覆盖）===');

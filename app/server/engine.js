@@ -1,8 +1,8 @@
 'use strict';
 /**
- * 群崽 QQ 内核 · OneBot 运行时（监视器）集成层
+ * 群崽 QQ 内核 · OneBot 运行时（QQ 桥接）集成层
  * ---------------------------------------------------------------------------
- * 所谓「监视器」，就是真正负责登录 QQ、监听消息、把消息转成 OneBot 11 的那个
+ * 所谓「QQ 桥接」，就是真正负责登录 QQ、监听消息、把消息转成 OneBot 11 的那个
  * 第三方运行时（NapCat / SnowLuma / 其他兼容实现）。群崽自己不登录 QQ。
  *
  * 这一层做四件事：
@@ -234,13 +234,13 @@ class QQEngine {
   }
 
   /**
-   * 给监视器主进程注入「禁止弹控制台」的预加载脚本。
+   * 给QQ 桥接主进程注入「禁止弹控制台」的预加载脚本。
    * ------------------------------------------------------------------
    * NapCat 这类运行时会在内部 fork worker 子进程，且 fork 时不设 windowsHide。
    * 由于群崽自己是 GUI 程序（没有控制台），worker 带 inherit 的 stdio 就会
    * 新开一个控制台窗口——也就是用户看到的那黑框。
    *
-   * 这里通过 NODE_OPTIONS=--require <no-console.cjs>，让监视器主进程一启动就
+   * 这里通过 NODE_OPTIONS=--require <no-console.cjs>，让QQ 桥接主进程一启动就
    * 把 child_process 的 spawn/fork/execFile/exec 补上 windowsHide: true，
    * 从进程内部解决问题，不用改第三方源码、也不会因为换版本失效。
    *
@@ -294,7 +294,7 @@ class QQEngine {
       add(bundled);
     };
 
-    // 「监视器来源」决定还要不要继续往下找：
+    // 「QQ 桥接来源」决定还要不要继续往下找：
     //   bundled = 只认随包内置的；custom = 只认用户填的目录；
     //   auto（默认）= 内置优先，找不到再看用户填的和常见目录。
     if (source === 'bundled' || source === 'auto') addBundled();
@@ -667,8 +667,8 @@ class QQEngine {
       return {
         ok: false,
         error: wanted
-          ? `没有找到账号 ${wanted} 的 OneBot 配置；内置的监视器需要先启动一次并扫码登录`
-          : '没有找到兼容的 OneBot 运行时，请在设置里填写监视器目录',
+          ? `没有找到账号 ${wanted} 的 OneBot 配置；内置的 QQ 桥接需要先启动一次并扫码登录`
+          : '没有找到兼容的 OneBot 运行时，请在设置里填写 QQ 桥接目录',
         tried
       };
     }
@@ -710,7 +710,7 @@ class QQEngine {
     return {
       enabled: engineCfg.enabled !== false,
       autoStart: engineCfg.autoStart !== false,
-      /** bundled = 用随包内置的监视器；custom = 用用户自己找的；auto = 先内置后自定义 */
+      /** bundled = 用随包内置的QQ 桥接；custom = 用用户自己找的；auto = 先内置后自定义 */
       source: engineCfg.source || 'auto',
       dir: info?.dir || engineCfg.dir || '',
       account: engineCfg.account || info?.account || '',
@@ -1006,7 +1006,7 @@ class QQEngine {
         const child = spawn(info.entry.cmd, info.entry.args, {
           cwd: info.dir,
           // .bat 兜底入口（cmd.exe）不能 detached：Windows 上它会另开一个控制台窗口。
-          // 直接跑 node 的入口（绝大多数情况）保持 detached，这样群崽异常退出也不带走监视器。
+          // 直接跑 node 的入口（绝大多数情况）保持 detached，这样群崽异常退出也不带走QQ 桥接。
           detached: !info.entry.isShell,
           windowsHide: true,
           stdio: 'ignore',
@@ -1017,13 +1017,13 @@ class QQEngine {
         this.lastStartedAt = Date.now();
         started = true;
       } catch (err) {
-        this.lastError = '启动监视器失败：' + err.message;
+        this.lastError = '启动 QQ 桥接失败：' + err.message;
         return { ok: false, error: this.lastError, info: info.public };
       }
       const ready = await this._awaitReady(info);
       if (ready.state === 'timeout') {
         const logs = this._tailLog(info);
-        this.lastError = `监视器没有在 45 秒内监听 ${this._waitPorts(info).join(' / ')} 端口。`
+        this.lastError = `QQ 桥接没有在 45 秒内监听 ${this._waitPorts(info).join(' / ')} 端口。`
           + (info.kind === 'napcat'
             ? '最常见的原因是本机没装桌面版 QQ（新版 NTQQ），或者 QQ 版本太新/太旧和内置那份对不上。'
             : '')
@@ -1083,7 +1083,7 @@ class QQEngine {
     const dir = this.lastInfo?.dir || '';
     if (dir) for (const p of killByInstallDir(dir)) killed.push(p);
     if (!killed.length) {
-      return { ok: false, error: '当前没有由群崽启动的监视器；为避免误杀，未停止其他进程' };
+      return { ok: false, error: '当前没有由群崽启动的 QQ 桥接；为避免误杀，未停止其他进程' };
     }
     return { ok: true, pid: pid || null, killed };
   }

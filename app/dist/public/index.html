@@ -22,7 +22,7 @@
         <span class="logo">◉</span>
         <span class="title">群崽 <em>QunZai</em></span>
         <span class="subtitle">QQ 智能体监控台</span>
-        <span class="version" id="appVersion">v1.4.14</span>
+        <span class="version" id="appVersion">v1.4.15</span>
       </div>
       <div class="topbar-right">
         <div class="pill" id="qqStatusPill" title="QQ 接入状态">
@@ -107,372 +107,399 @@
 
   <!-- 设置弹窗 -->
   <div class="modal hidden" id="settingsModal">
-    <div class="modal-card">
+    <div class="modal-card wide">
       <div class="modal-head">
         <h3>设置</h3>
         <button class="close-btn" data-close="settingsModal">✕</button>
       </div>
-      <div class="modal-body">
-        <h4>AI 自动回复</h4>
-        <label class="field">
-          <span>回复对象</span>
-          <select id="setReplyMode">
-            <option value="all">全部会话都回复</option>
-            <option value="target">只回复选中的会话（可多选，其他一律不回）</option>
-          </select>
-        </label>
-        <label class="field column" id="targetWrap">
-          <span>指定会话</span>
-          <select id="setTargetChat" multiple size="5"></select>
-          <span class="tip">按住 Ctrl 点选可多选，<b>选中的会话全部回复</b>；一个都不选 = 全部回复</span>
-        </label>
-        <label class="field">
-          <span>回复范围</span>
-          <select id="setScope">
-            <option value="private">仅私聊</option>
-            <option value="all">私聊 + 群聊</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>群聊需 @ 才回</span>
-          <input type="checkbox" id="setMention" />
-        </label>
-        <label class="field">
-          <span>群聊主动回复概率%</span>
-          <input type="number" id="setGroupChance" min="0" max="100" title="群里没@机器人的消息被回复的几率；@必回；0=群里不主动回" />
-        </label>
-        <label class="field column">
-          <span>群聊关键词（命中才回，逗号分隔；留空=不限；@和图片不受限）</span>
-          <input type="text" id="setKeywords" placeholder="例如：服务器,在吗,更新" />
-        </label>
-        <label class="field">
-          <span>看图回复</span>
-          <input type="checkbox" id="setImageReply" title="收到图片时让 DeepSeek 看图后回复" />
-        </label>
-        <label class="field">
-          <span>群回@成员</span>
-          <input type="checkbox" id="setGroupAt" title="群聊回复时自动 @ 触发消息的人" />
-        </label>
-        <label class="field">
-          <span>群回引用</span>
-          <input type="checkbox" id="setGroupQuote" title="群聊回复时自动引用原消息" />
-        </label>
-        <label class="field">
-          <span>回复冷却</span>
-          <input type="checkbox" id="setCooldownEnabled" title="取消勾选 = 不冷却" />
-          <input type="number" id="setCooldownSec" min="0" step="0.5" style="flex:0 0 90px" title="0 = 不冷却" />
-          <span style="flex:0 0 auto">秒</span>
-        </label>
-        <p class="tip" style="margin:-2px 0 12px">同一会话两次自动回复的最小间隔；取消勾选 = 不冷却。</p>
-        <label class="field">
-          <span>免打扰时段</span>
-          <input type="checkbox" id="setQuietEnabled" />
-          <input type="time" id="setQuietFrom" style="flex:0 0 110px" />
-          <span style="flex:0 0 auto">到</span>
-          <input type="time" id="setQuietTo" style="flex:0 0 110px" />
-        </label>
-        <label class="field">
-          <span>指令主人QQ</span>
-          <input type="text" id="setCmdSenders" placeholder="自己的QQ号，逗号分隔；留空=禁用 /开 /暂停 /状态" />
-        </label>
-        <label class="field">
-          <span>大脑来源</span>
-          <select id="setProvider">
-            <option value="deepseek-web">网页版 DeepSeek（推荐，免 Key）</option>
-            <option value="openai-compatible">API 接口（OpenAI 兼容）</option>
-            <option value="builtin">内置规则引擎</option>
-          </select>
-        </label>
-        <div id="webOnly">
+      <div class="modal-body set-split">
+        <aside class="set-nav" id="setNav">
+          <button type="button" class="set-nav-item active" data-panel="ai"><span class="set-nav-ico">💬</span>AI 回复</button>
+          <button type="button" class="set-nav-item" data-panel="proactive"><span class="set-nav-ico">🌊</span>主动发言</button>
+          <button type="button" class="set-nav-item" data-panel="moderation"><span class="set-nav-ico">🛡</span>群管理</button>
+          <button type="button" class="set-nav-item" data-panel="stickers"><span class="set-nav-ico">😀</span>表情包</button>
+          <button type="button" class="set-nav-item" data-panel="qq"><span class="set-nav-ico">🔌</span>QQ 接入</button>
+          <button type="button" class="set-nav-item" data-panel="engine"><span class="set-nav-ico">🔗</span>QQ 桥接</button>
+          <button type="button" class="set-nav-item" data-panel="update"><span class="set-nav-ico">⬆</span>自动更新</button>
+          <button type="button" class="set-nav-item" data-panel="about"><span class="set-nav-ico">ℹ</span>关于</button>
+        </aside>
+        <div class="set-content" id="setContent">
+          <section class="set-panel active" data-panel="ai">
+          <h4 class="set-panel-title">AI 自动回复<span class="set-panel-desc">决定哪些消息会被回复、回复的边界和频率</span></h4>
+          <label class="field">
+            <span>回复对象</span>
+            <select id="setReplyMode">
+              <option value="all">全部会话都回复</option>
+              <option value="target">只回复选中的会话（可多选，其他一律不回）</option>
+            </select>
+          </label>
+          <label class="field column" id="targetWrap">
+            <span>指定会话</span>
+            <select id="setTargetChat" multiple size="5"></select>
+            <span class="tip">按住 Ctrl 点选可多选，<b>选中的会话全部回复</b>；一个都不选 = 全部回复</span>
+          </label>
+          <label class="field">
+            <span>回复范围</span>
+            <select id="setScope">
+              <option value="private">仅私聊</option>
+              <option value="all">私聊 + 群聊</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>群聊需 @ 才回</span>
+            <input type="checkbox" id="setMention" />
+          </label>
+          <label class="field">
+            <span>群聊主动回复概率%</span>
+            <input type="number" id="setGroupChance" min="0" max="100" title="群里没@机器人的消息被回复的几率；@必回；0=群里不主动回" />
+          </label>
           <label class="field column">
-            <span>网页版引擎</span>
-            <select id="setWebSite"></select>
+            <span>群聊关键词（命中才回，逗号分隔；留空=不限；@和图片不受限）</span>
+            <input type="text" id="setKeywords" placeholder="例如：服务器,在吗,更新" />
+          </label>
+          <label class="field">
+            <span>看图回复</span>
+            <input type="checkbox" id="setImageReply" title="收到图片时让 DeepSeek 看图后回复" />
+          </label>
+          <label class="field">
+            <span>群回@成员</span>
+            <input type="checkbox" id="setGroupAt" title="群聊回复时自动 @ 触发消息的人" />
+          </label>
+          <label class="field">
+            <span>群回引用</span>
+            <input type="checkbox" id="setGroupQuote" title="群聊回复时自动引用原消息" />
+          </label>
+          <label class="field">
+            <span>回复冷却</span>
+            <input type="checkbox" id="setCooldownEnabled" title="取消勾选 = 不冷却" />
+            <input type="number" id="setCooldownSec" min="0" step="0.5" style="flex:0 0 90px" title="0 = 不冷却" />
+            <span style="flex:0 0 auto">秒</span>
+          </label>
+          <p class="tip" style="margin:-2px 0 12px">同一会话两次自动回复的最小间隔；取消勾选 = 不冷却。</p>
+          <label class="field">
+            <span>免打扰时段</span>
+            <input type="checkbox" id="setQuietEnabled" />
+            <input type="time" id="setQuietFrom" style="flex:0 0 110px" />
+            <span style="flex:0 0 auto">到</span>
+            <input type="time" id="setQuietTo" style="flex:0 0 110px" />
+          </label>
+          <label class="field">
+            <span>指令主人QQ</span>
+            <input type="text" id="setCmdSenders" placeholder="自己的QQ号，逗号分隔；留空=禁用 /开 /暂停 /状态" />
+          </label>
+          <label class="field">
+            <span>大脑来源</span>
+            <select id="setProvider">
+              <option value="deepseek-web">网页版 DeepSeek（推荐，免 Key）</option>
+              <option value="openai-compatible">API 接口（OpenAI 兼容）</option>
+              <option value="builtin">内置规则引擎</option>
+            </select>
+          </label>
+          <div id="webOnly">
+            <label class="field column">
+              <span>网页版引擎</span>
+              <select id="setWebSite"></select>
+            </label>
+            <div class="row-btns">
+              <button class="mini-btn alt" id="btnWebOpen">① 打开该网站（首次需登录）</button>
+            </div>
+            <p class="tip" id="webSiteHint"></p>
+            <label class="field">
+              <span>CDP 端口</span>
+              <input type="number" id="setCdpPort" min="1024" max="65535" />
+            </label>
+            <label class="field column">
+              <span>浏览器路径（留空自动找 Edge/Chrome）</span>
+              <input type="text" id="setBrowserPath" placeholder="C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" />
+            </label>
+            <label class="field column">
+              <span>提示词（每次新建对话时自动发一次，留空=不发）</span>
+              <textarea id="setWebPrompt" rows="4" placeholder="例如：你是我的 QQ 聊天代回复，回复口语化、简短、像真人。&#10;留空则直接把对方消息原文发给 DeepSeek"></textarea>
+            </label>
+            <label class="field">
+              <span>多少轮后自动新对话</span>
+              <input type="number" id="setWebMaxRounds" min="5" max="200" />
+            </label>
+            <div class="ds-status" id="dsStatus">状态：未连接</div>
+            <div class="row-btns">
+              <button class="mini-btn alt" id="btnDsTest">③ 测试回复</button>
+            </div>
+            <p class="tip" id="dsTip">首次使用会弹出一个 Edge 窗口，请扫码登录 DeepSeek；登录一次后会长期复用。</p>
+          </div>
+          <div id="apiOnly">
+          <label class="field">
+            <span>开启</span>
+            <input type="checkbox" id="setEnabled" />
+          </label>
+          <label class="field">
+            <span>接口地址</span>
+            <input type="text" id="setBaseUrl" placeholder="https://api.deepseek.com" />
+          </label>
+          <label class="field">
+            <span>API Key</span>
+            <input type="password" id="setApiKey" placeholder="留空则使用内置规则应答" />
+          </label>
+          <div class="row-btns" style="margin:-6px 0 10px">
+            <button class="mini-btn" id="btnApiKeyClear" type="button" hidden>清除已保存的 Key</button>
+          </div>
+          <label class="field">
+            <span>模型</span>
+            <input type="text" id="setModel" placeholder="deepseek-chat" />
+          </label>
+          <label class="field column">
+            <span>角色设定（system prompt）</span>
+            <textarea id="setPrompt" rows="4"></textarea>
           </label>
           <div class="row-btns">
-            <button class="mini-btn alt" id="btnWebOpen">① 打开该网站（首次需登录）</button>
+            <button class="mini-btn alt" id="btnApiTest">测试连接 / 测速 / 余额</button>
+            <button class="mini-btn" id="btnApiNew">新建对话（清空 AI 记忆）</button>
           </div>
-          <p class="tip" id="webSiteHint"></p>
+          <label class="field column" style="margin-top:8px">
+            <span>清空哪个会话的记忆</span>
+            <select id="setApiNewTarget"></select>
+            <span class="tip">「新建对话」= 让 AI 忘掉之前的聊天记录，从头开始。聊天记录本身不会被删，只是不再喂给模型。网页版模式由 DeepSeek 站点自己管对话，不需要这个。</span>
+          </label>
+          <div class="ds-status" id="apiStatus">状态：未测试</div>
+          </div>
+  
+          </section>
+          <section class="set-panel" data-panel="proactive">
+          <h4 class="set-panel-title">主动发言<span class="set-panel-desc">群崽什么时候自己开口、说什么、说多频繁</span></h4>
+          <p class="tip">两个开关：<b>感兴趣时插话</b>、<b>冷场时主动开口</b>。它们会真的发消息，默认关闭。（长期记忆功能已移除：机器人不再记录和引用历史记忆）</p>
+  
+          <div class="field" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+            <label class="chk"><input type="checkbox" id="setInterestReply" /> 感兴趣时插一句</label>
+            <label class="chk"><input type="checkbox" id="setProactiveEnabled" /> 冷场时主动开口</label>
+            <label class="chk"><input type="checkbox" id="setProactiveShadow" checked /> 只演练不真发</label>
+            <button class="mini-btn danger-btn" id="btnProactiveKill">一键闭嘴</button>
+          </div>
+  
           <label class="field">
-            <span>CDP 端口</span>
-            <input type="number" id="setCdpPort" min="1024" max="65535" />
+            <span>主动开口的群（留空 = 一个都不主动）</span>
+            <input type="text" id="setProactiveTargets" placeholder="group:123456,group:789012" />
+            <span class="tip">格式是 <code>group:群号</code>。这里是白名单：没填群号，它在任何群里都不会主动开口。留空最安全，先看演练记录再放开。</span>
           </label>
-          <label class="field column">
-            <span>浏览器路径（留空自动找 Edge/Chrome）</span>
-            <input type="text" id="setBrowserPath" placeholder="C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" />
-          </label>
-          <label class="field column">
-            <span>提示词（每次新建对话时自动发一次，留空=不发）</span>
-            <textarea id="setWebPrompt" rows="4" placeholder="例如：你是我的 QQ 聊天代回复，回复口语化、简短、像真人。&#10;留空则直接把对方消息原文发给 DeepSeek"></textarea>
-          </label>
-          <label class="field">
-            <span>多少轮后自动新对话</span>
-            <input type="number" id="setWebMaxRounds" min="5" max="200" />
-          </label>
-          <div class="ds-status" id="dsStatus">状态：未连接</div>
+  
+          <div class="field column">
+            <span>它最近想说什么 / 为什么没说</span>
+            <div id="proactiveLog" class="tip" style="max-height:150px;overflow:auto">还没有决策记录。</div>
+          </div>
           <div class="row-btns">
-            <button class="mini-btn alt" id="btnDsTest">③ 测试回复</button>
+            <button class="mini-btn" id="btnProactiveLog">刷新决策记录</button>
           </div>
-          <p class="tip" id="dsTip">首次使用会弹出一个 Edge 窗口，请扫码登录 DeepSeek；登录一次后会长期复用。</p>
-        </div>
-        <div id="apiOnly">
-        <label class="field">
-          <span>开启</span>
-          <input type="checkbox" id="setEnabled" />
-        </label>
-        <label class="field">
-          <span>接口地址</span>
-          <input type="text" id="setBaseUrl" placeholder="https://api.deepseek.com" />
-        </label>
-        <label class="field">
-          <span>API Key</span>
-          <input type="password" id="setApiKey" placeholder="留空则使用内置规则应答" />
-        </label>
-        <div class="row-btns" style="margin:-6px 0 10px">
-          <button class="mini-btn" id="btnApiKeyClear" type="button" hidden>清除已保存的 Key</button>
-        </div>
-        <label class="field">
-          <span>模型</span>
-          <input type="text" id="setModel" placeholder="deepseek-chat" />
-        </label>
-        <label class="field column">
-          <span>角色设定（system prompt）</span>
-          <textarea id="setPrompt" rows="4"></textarea>
-        </label>
-        <div class="row-btns">
-          <button class="mini-btn alt" id="btnApiTest">测试连接 / 测速 / 余额</button>
-          <button class="mini-btn" id="btnApiNew">新建对话（清空 AI 记忆）</button>
-        </div>
-        <label class="field column" style="margin-top:8px">
-          <span>清空哪个会话的记忆</span>
-          <select id="setApiNewTarget"></select>
-          <span class="tip">「新建对话」= 让 AI 忘掉之前的聊天记录，从头开始。聊天记录本身不会被删，只是不再喂给模型。网页版模式由 DeepSeek 站点自己管对话，不需要这个。</span>
-        </label>
-        <div class="ds-status" id="apiStatus">状态：未测试</div>
-        </div>
-
-        <h4>主动发言</h4>
-        <p class="tip">两个开关：<b>感兴趣时插话</b>、<b>冷场时主动开口</b>。它们会真的发消息，默认关闭。（长期记忆功能已移除：机器人不再记录和引用历史记忆）</p>
-
-        <div class="field" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
-          <label class="chk"><input type="checkbox" id="setInterestReply" /> 感兴趣时插一句</label>
-          <label class="chk"><input type="checkbox" id="setProactiveEnabled" /> 冷场时主动开口</label>
-          <label class="chk"><input type="checkbox" id="setProactiveShadow" checked /> 只演练不真发</label>
-          <button class="mini-btn danger-btn" id="btnProactiveKill">一键闭嘴</button>
-        </div>
-
-        <label class="field">
-          <span>主动开口的群（留空 = 一个都不主动）</span>
-          <input type="text" id="setProactiveTargets" placeholder="group:123456,group:789012" />
-          <span class="tip">格式是 <code>group:群号</code>。这里是白名单：没填群号，它在任何群里都不会主动开口。留空最安全，先看演练记录再放开。</span>
-        </label>
-
-        <div class="field column">
-          <span>它最近想说什么 / 为什么没说</span>
-          <div id="proactiveLog" class="tip" style="max-height:150px;overflow:auto">还没有决策记录。</div>
-        </div>
-        <div class="row-btns">
-          <button class="mini-btn" id="btnProactiveLog">刷新决策记录</button>
-        </div>
-
-        <details class="tip" style="margin-top:6px">
-          <summary style="cursor:pointer">高级：频率与兴趣词表</summary>
-          <div class="field" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
-            <label class="field" style="width:auto"><span>冷场多少分钟算冷场</span><input type="number" id="setProIdleMin" min="1" max="1440" value="25" /></label>
-            <label class="field" style="width:auto"><span>每小时最多</span><input type="number" id="setProMaxHour" min="0" max="20" value="2" /></label>
-            <label class="field" style="width:auto"><span>每天最多</span><input type="number" id="setProMaxDay" min="0" max="100" value="8" /></label>
-            <label class="field" style="width:auto"><span>两次间隔（分钟）</span><input type="number" id="setProGapMin" min="0" max="1440" value="20" /></label>
-            <label class="field" style="width:auto"><span>夜间静默开始</span><input type="time" id="setProNightFrom" value="00:00" /></label>
-            <label class="field" style="width:auto"><span>夜间静默结束</span><input type="time" id="setProNightTo" value="09:00" /></label>
+  
+          <details class="tip" style="margin-top:6px">
+            <summary style="cursor:pointer">高级：频率与兴趣词表</summary>
+            <div class="field" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
+              <label class="field" style="width:auto"><span>冷场多少分钟算冷场</span><input type="number" id="setProIdleMin" min="1" max="1440" value="25" /></label>
+              <label class="field" style="width:auto"><span>每小时最多</span><input type="number" id="setProMaxHour" min="0" max="20" value="2" /></label>
+              <label class="field" style="width:auto"><span>每天最多</span><input type="number" id="setProMaxDay" min="0" max="100" value="8" /></label>
+              <label class="field" style="width:auto"><span>两次间隔（分钟）</span><input type="number" id="setProGapMin" min="0" max="1440" value="20" /></label>
+              <label class="field" style="width:auto"><span>夜间静默开始</span><input type="time" id="setProNightFrom" value="00:00" /></label>
+              <label class="field" style="width:auto"><span>夜间静默结束</span><input type="time" id="setProNightTo" value="09:00" /></label>
+            </div>
+            <label class="field">
+              <span>感兴趣的话题词（逗号分隔）</span>
+              <input type="text" id="setInterestCaps" placeholder="编程,电脑,游戏,番剧,学习,做饭,数码" />
+            </label>
+            <p class="tip">频率不是礼貌问题：QQ 对高频发送会判骚扰（result=120）。默认每小时 2 条、每天 8 条，已经不算保守。</p>
+          </details>
+  
+          </section>
+          <section class="set-panel" data-panel="moderation">
+          <h4 class="set-panel-title">群管理<span class="set-panel-desc">防刷屏、违禁词、欢迎新人、深夜禁言</span></h4>
+          <p class="tip">防刷屏、拦广告、管违禁词、欢迎新人、深夜宵禁。默认全关——开关打开才会生效；主人（上面 QQ 接入里填的指令发送者）永远不受管。</p>
+          <div class="field">
+            <span>总开关与模式</span>
+            <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:4px">
+              <label class="chk"><input type="checkbox" id="setModEnabled" /> 启用群管</label>
+              <label class="chk"><input type="checkbox" id="setModShadow" /> 演练模式（只记录不动手）</label>
+              <label class="chk"><input type="checkbox" id="setModAutoPunish" /> 允许禁言（机器人是管理员才生效）</label>
+            </div>
           </div>
+          <div class="field" style="display:flex;gap:10px;flex-wrap:wrap">
+            <label class="field" style="width:auto"><span>刷屏：多少秒内</span><input type="number" id="setModSpamWin" min="3" max="120" style="width:70px" /></label>
+            <label class="field" style="width:auto"><span>超过几条算刷屏</span><input type="number" id="setModSpamMax" min="3" max="60" style="width:70px" /></label>
+            <label class="field" style="width:auto"><span>禁言几分钟</span><input type="number" id="setModSpamMute" min="1" max="43200" style="width:80px" /></label>
+            <label class="field" style="width:auto"><span>重复：几条窗口内</span><input type="number" id="setModDupWin" min="10" max="600" style="width:80px" /></label>
+            <label class="field" style="width:auto"><span>同样几遍算重复</span><input type="number" id="setModDupTimes" min="2" max="10" style="width:70px" /></label>
+          </div>
+          <div class="field">
+            <span>违禁词（逗号分隔，命中后提醒；留空关闭）</span>
+            <input type="text" id="setModBanned" placeholder="色情,赌博,办证" />
+          </div>
+          <div class="field" style="display:flex;gap:14px;flex-wrap:wrap">
+            <label class="chk"><input type="checkbox" id="setModAdDelete" /> 广告消息删原消息（有权限时）</label>
+            <label class="chk"><input type="checkbox" id="setModAdLinks" /> 连链接也拦</label>
+            <label class="chk"><input type="checkbox" id="setModDupDel" /> 重复消息删原消息（有权限时）</label>
+            <label class="chk"><input type="checkbox" id="setModDupNotice" /> 重复时在群里提一句</label>
+            <label class="chk"><input type="checkbox" id="setModBannedNotify" /> 违禁词私聊通知主人</label>
+          </div>
+          <div class="field">
+            <span>新人欢迎语（{name} 会换成对方名片；留空关闭）</span>
+            <input type="text" id="setModWelcome" />
+          </div>
+          <div class="field" style="display:flex;gap:10px;flex-wrap:wrap">
+            <label class="field" style="width:auto"><span>宵禁时段</span>
+              <input type="time" id="setModCurfewFrom" style="width:100px" />
+              <span style="align-self:center">到</span>
+              <input type="time" id="setModCurfewTo" style="width:100px" />
+            </label>
+            <label class="field" style="width:auto"><span>宵禁语（{name} 占位；留空关闭）</span><input type="text" id="setModCurfewText" style="width:280px" /></label>
+          </div>
+          <div class="field">
+            <span>白名单（不受管的用户/群，逗号分隔，可填 QQ 号或 group:群号）</span>
+            <input type="text" id="setModWhitelist" placeholder="123456,group:789012" />
+          </div>
+          <div class="row-btns">
+            <button class="mini-btn" id="btnModStats">查看最近拦截记录</button>
+          </div>
+          <div id="modStatsBox" class="ds-status" style="display:none;white-space:pre-wrap"></div>
+  
+          </section>
+          <section class="set-panel" data-panel="stickers">
+          <h4 class="set-panel-title">表情包<span class="set-panel-desc">让它回复时能带图，表情从哪来、怎么用</span></h4>
+          <p class="tip">机器人自动收藏群友们发的商城表情/图片当素材库，AI 聊天时<b>自己看着办</b>发表情包（提示词内置「表情包能力」，告诉它怎么触发、什么时候发）。给机器人私聊丢几个表情包或在群里发，它马上收藏。</p>
+          <div class="field" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span class="tip" id="stickerStats">素材：加载中…</span>
+            <button class="mini-btn primary-btn" id="btnStickerTest">发一个到我 QQ 看看</button>
+            <button class="mini-btn danger-btn" id="btnStickerClear">全部清空</button>
+          </div>
+          <div id="stickerList" class="sticker-list"></div>
+  
+          <p class="tip">另外内置了一套在线表情图库（<a href="https://aigengtu.com/DeepSeek%E5%A8%98" target="_blank" rel="noopener">梗鲸 · DeepSeek娘</a>，约 2300 张）。群友素材里挑不到时，AI 会按关键词去这套图里找，用到哪张下哪张，只缓存在本机。图库来自第三方站点，不可达时自动跳过，不影响聊天。</p>
+          <div class="field" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span class="tip" id="galleryStats">在线图库：加载中…</span>
+            <button class="mini-btn" id="btnGalleryRefresh">刷新图库</button>
+          </div>
+          <div id="galleryList" class="sticker-list gallery-list"></div>
+  
+          </section>
+          <section class="set-panel" data-panel="qq">
+          <h4 class="set-panel-title">QQ 接入<span class="set-panel-desc">群崽通过什么方式连上你的 QQ 号</span></h4>
           <label class="field">
-            <span>感兴趣的话题词（逗号分隔）</span>
-            <input type="text" id="setInterestCaps" placeholder="编程,电脑,游戏,番剧,学习,做饭,数码" />
+            <span>模式</span>
+            <select id="setMode">
+              <option value="mock">演示模式（模拟）</option>
+              <option value="onebot">OneBot 11（本机兼容运行时）</option>
+              <option value="qqbot">QQ 官方机器人（开放平台）</option>
+            </select>
           </label>
-          <p class="tip">频率不是礼貌问题：QQ 对高频发送会判骚扰（result=120）。默认每小时 2 条、每天 8 条，已经不算保守。</p>
-        </details>
-
-        <h4 id="modSection">群管</h4>
-        <p class="tip">防刷屏、拦广告、管违禁词、欢迎新人、深夜宵禁。默认全关——开关打开才会生效；主人（上面 QQ 接入里填的指令发送者）永远不受管。</p>
-        <div class="field">
-          <span>总开关与模式</span>
-          <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:4px">
-            <label class="chk"><input type="checkbox" id="setModEnabled" /> 启用群管</label>
-            <label class="chk"><input type="checkbox" id="setModShadow" /> 演练模式（只记录不动手）</label>
-            <label class="chk"><input type="checkbox" id="setModAutoPunish" /> 允许禁言（机器人是管理员才生效）</label>
-          </div>
-        </div>
-        <div class="field" style="display:flex;gap:10px;flex-wrap:wrap">
-          <label class="field" style="width:auto"><span>刷屏：多少秒内</span><input type="number" id="setModSpamWin" min="3" max="120" style="width:70px" /></label>
-          <label class="field" style="width:auto"><span>超过几条算刷屏</span><input type="number" id="setModSpamMax" min="3" max="60" style="width:70px" /></label>
-          <label class="field" style="width:auto"><span>禁言几分钟</span><input type="number" id="setModSpamMute" min="1" max="43200" style="width:80px" /></label>
-          <label class="field" style="width:auto"><span>重复：几条窗口内</span><input type="number" id="setModDupWin" min="10" max="600" style="width:80px" /></label>
-          <label class="field" style="width:auto"><span>同样几遍算重复</span><input type="number" id="setModDupTimes" min="2" max="10" style="width:70px" /></label>
-        </div>
-        <div class="field">
-          <span>违禁词（逗号分隔，命中后提醒；留空关闭）</span>
-          <input type="text" id="setModBanned" placeholder="色情,赌博,办证" />
-        </div>
-        <div class="field" style="display:flex;gap:14px;flex-wrap:wrap">
-          <label class="chk"><input type="checkbox" id="setModAdDelete" /> 广告消息删原消息（有权限时）</label>
-          <label class="chk"><input type="checkbox" id="setModAdLinks" /> 连链接也拦</label>
-          <label class="chk"><input type="checkbox" id="setModDupDel" /> 重复消息删原消息（有权限时）</label>
-          <label class="chk"><input type="checkbox" id="setModDupNotice" /> 重复时在群里提一句</label>
-          <label class="chk"><input type="checkbox" id="setModBannedNotify" /> 违禁词私聊通知主人</label>
-        </div>
-        <div class="field">
-          <span>新人欢迎语（{name} 会换成对方名片；留空关闭）</span>
-          <input type="text" id="setModWelcome" />
-        </div>
-        <div class="field" style="display:flex;gap:10px;flex-wrap:wrap">
-          <label class="field" style="width:auto"><span>宵禁时段</span>
-            <input type="time" id="setModCurfewFrom" style="width:100px" />
-            <span style="align-self:center">到</span>
-            <input type="time" id="setModCurfewTo" style="width:100px" />
+          <div id="onebotOnly">
+          <label class="field">
+            <span>OneBot WS</span>
+            <input type="text" id="setWsUrl" placeholder="ws://127.0.0.1:3001" />
           </label>
-          <label class="field" style="width:auto"><span>宵禁语（{name} 占位；留空关闭）</span><input type="text" id="setModCurfewText" style="width:280px" /></label>
-        </div>
-        <div class="field">
-          <span>白名单（不受管的用户/群，逗号分隔，可填 QQ 号或 group:群号）</span>
-          <input type="text" id="setModWhitelist" placeholder="123456,group:789012" />
-        </div>
-        <div class="row-btns">
-          <button class="mini-btn" id="btnModStats">查看最近拦截记录</button>
-        </div>
-        <div id="modStatsBox" class="ds-status" style="display:none;white-space:pre-wrap"></div>
-
-        <h4>表情包</h4>
-        <p class="tip">机器人自动收藏群友们发的商城表情/图片当素材库，AI 聊天时<b>自己看着办</b>发表情包（提示词内置「表情包能力」，告诉它怎么触发、什么时候发）。给机器人私聊丢几个表情包或在群里发，它马上收藏。</p>
-        <div class="field" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <span class="tip" id="stickerStats">素材：加载中…</span>
-          <button class="mini-btn primary-btn" id="btnStickerTest">发一个到我 QQ 看看</button>
-          <button class="mini-btn danger-btn" id="btnStickerClear">全部清空</button>
-        </div>
-        <div id="stickerList" class="sticker-list"></div>
-
-        <p class="tip">另外内置了一套在线表情图库（<a href="https://aigengtu.com/DeepSeek%E5%A8%98" target="_blank" rel="noopener">梗鲸 · DeepSeek娘</a>，约 2300 张）。群友素材里挑不到时，AI 会按关键词去这套图里找，用到哪张下哪张，只缓存在本机。图库来自第三方站点，不可达时自动跳过，不影响聊天。</p>
-        <div class="field" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <span class="tip" id="galleryStats">在线图库：加载中…</span>
-          <button class="mini-btn" id="btnGalleryRefresh">刷新图库</button>
-        </div>
-        <div id="galleryList" class="sticker-list gallery-list"></div>
-
-        <h4>QQ 接入</h4>
-        <label class="field">
-          <span>模式</span>
-          <select id="setMode">
-            <option value="mock">演示模式（模拟）</option>
-            <option value="onebot">OneBot 11（本机兼容运行时）</option>
-            <option value="qqbot">QQ 官方机器人（开放平台）</option>
-          </select>
-        </label>
-        <div id="onebotOnly">
-        <label class="field">
-          <span>OneBot WS</span>
-          <input type="text" id="setWsUrl" placeholder="ws://127.0.0.1:3001" />
-        </label>
-        <label class="field">
-          <span>AccessToken</span>
-          <input type="password" id="setToken" placeholder="兼容运行时未设置则留空" />
-        </label>
-        </div>
-        <div id="qqbotOnly">
-        <label class="field">
-          <span>AppID（q.qq.com 机器人管理页可查）</span>
-          <input type="text" id="setQqbotAppId" placeholder="例如 1029xxxxxx" />
-        </label>
-        <label class="field">
-          <span>AppSecret（机器人管理页复制；只显示是否已配置）</span>
-          <input type="password" id="setQqbotSecret" placeholder="留空保持不变" />
-        </label>
-        <label class="chk"><input type="checkbox" id="setQqbotSandbox" /> 沙箱环境（测试用，走 sandbox 域名）</label>
-        <div class="row-btns">
-          <button class="mini-btn primary-btn" id="btnQqbotBind">用手机 QQ 扫码绑定（免填 AppID/Secret）</button>
-        </div>
-        <div id="qqbotBindBox" class="hidden" style="margin-top:8px">
-          <iframe id="qqbotBindFrame" style="width:100%;height:430px;border:1px solid var(--border,#333);border-radius:8px;background:#fff" title="QQ 官方机器人绑定"></iframe>
-          <div class="ds-status" id="qqbotBindStatus" style="margin-top:6px">等待扫码…绑定成功后自动填入并连接。</div>
-          <div class="row-btns" style="margin-top:6px">
-            <button class="mini-btn" id="btnQqbotBindCancel">取消绑定</button>
+          <label class="field">
+            <span>AccessToken</span>
+            <input type="password" id="setToken" placeholder="兼容运行时未设置则留空" />
+          </label>
           </div>
-        </div>
-        <p class="tip">官方机器人由腾讯直连，无需扫码、不用装运行时。但官方限制多：群里只能收到 <b>@机器人</b> 的消息；主动发消息个人额度仅 4 条/月；回复要在收到消息后 5 分钟内；消息里带链接需要 ICP 备案。适合当轻量问答机器人，完整聊天能力请用 OneBot 模式。</p>
-        </div>
-        <p class="tip">保存后会自动按新配置重连 QQ，不用重启服务；若没连上，先检查电脑上的 OneBot 运行时是否已启动、端口是否一致。</p>
-
-        <p class="tip" id="qqTipMobile" hidden>安卓版没有内置 Windows 版 QQ 运行时，所以「监视器」那一栏已隐藏。请在电脑上装一个 OneBot 11 兼容运行时（如 <a href="https://github.com/NapNeko/NapCatQQ" target="_blank" rel="noopener">NapCat</a> 或 <a href="https://snowluma.github.io/zh/" target="_blank" rel="noopener">SnowLuma</a>），在下面填它的 WebSocket 地址（例如 <code>ws://192.168.1.10:3001</code>），群崽就能连上去。</p>
-
-        <div id="engineBlock">
-        <h4 id="engineSection">监视器（QQ 运行时）</h4>
-        <p class="tip">「监视器」就是真正登录 QQ、把消息转成群崽能读的 OneBot 11 的那个程序。群崽自己不登录 QQ。安装包里已经内置了一份 NapCat，开箱即用；你也可以换成自己找的那一份。</p>
-        <p class="tip">想试试另一套运行时？这里有一份 <a href="https://snowluma.github.io/zh/" target="_blank" rel="noopener">SnowLuma 官网</a>（<a href="https://github.com/SnowLuma/SnowLuma/releases" target="_blank" rel="noopener">下载页</a>，GitHub 打不开时走官网）。它的许可不允许群崽把它打进安装包，所以这里只放官方地址——自己下载解压后，把上面的「用哪一份」选成「我自己找的」，再把解压目录填进去就能用。</p>
-        <label class="field">
-          <span>用哪一份</span>
-          <select id="setEngineSource">
-            <option value="bundled">内置的（随群崽安装，推荐）</option>
-            <option value="custom">我自己找的（填下面的目录）</option>
-            <option value="auto">自动：先找内置的，再找你自己的</option>
-          </select>
-        </label>
-        <label class="field column">
-          <span>自定义目录（选「我自己找的」时生效）</span>
-          <input type="text" id="setEngineDir" placeholder="例如 D:\你的OneBot运行时" />
-        </label>
-        <label class="field">
-          <span>机器人 QQ（可选）</span>
-          <input type="text" id="setEngineAccount" placeholder="只选这个账号的配置，防止误用其他号" />
-        </label>
-        <label class="field">
-          <span>启动时自动检测</span>
-          <input type="checkbox" id="setEngineAuto" />
-        </label>
-        <div class="ds-status" id="engineStatus">状态：未检测</div>
-        <div class="row-btns">
-          <button class="mini-btn" id="btnEngineDetect">自动检测</button>
-          <button class="mini-btn alt" id="btnEngineStart">启动并同步</button>
-          <button class="mini-btn" id="btnEngineWebui">打开它的管理面板</button>
-          <button class="mini-btn danger-btn" id="btnEngineStop">停止本次启动</button>
-        </div>
-        <div class="qr-box" id="engineQrBox" hidden>
-          <img id="engineQrImg" alt="登录二维码" />
-          <div class="qr-tip" id="engineQrTip">用小号在手机 QQ 上扫码登录，登录后这里会自动变成「运行中」</div>
-        </div>
-        <p class="tip">第一次用内置那份时，它会弹二维码让你扫码登录 QQ（只支持扫码，这是它的限制）。登录一次之后会记住，下次自动续上。</p>
-        </div>
-
-        <div id="updateBlock">
-        <h4 id="updateSection">自动更新</h4>
-        <label class="field column">
-          <span>更新清单地址（留空则读取 data/update.json）</span>
-          <input type="text" id="setUpdateManifest" placeholder="https://…/update.json 或本地路径" />
-        </label>
-        <label class="field">
-          <span>启动时自动检查</span>
-          <input type="checkbox" id="setUpdateAuto" />
-        </label>
-        <div class="ds-status" id="updateStatus">状态：未检查</div>
-        <div class="row-btns">
-          <button class="mini-btn" id="btnUpdateCheck">检查更新</button>
-        </div>
-        <p class="tip">发现新版本后会先询问“更新 / 不更新”，你同意后才下载；下载完成后还会再确认是否安装。不会静默更新。</p>
-        </div>
-
-        <h4>关于与声明</h4>
-        <div class="about-box">
-          <p><b>群崽 QunZai</b> <span id="aboutVersion">v1.4.14</span> · MIT 开源 · 创建于 2026 年 10 月 · 玩具级学习作品，非生产级产品</p>
-          <p>· 本项目<b>不是反代、没有第三方中转、没有逆向 DeepSeek 网页</b>；原理是用 Node 连接本机浏览器调试端口（CDP）模拟操作，<b>这与反代一样均违反 DeepSeek 用户协议，账号可能被临时限制或封禁</b>。</p>
-          <p>· 它会把 AI 生成的内容<b>自动发到 QQ</b>，无审核无黑名单，<b>请勿用于骚扰、刷屏、恶作剧，建议使用小号</b>。</p>
-          <p>· 运行时会自动拉起 Edge 并连接调试端口，<b>可能被杀软误报为木马</b>；源码公开可自行审计，确认为误报请加白名单。</p>
-          <p>· <b>本软件仅学习使用，请在 24h 内删除。</b>它是玩具，试过就好。MIT 协议并不禁止你留着——作者只是希望它别被拿去干坏事，更希望你先自己看懂源码再决定要不要留。</p>
-          <p>· 数据全部只在本机 <code>D:\群崽\data</code>，<b>无任何遥测与联网上传</b>。</p>
-          <p>· 使用本项目造成的一切后果（账号被封、群被踢、损失、纠纷等）<b>由使用者自行承担，作者不承担责任</b>。</p>
-          <p class="about-links">
-            官网 <a href="https://blushhorizon.github.io/QunZai/" target="_blank" rel="noopener">blushhorizon.github.io/QunZai</a>
-            · 源码 <a href="https://github.com/BlushHorizon/QunZai" target="_blank" rel="noopener">github.com/BlushHorizon/QunZai</a>
-            · 交流群 1128593359（暗号 qunzai520）
-            · ☕ <a href="https://ifdian.net/u/76c7d1dcfc3e11ef90af52540025c377" target="_blank" rel="noopener">支持群崽 · 爱发电</a>
-            · <b>问题反馈：</b><a href="https://github.com/BlushHorizon/QunZai/issues" target="_blank" rel="noopener">GitHub Issues</a>
-          </p>
-        </div>
+          <div id="qqbotOnly">
+          <label class="field">
+            <span>AppID（q.qq.com 机器人管理页可查）</span>
+            <input type="text" id="setQqbotAppId" placeholder="例如 1029xxxxxx" />
+          </label>
+          <label class="field">
+            <span>AppSecret（机器人管理页复制；只显示是否已配置）</span>
+            <input type="password" id="setQqbotSecret" placeholder="留空保持不变" />
+          </label>
+          <label class="chk"><input type="checkbox" id="setQqbotSandbox" /> 沙箱环境（测试用，走 sandbox 域名）</label>
+          <div class="row-btns">
+            <button class="mini-btn primary-btn" id="btnQqbotBind">用手机 QQ 扫码绑定（免填 AppID/Secret）</button>
+          </div>
+          <div id="qqbotBindBox" class="hidden" style="margin-top:8px">
+            <iframe id="qqbotBindFrame" style="width:100%;height:430px;border:1px solid var(--border,#333);border-radius:8px;background:#fff" title="QQ 官方机器人绑定"></iframe>
+            <div class="ds-status" id="qqbotBindStatus" style="margin-top:6px">等待扫码…绑定成功后自动填入并连接。</div>
+            <div class="row-btns" style="margin-top:6px">
+              <button class="mini-btn" id="btnQqbotBindCancel">取消绑定</button>
+            </div>
+          </div>
+          <p class="tip">官方机器人由腾讯直连，无需扫码、不用装运行时。但官方限制多：群里只能收到 <b>@机器人</b> 的消息；主动发消息个人额度仅 4 条/月；回复要在收到消息后 5 分钟内；消息里带链接需要 ICP 备案。适合当轻量问答机器人，完整聊天能力请用 OneBot 模式。</p>
+          </div>
+          <p class="tip">保存后会自动按新配置重连 QQ，不用重启服务；若没连上，先检查电脑上的 OneBot 运行时是否已启动、端口是否一致。</p>
+  
+          <p class="tip" id="qqTipMobile" hidden>安卓版没有内置 Windows 版 QQ 运行时，所以「QQ 桥接」那一栏已隐藏。请在电脑上装一个 OneBot 11 兼容运行时（如 <a href="https://github.com/NapNeko/NapCatQQ" target="_blank" rel="noopener">NapCat</a> 或 <a href="https://snowluma.github.io/zh/" target="_blank" rel="noopener">SnowLuma</a>），在下面填它的 WebSocket 地址（例如 <code>ws://192.168.1.10:3001</code>），群崽就能连上去。</p>
+  
+          </section>
+          <section class="set-panel" data-panel="engine">
+          <h4 class="set-panel-title">QQ 桥接<span class="set-panel-desc">真正登录 QQ、把消息转给群崽的那个程序（OneBot 运行时）</span></h4>
+          <div id="engineBlock">
+          <p class="tip">「QQ 桥接」就是真正登录 QQ、把消息转成群崽能读的 OneBot 11 的那个程序。群崽自己不登录 QQ。安装包里已经内置了一份 NapCat，开箱即用；你也可以换成自己找的那一份。</p>
+          <p class="tip">想试试另一套运行时？这里有一份 <a href="https://snowluma.github.io/zh/" target="_blank" rel="noopener">SnowLuma 官网</a>（<a href="https://github.com/SnowLuma/SnowLuma/releases" target="_blank" rel="noopener">下载页</a>，GitHub 打不开时走官网）。它的许可不允许群崽把它打进安装包，所以这里只放官方地址——自己下载解压后，把上面的「用哪一份」选成「我自己找的」，再把解压目录填进去就能用。</p>
+          <label class="field">
+            <span>用哪一份</span>
+            <select id="setEngineSource">
+              <option value="bundled">内置的（随群崽安装，推荐）</option>
+              <option value="custom">我自己找的（填下面的目录）</option>
+              <option value="auto">自动：先找内置的，再找你自己的</option>
+            </select>
+          </label>
+          <label class="field column">
+            <span>自定义目录（选「我自己找的」时生效）</span>
+            <input type="text" id="setEngineDir" placeholder="例如 D:\你的OneBot运行时" />
+          </label>
+          <label class="field">
+            <span>机器人 QQ（可选）</span>
+            <input type="text" id="setEngineAccount" placeholder="只选这个账号的配置，防止误用其他号" />
+          </label>
+          <label class="field">
+            <span>启动时自动检测</span>
+            <input type="checkbox" id="setEngineAuto" />
+          </label>
+          <div class="ds-status" id="engineStatus">状态：未检测</div>
+          <div class="row-btns">
+            <button class="mini-btn" id="btnEngineDetect">自动检测</button>
+            <button class="mini-btn alt" id="btnEngineStart">启动并同步</button>
+            <button class="mini-btn" id="btnEngineWebui">打开它的管理面板</button>
+            <button class="mini-btn danger-btn" id="btnEngineStop">停止本次启动</button>
+          </div>
+          <div class="qr-box" id="engineQrBox" hidden>
+            <img id="engineQrImg" alt="登录二维码" />
+            <div class="qr-tip" id="engineQrTip">用小号在手机 QQ 上扫码登录，登录后这里会自动变成「运行中」</div>
+          </div>
+          <p class="tip">第一次用内置那份时，它会弹二维码让你扫码登录 QQ（只支持扫码，这是它的限制）。登录一次之后会记住，下次自动续上。</p>
+          </div>
+          </section>
+          <section class="set-panel" data-panel="update">
+          <h4 class="set-panel-title">自动更新<span class="set-panel-desc">有新版本时怎么提醒、从哪下载</span></h4>
+          <div id="updateBlock">
+          <label class="field column">
+            <span>更新清单地址（留空则读取 data/update.json）</span>
+            <input type="text" id="setUpdateManifest" placeholder="https://…/update.json 或本地路径" />
+          </label>
+          <label class="field">
+            <span>启动时自动检查</span>
+            <input type="checkbox" id="setUpdateAuto" />
+          </label>
+          <div class="ds-status" id="updateStatus">状态：未检查</div>
+          <div class="row-btns">
+            <button class="mini-btn" id="btnUpdateCheck">检查更新</button>
+          </div>
+          <p class="tip">发现新版本后会先询问“更新 / 不更新”，你同意后才下载；下载完成后还会再确认是否安装。不会静默更新。</p>
+          </div>
+  
+          </section>
+          <section class="set-panel" data-panel="about">
+          <h4 class="set-panel-title">关于与声明<span class="set-panel-desc">版本、开源协议、联系方式和数据说明</span></h4>
+          <div class="about-box">
+            <p><b>群崽 QunZai</b> <span id="aboutVersion">v1.4.15</span> · MIT 开源 · 创建于 2026 年 10 月 · 玩具级学习作品，非生产级产品</p>
+            <p>· 本项目<b>不是反代、没有第三方中转、没有逆向 DeepSeek 网页</b>；原理是用 Node 连接本机浏览器调试端口（CDP）模拟操作，<b>这与反代一样均违反 DeepSeek 用户协议，账号可能被临时限制或封禁</b>。</p>
+            <p>· 它会把 AI 生成的内容<b>自动发到 QQ</b>，无审核无黑名单，<b>请勿用于骚扰、刷屏、恶作剧，建议使用小号</b>。</p>
+            <p>· 运行时会自动拉起 Edge 并连接调试端口，<b>可能被杀软误报为木马</b>；源码公开可自行审计，确认为误报请加白名单。</p>
+            <p>· <b>本软件仅学习使用，请在 24h 内删除。</b>它是玩具，试过就好。MIT 协议并不禁止你留着——作者只是希望它别被拿去干坏事，更希望你先自己看懂源码再决定要不要留。</p>
+            <p>· 数据全部只在本机 <code>D:\群崽\data</code>，<b>无任何遥测与联网上传</b>。</p>
+            <p>· 使用本项目造成的一切后果（账号被封、群被踢、损失、纠纷等）<b>由使用者自行承担，作者不承担责任</b>。</p>
+            <p class="about-links">
+              官网 <a href="https://blushhorizon.github.io/QunZai/" target="_blank" rel="noopener">blushhorizon.github.io/QunZai</a>
+              · 源码 <a href="https://github.com/BlushHorizon/QunZai" target="_blank" rel="noopener">github.com/BlushHorizon/QunZai</a>
+              · 交流群 1128593359（暗号 qunzai520）
+              · ☕ <a href="https://ifdian.net/u/76c7d1dcfc3e11ef90af52540025c377" target="_blank" rel="noopener">支持群崽 · 爱发电</a>
+              · <b>问题反馈：</b><a href="https://github.com/BlushHorizon/QunZai/issues" target="_blank" rel="noopener">GitHub Issues</a>
+            </p>
+          </div>
+          </section>
+        </div><!-- /.set-content -->
       </div><!-- /.modal-body -->
       <div class="modal-foot">
         <button class="ghost-btn" data-close="settingsModal">取消</button>

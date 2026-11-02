@@ -212,7 +212,7 @@ if ($Stop) {
 }
 
 # ---------- Node 环境检查 ----------
-# 先找安装包内置的 Node（随内置 QQ 监视器一起来的那份），用户就不必自己装
+# 先找安装包内置的 Node（随内置 QQ QQ 桥接一起来的那份），用户就不必自己装
 $node = $null
 foreach ($cand in @(
     (Join-Path $PSScriptRoot 'engine\napcat\node.exe'),
