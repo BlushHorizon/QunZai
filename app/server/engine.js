@@ -222,6 +222,8 @@ class QQEngine {
     this.lastInfo = null;
     this.lastStartedAt = 0;
     this.autoPromise = null;
+    /** 正在进行的 start()：并发调用复用同一个，别把运行时启动两份 */
+    this._startPromise = null;
     /** 后台等扫码登录的 Promise（同一时间只跑一个） */
     this.pending = null;
     /** 登录完成后的回调，由 server.js 注入（用来重连适配器、推 SSE） */
@@ -988,6 +990,15 @@ class QQEngine {
    * 前端据此显示二维码；登录一完成后台自己同步配置，不用再点一次。
    */
   async start(override = {}) {
+    // 连点两次「启动桥接」= 两份 NapCat 抢同一个端口，两个都起不来，
+    // 用户看到「启动超时」却不知道为什么。并发调用直接复用同一个 Promise。
+    if (this._startPromise) return this._startPromise;
+    this._startPromise = this._startInner(override)
+      .finally(() => { this._startPromise = null; });
+    return this._startPromise;
+  }
+
+  async _startInner(override = {}) {
     const found = await this.discover(override);
     if (!found.ok) {
       this.lastError = found.error;
