@@ -1802,9 +1802,6 @@ function init() {
   initQzDialog();
   initDeepSeekSlot();
   initTheme();
-  if ($('btnSettings')) $('btnSettings').addEventListener('click', () => {
-    openSettingsAt('ai').catch((e) => uiAlert('读取设置失败：' + e.message));
-  });
   $('btnServiceStop').addEventListener('click', async () => {
     if (!IN_DESKTOP_HOST) return;
     const ok = await uiConfirm(
