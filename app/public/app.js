@@ -31,11 +31,12 @@ let dsSlotSyncPending = false;
 /* 打开设置时缓存的服务端配置：有些值面板上没有控件（阈值、候选类型、忽略窗口），
    保存时得沿用现值，不能凭空填。 */
 let settingsCache = {};
+/** 配置页是常驻的，只在第一次进入时从服务端拉一次，之后用户自己点保存 */
+let settingsLoaded = false;
 
 function dsSlotBlocked() {
-  const sm = $('settingsModal');
   const qd = $('qzDialog');
-  return !!((sm && !sm.classList.contains('hidden')) || (qd && !qd.classList.contains('hidden')));
+  return !!(qd && !qd.classList.contains('hidden'));
 }
 
 /** 把 DeepSeek 占位区的实际位置发给桌面宿主，由宿主把内嵌 WebView2 盖上去 */
@@ -79,7 +80,7 @@ function initDeepSeekSlot() {
     try { new ResizeObserver(scheduleDeepSeekSlotSync).observe(slot); } catch (e) { /* 忽略 */ }
   }
   const mo = new MutationObserver(scheduleDeepSeekSlotSync);
-  ['settingsModal', 'qzDialog'].forEach((id) => {
+  ['qzDialog'].forEach((id) => {
     const el = $(id);
     if (el) mo.observe(el, { attributes: true, attributeFilter: ['class'] });
   });
@@ -312,11 +313,147 @@ function renderStatus() {
   if ($('dsApiBtns')) $('dsApiBtns').hidden = ai.provider === 'deepseek-web';
 
   renderStats();
+  // 新外壳：欢迎页三步状态 + 卡片开关状态都跟着每次状态刷新走
+  renderWelcome();
+  renderShellToggles();
 }
 
 function renderStats() {
   $('cardStatMain').textContent = `${state.stats.inMsgs} 收 / ${state.stats.aiReplies} 回`;
   $('cardStatSub').textContent = `会话 ${state.chats.length} · 跳过 ${state.stats.skips}`;
+}
+
+
+/* ---------------- 主视图切换（左侧分类导航） ---------------- */
+/** 切到某个主视图：welcome / bots / models / chats / activity */
+function switchView(key) {
+  const views = document.querySelectorAll('.views .view');
+  let hit = false;
+  views.forEach((v) => {
+    const on = v.dataset.view === key;
+    v.classList.toggle('active', on);
+    if (on) hit = true;
+  });
+  if (!hit) return;
+  document.querySelectorAll('.sidebar .nav-item[data-view]').forEach((b) => {
+    b.classList.toggle('active', b.dataset.view === key);
+  });
+  const box = $('views');
+  if (box) box.scrollTop = 0;
+  // 切视图会改变 #dsSlot 的位置/可见性，必须让宿主重新盖一次内嵌窗口
+  scheduleDeepSeekSlotSync();
+}
+
+/** 切到某个配置页。设置已经摊成页面，不再有弹窗这一层。 */
+async function openSettingsAt(panel) {
+  if (!settingsLoaded) {
+    try {
+      await loadSettings();
+    } catch (e) {
+      uiAlert('读取设置失败：' + e.message);
+      return;
+    }
+  }
+  switchView('cfg-' + panel);
+}
+
+/* ---------------- 机器人 / 模型提供商：开关式切换 ---------------- */
+/** 切换 QQ 接入方式。只提交 qq.mode 一个字段，后端是深合并，不会清掉其他配置。 */
+async function switchBotMode(mode) {
+  try {
+    await api('/api/settings', { method: 'POST', body: JSON.stringify({ qq: { mode } }) });
+    await refreshStatus();
+    renderWelcome();
+  } catch (e) {
+    uiAlert('切换接入方式失败：' + e.message);
+    refreshStatus().catch(() => {});
+  }
+}
+
+/** 切换大脑来源。同理只提交 ai.provider。 */
+async function switchProvider(provider) {
+  try {
+    await api('/api/settings', { method: 'POST', body: JSON.stringify({ ai: { provider } }) });
+    await refreshStatus();
+    renderWelcome();
+  } catch (e) {
+    uiAlert('切换模型提供商失败：' + e.message);
+    refreshStatus().catch(() => {});
+  }
+}
+
+/* ---------------- 欢迎页：三步上手状态 ---------------- */
+function setStepState(stepId, cls, text) {
+  const step = $(stepId);
+  if (step) step.classList.toggle('done', cls === 'ok');
+  const badge = $(stepId + 'State');
+  if (badge) {
+    badge.className = 'step-state ' + cls;
+    badge.textContent = text;
+  }
+}
+
+function setStepNote(id, text, cls) {
+  const el = $(id);
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'step-note' + (cls ? ' ' + cls : '');
+}
+
+/** 按当前状态给三步打勾：连上 QQ / 有大脑 / 开了自动回复 */
+function renderWelcome() {
+  const qq = (state.status && state.status.qq) || {};
+  const ai = (state.status && state.status.ai) || {};
+  const self = state.self || {};
+
+  /* 第 1 步：连上 QQ */
+  if (qq.connected) {
+    setStepState('stepQq', 'ok', '已完成');
+    setStepNote('stepQqNote', self.nickname
+      ? `已连上：${self.nickname}（${self.userId}）`
+      : '已连上 OneBot 服务。');
+  } else if (qq.needLogin) {
+    setStepState('stepQq', 'warn', '待扫码');
+    setStepNote('stepQqNote', 'QQ 桥接已经起来了，但 QQ 号还没登录。点左边按钮扫码，扫完这里会自动变成已完成。', 'warn');
+  } else {
+    setStepState('stepQq', 'bad', '未完成');
+    setStepNote('stepQqNote', '还没有连上。点左边按钮会启动内置的 QQ 桥接，第一次需要扫码登录。', 'bad');
+  }
+
+  /* 第 2 步：给它一个大脑 */
+  const ds = ai.deepseek || {};
+  if (ai.provider === 'deepseek-web') {
+    if (ds.state === 'ready' || ds.state === 'thinking') {
+      setStepState('stepAi', 'ok', '已完成');
+      setStepNote('stepAiNote', `网页版已就绪（${ds.siteName || 'DeepSeek'}）。`);
+    } else if (ds.state === 'need-login') {
+      setStepState('stepAi', 'warn', '待登录');
+      setStepNote('stepAiNote', '浏览器已经拉起来了，但还没登录 DeepSeek。在弹出的窗口里登录一次即可。', 'warn');
+    } else {
+      setStepState('stepAi', 'warn', '未启动');
+      setStepNote('stepAiNote', '网页版还没启动。点左边按钮会拉起浏览器窗口，登录一次之后长期复用。', 'warn');
+    }
+  } else if (ai.provider === 'openai-compatible') {
+    setStepState('stepAi', 'ok', '已完成');
+    setStepNote('stepAiNote', `正在用 API 接口（${ai.model || '未填模型'}）。`);
+  } else {
+    setStepState('stepAi', 'warn', '内置引擎');
+    setStepNote('stepAiNote', '当前是内置规则引擎，只会关键词匹配。想让它真的会聊，换成网页版或 API。', 'warn');
+  }
+
+  /* 第 3 步：打开自动回复 */
+  if (ai.enabled) {
+    setStepState('stepReply', 'ok', '已完成');
+    setStepNote('stepReplyNote', '自动回复已开启，别人发消息它就会回。');
+  } else {
+    setStepState('stepReply', 'bad', '未完成');
+    setStepNote('stepReplyNote', '自动回复是关的，现在收到消息不会回。点左边按钮开启。', 'bad');
+  }
+
+  const allDone = qq.connected && ai.enabled &&
+    (ai.provider !== 'deepseek-web' || ds.state === 'ready' || ds.state === 'thinking');
+  const done = $('welcomeDone');
+  if (done) done.hidden = !allDone;
 }
 
 /* ---------------- 会话概览 ---------------- */
@@ -418,20 +555,22 @@ function applyPlatform() {
       toggleProviderView();
     }
   }
-  const updSec = $('updateSection');
-  if (updSec && p.selfUpdate === false) {
-    const updBlock = $('updateBlock') || updSec;
-    updBlock.classList.add('hidden');
+  /* 配置页现在是独立视图，要隐藏的就不只是里面那块内容，
+     侧栏入口和整个视图都得收起来，否则点进去是一片空白。 */
+  const hideView = (key, hide) => {
+    const nav = document.querySelector('.sidebar .nav-item[data-view="' + key + '"]');
+    if (nav) nav.hidden = hide;
+    const view = document.querySelector('.view[data-view="' + key + '"]');
+    if (view) view.hidden = hide;
+  };
+  if (p.selfUpdate === false) hideView('cfg-update', true);
+  if (p.webSupported === false) {
+    const webOnly = $('webOnly');
+    if (webOnly) webOnly.classList.add('hidden');
   }
-  const webOnly = $('webOnly');
-  if (webOnly && p.webSupported === false) {
-    webOnly.classList.add('hidden');
-  }
-  // 安卓版不内置 Windows 版 QQ 运行时，隐藏「QQ 桥接」整块，换成手机端说明
-  const engSec = $('engineSection');
-  if (engSec && p.engineSupported === false) {
-    const engBlock = $('engineBlock') || engSec;
-    engBlock.classList.add('hidden');
+  // 安卓版不内置 Windows 版 QQ 运行时，隐藏「QQ 桥接」，换成手机端说明
+  if (p.engineSupported === false) {
+    hideView('cfg-engine', true);
     const tip = $('qqTipMobile');
     if (tip) {
       tip.classList.remove('hidden');
@@ -441,7 +580,7 @@ function applyPlatform() {
 }
 
 /* ---------------- 设置 ---------------- */
-async function openSettings() {
+async function loadSettings() {
   const data = await api('/api/settings');
   settingsCache = data;
   const ai = data.ai || {};
@@ -576,8 +715,7 @@ async function openSettings() {
   } catch { /* 忽略 */ }
   refreshStickers();
   refreshGallery();
-  switchSetPanel('ai');   // 每次打开回到第一个分类，避免停在晦涩的末页
-  $('settingsModal').classList.remove('hidden');
+  settingsLoaded = true;
 }
 
 function toggleTargetView() {  $('targetWrap').classList.toggle('hidden', $('setReplyMode').value !== 'target');
@@ -799,19 +937,6 @@ function openWebSite() {
       btn.textContent = '① 打开该网站（首次需登录）';
       uiAlert('❌ ' + e.message);
     });
-}
-
-/** 设置弹窗分类切换：只切显示，不动数据 */
-function switchSetPanel(key) {
-  if (!key) return;
-  document.querySelectorAll('#setNav .set-nav-item').forEach((b) => {
-    b.classList.toggle('active', b.dataset.panel === key);
-  });
-  document.querySelectorAll('#setContent .set-panel').forEach((p) => {
-    p.classList.toggle('active', p.dataset.panel === key);
-  });
-  const content = $('setContent');
-  if (content) content.scrollTop = 0;
 }
 
 /** QQ 接入模式切换：onebot 显示 WS/Token，qqbot 显示 AppID/Secret，mock 两者都藏 */
@@ -1241,13 +1366,13 @@ async function refreshDsStatus() {
   } catch { /* 忽略 */ }
 }
 
-// 设置面板打开期间，每 3 秒刷新一次 DeepSeek / QQ 内核状态
+// 停在「模型提供商」或「QQ 桥接」页时，每 3 秒刷新一次 DeepSeek / QQ 内核状态
 setInterval(() => {
-  const modal = document.getElementById('settingsModal');
-  if (modal && !modal.classList.contains('hidden')) {
-    refreshDsStatus();
-    refreshEngineStatus();
-  }
+  const view = document.querySelector('.view.active');
+  if (!view) return;
+  const key = view.dataset.view;
+  if (key === 'models' || key === 'cfg-ai') refreshDsStatus();
+  if (key === 'cfg-engine') refreshEngineStatus();
 }, 3000);
 
 async function saveSettings() {
@@ -1386,8 +1511,13 @@ async function saveSettings() {
     return null;
   });
   if (!resp) return;
-  $('settingsModal').classList.add('hidden');
   await refreshStatus();
+  const stamp = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+  document.querySelectorAll('[data-save-settings]').forEach((b) => {
+    b.textContent = '已保存 ' + stamp;
+    clearTimeout(b._t);
+    b._t = setTimeout(() => { b.textContent = '保存'; }, 2200);
+  });
   /* QQ 接入参数变了 → 服务端已自动重建适配器重连，明确告知，免得以为改了没生效 */
   if (resp && resp.qqReconnected) uiAlert('设置已保存。\n\n正在按新地址重连 QQ：\n' + payload.qq.onebot.wsUrl + '\n\n看顶部 QQ 状态，等它变成「已连接」即可。');
 }
@@ -1513,12 +1643,166 @@ function connectEvents() {
 }
 
 /* ---------------- 初始化 ---------------- */
+
+/* ---------------- 主视图外壳：导航与卡片开关的接线 ---------------- */
+/** 把卡片开关的状态同步到当前配置（每次状态刷新都调一次） */
+function renderShellToggles() {
+  const qq = (state.status && state.status.qq) || {};
+  const ai = (state.status && state.status.ai) || {};
+  const mode = qq.mode || 'onebot';
+  const setChk = (id, on) => { const el = $(id); if (el) el.checked = !!on; };
+  setChk('botOnebotToggle', mode === 'onebot');
+  setChk('botQqbotToggle', mode === 'qqbot');
+  setChk('botMockToggle', mode === 'mock');
+  setChk('botDsToggle', ai.provider === 'deepseek-web');
+  setChk('botApiToggle', ai.provider === 'openai-compatible');
+  setChk('botBuiltinToggle', ai.provider === 'builtin');
+
+  const card = (bot) => document.querySelector('.bot-card[data-bot="' + bot + '"]');
+  ['onebot', 'qqbot', 'mock'].forEach((b) => {
+    const el = card(b);
+    if (el) el.classList.toggle('on', mode === b);
+  });
+  const mcard = (m) => document.querySelector('.bot-card[data-model="' + m + '"]');
+  ['deepseek-web', 'openai-compatible', 'builtin'].forEach((m) => {
+    const el = mcard(m);
+    if (el) el.classList.toggle('on', ai.provider === m);
+  });
+
+  const qqbotState = $('botQqbotState');
+  if (qqbotState) {
+    const on = mode === 'qqbot';
+    qqbotState.textContent = on ? (qq.connected ? '已连接' : (qq.message || '连接中…')) : '未启用';
+    qqbotState.className = 'bot-status ' + (on ? (qq.connected ? 'ok' : 'warn') : 'dim');
+  }
+  const mockState = $('botMockState');
+  if (mockState) {
+    const on = mode === 'mock';
+    mockState.textContent = on ? '演示运行中' : '未启用';
+    mockState.className = 'bot-status ' + (on ? 'ok' : 'dim');
+  }
+  const apiState = $('botApiState');
+  if (apiState) {
+    const on = ai.provider === 'openai-compatible';
+    apiState.textContent = on ? (ai.model ? '使用中：' + ai.model : '使用中（未填模型）') : '未启用';
+    apiState.className = 'bot-status ' + (on ? 'ok' : 'dim');
+  }
+  const builtinState = $('botBuiltinState');
+  if (builtinState) {
+    const on = ai.provider === 'builtin';
+    builtinState.textContent = on ? '使用中' : '未启用';
+    builtinState.className = 'bot-status ' + (on ? 'ok' : 'dim');
+  }
+  const badge = $('navChatCount');
+  if (badge) badge.textContent = state.chats && state.chats.length ? String(state.chats.length) : '';
+}
+
+/** 卡片上的「启动桥接」：不依赖设置面板里的输入框，直接用已保存的配置 */
+async function startBridgeFromCard(btn) {
+  const old = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '启动中…';
+  try {
+    const r = await api('/api/engine/start', { method: 'POST', body: '{}' });
+    if (r.ok) {
+      await refreshStatus();
+      if (r.needLogin) {
+        uiAlert('QQ 桥接已经起来了，第一次登录要扫码。\n\n已经帮你打开「QQ 桥接」设置页，二维码在那里。', { title: '需要扫码登录', type: 'warn' });
+        await openSettingsAt('engine');
+      } else {
+        uiAlert('QQ 桥接已就绪' + (r.login ? '：' + r.login : ''), { title: '已启动', type: 'ok' });
+      }
+    } else {
+      uiAlert('启动失败：' + (r.error || '未知错误'), { title: '启动失败', type: 'err' });
+    }
+  } catch (e) {
+    uiAlert('启动失败：' + e.message, { title: '启动失败', type: 'err' });
+  } finally {
+    btn.disabled = false;
+    btn.textContent = old;
+  }
+}
+
+/** 接线：左侧导航、卡片开关、欢迎页按钮 */
+function initShellNav() {
+  // 一个入口：凡是带 data-view 的可点元素（侧栏项、卡片上的「编辑」「填 Key」「桥接设置」等）
+  // 都跳到对应视图。section.view 本身也带 data-view，所以只挑 button/a。
+  document.querySelectorAll('button[data-view], a[data-view]').forEach((b) => {
+    b.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchView(b.dataset.view);
+    });
+  });
+
+  // 机器人接入方式开关：打开一个就关掉其他（后端只认一个 mode）
+  const botToggle = (id, mode) => {
+    const el = $(id);
+    if (!el) return;
+    el.addEventListener('change', () => {
+      if (!el.checked) { renderShellToggles(); return; }   // 不允许通过关掉来「断开」，只能切到另一个
+      switchBotMode(mode);
+    });
+  };
+  botToggle('botOnebotToggle', 'onebot');
+  botToggle('botQqbotToggle', 'qqbot');
+  botToggle('botMockToggle', 'mock');
+
+  const provToggle = (id, provider) => {
+    const el = $(id);
+    if (!el) return;
+    el.addEventListener('change', () => {
+      if (!el.checked) { renderShellToggles(); return; }
+      switchProvider(provider);
+    });
+  };
+  provToggle('botDsToggle', 'deepseek-web');
+  provToggle('botApiToggle', 'openai-compatible');
+  provToggle('botBuiltinToggle', 'builtin');
+
+  const startBtn = $('btnBotOnebotStart');
+  if (startBtn) startBtn.addEventListener('click', () => startBridgeFromCard(startBtn));
+
+  // 欢迎页三步按钮
+  const wq = $('btnWelcomeQq');
+  if (wq) wq.addEventListener('click', () => openSettingsAt('engine'));
+  const wd = $('btnWelcomeDs');
+  if (wd) wd.addEventListener('click', async () => {
+    wd.disabled = true;
+    const old = wd.textContent;
+    wd.textContent = '启动中…';
+    try {
+      await api('/api/ai/deepseek/open', { method: 'POST' });
+      showDeepSeekTab();
+      setTimeout(() => refreshStatus().catch(() => {}), 2500);
+    } catch (e) {
+      uiAlert('打开失败：' + e.message, { title: '打开失败', type: 'err' });
+    } finally {
+      wd.disabled = false;
+      wd.textContent = old;
+    }
+  });
+  const wr = $('btnWelcomeReply');
+  if (wr) wr.addEventListener('click', async () => {
+    const ai = (state.status && state.status.ai) || {};
+    wr.disabled = true;
+    try {
+      await api('/api/ai/toggle', { method: 'POST', body: JSON.stringify({ enabled: !ai.enabled }) });
+      await refreshStatus();
+    } catch (e) {
+      uiAlert('切换失败：' + e.message, { title: '切换失败', type: 'err' });
+    } finally {
+      wr.disabled = false;
+    }
+  });
+}
+
 function init() {
+  initShellNav();
   initQzDialog();
   initDeepSeekSlot();
   initTheme();
-  $('btnSettings').addEventListener('click', () => {
-    openSettings().catch((e) => uiAlert('读取设置失败：' + e.message));
+  if ($('btnSettings')) $('btnSettings').addEventListener('click', () => {
+    openSettingsAt('ai').catch((e) => uiAlert('读取设置失败：' + e.message));
   });
   $('btnServiceStop').addEventListener('click', async () => {
     if (!IN_DESKTOP_HOST) return;
@@ -1545,11 +1829,9 @@ function init() {
       uiAlert('停止失败：' + err.message, { title: '停止失败', type: 'err' });
     }
   });
-  $('btnSaveSettings').addEventListener('click', saveSettings);
-  /* 设置弹窗左侧分类导航：点击切换面板。所有控件仍在同一 DOM 里，
-     只是显示/隐藏，所以 openSettings/saveSettings 的取值逻辑完全不用改。 */
-  document.querySelectorAll('#setNav .set-nav-item').forEach((btn) => {
-    btn.addEventListener('click', () => switchSetPanel(btn.dataset.panel));
+  // 每个配置页都有自己的「保存」按钮，共用同一套取值逻辑
+  document.querySelectorAll('[data-save-settings]').forEach((btn) => {
+    btn.addEventListener('click', saveSettings);
   });
   const modeSel = $('setMode');
   if (modeSel) modeSel.addEventListener('change', toggleQqMode);
@@ -1762,6 +2044,9 @@ function init() {
   if ($('btnProactiveKill')) $('btnProactiveKill').addEventListener('click', killProactive);
   $('btnWebOpen').addEventListener('click', openWebSite);
 
+  switchView('welcome');
+  renderFeed();
+  loadSettings().catch(() => {});
   refreshStatus().catch(() => {});
   refreshChats().catch(() => {});
   connectEvents();
