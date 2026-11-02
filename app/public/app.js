@@ -33,6 +33,8 @@ let dsSlotSyncPending = false;
 let settingsCache = {};
 /** 配置页是常驻的，只在第一次进入时从服务端拉一次，之后用户自己点保存 */
 let settingsLoaded = false;
+/** 用户动过配置页里的控件但还没保存。为 true 时不能被后台刷新覆盖掉正在编辑的内容。 */
+let settingsDirty = false;
 
 function dsSlotBlocked() {
   const qd = $('qzDialog');
@@ -329,18 +331,34 @@ function renderStats() {
 /** 切到某个主视图：welcome / bots / models / chats / activity */
 function switchView(key) {
   const views = document.querySelectorAll('.views .view');
-  let hit = false;
+  const target = document.querySelector('.view[data-view="' + key + '"]');
+  // 视图不存在，或被平台隐藏了（安卓没有 QQ 桥接/自动更新）：
+  // 切过去只会看到一片空白，原地不动。
+  if (!target || target.hidden) return;
   views.forEach((v) => {
-    const on = v.dataset.view === key;
-    v.classList.toggle('active', on);
-    if (on) hit = true;
+    v.classList.toggle('active', v.dataset.view === key);
   });
-  if (!hit) return;
   document.querySelectorAll('.sidebar .nav-item[data-view]').forEach((b) => {
     b.classList.toggle('active', b.dataset.view === key);
   });
   const box = $('views');
   if (box) box.scrollTop = 0;
+  // 进入配置页时刷一次服务端配置：卡片开关、顶栏开关都会改库，
+  // 常驻表单不刷新的话，用户下次在配置页点「保存」会把刚改的值覆盖回旧值。
+  // 有未保存的编辑时不动，免得把用户正在填的内容冲掉。
+  if (!key.startsWith('cfg-')) {
+    // 离开全部配置页 = 放弃未保存的编辑。不重置的话脏标记会永久粘住，
+    // 之后配置页再也不会从服务端刷新，覆盖回滚的 bug 就回来了。
+    settingsDirty = false;
+  } else if (settingsLoaded && !settingsDirty) {
+    loadSettings().catch(() => {});
+  }
+  // 表情包素材/在线图库是两块重活（各一次网络 + 几十张图重渲染），
+  // 只在真的进这一页时刷，不跟着每次配置页刷新一起跑。
+  if (key === 'cfg-stickers') {
+    refreshStickers().catch(() => {});
+    refreshGallery().catch(() => {});
+  }
   // 切视图会改变 #dsSlot 的位置/可见性，必须让宿主重新盖一次内嵌窗口
   scheduleDeepSeekSlotSync();
 }
@@ -364,6 +382,12 @@ async function switchBotMode(mode) {
   try {
     await api('/api/settings', { method: 'POST', body: JSON.stringify({ qq: { mode } }) });
     await refreshStatus();
+    // 配置页是常驻表单、只在首次进入时拉一次数据，所以这里必须手动把
+    // 卡片上刚切换的值同步过去，否则在配置页点「保存」会把它覆盖回旧值。
+    if ($('setMode')) {
+      $('setMode').value = mode;
+      toggleQqMode();
+    }
     renderWelcome();
   } catch (e) {
     uiAlert('切换接入方式失败：' + e.message);
@@ -376,6 +400,11 @@ async function switchProvider(provider) {
   try {
     await api('/api/settings', { method: 'POST', body: JSON.stringify({ ai: { provider } }) });
     await refreshStatus();
+    // 同上：卡片切换后同步配置页的下拉与两个子面板
+    if ($('setProvider')) {
+      $('setProvider').value = provider;
+      toggleProviderView();
+    }
     renderWelcome();
   } catch (e) {
     uiAlert('切换模型提供商失败：' + e.message);
@@ -472,7 +501,8 @@ function renderApiNewTargets() {
   if (cur && opts.some((o) => o.value === cur)) sel.value = cur;
 }
 
-function renderOverview() {  const ul = $('overviewList');
+function renderOverview() {
+  const ul = $('overviewList');
   const list = [...state.chats].sort((a, b) => (b.lastTime || 0) - (a.lastTime || 0));
   $('ovHint').textContent = list.length ? `${list.length} 个` : '';
   ul.innerHTML = list.length ? list.map((c) => `
@@ -563,26 +593,36 @@ function applyPlatform() {
     if (nav) nav.hidden = hide;
     const view = document.querySelector('.view[data-view="' + key + '"]');
     if (view) view.hidden = hide;
+    // 正停在这个视图上却被收起来了 → 页面会变成一片空白，退回欢迎页
+    if (hide && view && view.classList.contains('active')) switchView('welcome');
   };
-  if (p.selfUpdate === false) hideView('cfg-update', true);
+  // 两个方向都写死：applyPlatform 会随 refreshStatus 反复调用，
+  // 只写 true 不写 false 的话，标志一旦变回来视图就永远回不来了。
+  hideView('cfg-update', p.selfUpdate === false);
+  hideView('cfg-engine', p.engineSupported === false);
   if (p.webSupported === false) {
     const webOnly = $('webOnly');
     if (webOnly) webOnly.classList.add('hidden');
   }
   // 安卓版不内置 Windows 版 QQ 运行时，隐藏「QQ 桥接」，换成手机端说明
-  if (p.engineSupported === false) {
-    hideView('cfg-engine', true);
-    const tip = $('qqTipMobile');
-    if (tip) {
-      tip.classList.remove('hidden');
-      tip.hidden = false;
-    }
+  const tip = $('qqTipMobile');
+  if (tip) {
+    const show = p.engineSupported === false;
+    tip.classList.toggle('hidden', !show);
+    tip.hidden = !show;
   }
 }
 
 /* ---------------- 设置 ---------------- */
+/** 并发防护：多个入口会同时调 loadSettings，只让最后一次请求的结果落地 */
+let loadSeq = 0;
 async function loadSettings() {
+  const seq = ++loadSeq;
   const data = await api('/api/settings');
+  // 有更新的请求在路上 → 这次的结果已经过期
+  if (seq !== loadSeq) return;
+  // 请求飞行途中用户开始编辑了 → 不能拿服务端值盖掉他正在填的内容
+  if (settingsDirty) return;
   settingsCache = data;
   const ai = data.ai || {};
   $('setProvider').value = ai.provider || 'deepseek-web';
@@ -714,9 +754,8 @@ async function loadSettings() {
       $('webSiteHint').textContent = h ? (h.hint || '') : '';
     };
   } catch { /* 忽略 */ }
-  refreshStickers();
-  refreshGallery();
   settingsLoaded = true;
+  settingsDirty = false;
 }
 
 function toggleTargetView() {  $('targetWrap').classList.toggle('hidden', $('setReplyMode').value !== 'target');
@@ -1512,7 +1551,10 @@ async function saveSettings() {
     return null;
   });
   if (!resp) return;
+  settingsDirty = false;
   await refreshStatus();
+  // 回读一次：服务端会夹取数值、把 Key 掩码掉，界面要跟真实存的一致
+  await loadSettings().catch(() => {});
   const stamp = new Date().toLocaleTimeString('zh-CN', { hour12: false });
   document.querySelectorAll('[data-save-settings]').forEach((b) => {
     b.textContent = '已保存 ' + stamp;
@@ -1549,6 +1591,9 @@ function connectEvents() {
       case 'settings_changed':
         state.status.ai = evt.ai;
         renderStatus();
+        // 别处改了配置（卡片开关、另一个窗口、命令行）：配置页没在编辑就跟上。
+        // 常驻表单里的旧值，会在下一次点「保存」时把新值整段覆盖回去。
+        if (settingsLoaded && !settingsDirty) loadSettings().catch(() => {});
         break;
       case 'contacts_seeded':
         if (Array.isArray(evt.chats)) { state.chats = evt.chats; renderOverview(); }
@@ -1787,8 +1832,11 @@ function initShellNav() {
     const ai = (state.status && state.status.ai) || {};
     wr.disabled = true;
     try {
-      await api('/api/ai/toggle', { method: 'POST', body: JSON.stringify({ enabled: !ai.enabled }) });
+      const next = !ai.enabled;
+      await api('/api/ai/toggle', { method: 'POST', body: JSON.stringify({ enabled: next }) });
       await refreshStatus();
+      // 配置页里的同名开关跟着变，否则它下次保存会把这里改的覆盖回去
+      if ($('setEnabled')) $('setEnabled').checked = next;
     } catch (e) {
       uiAlert('切换失败：' + e.message, { title: '切换失败', type: 'err' });
     } finally {
@@ -1916,6 +1964,9 @@ function init() {
     try {
       await api('/api/ai/toggle', { method: 'POST', body: JSON.stringify({ enabled: e.target.checked }) });
       await refreshStatus();
+      // 配置页里那个同名开关必须跟着变，否则下次在配置页点「保存」
+      // 会把这里刚改的值原样写回去（表单是整段覆盖，不是补丁）。
+      if ($('setEnabled')) $('setEnabled').checked = e.target.checked;
     } catch (err) {
       e.target.checked = !e.target.checked;
       uiAlert('切换失败：' + err.message);
@@ -2041,6 +2092,13 @@ function init() {
   if ($('btnProactiveLog')) $('btnProactiveLog').addEventListener('click', refreshProactiveLog);
   if ($('btnProactiveKill')) $('btnProactiveKill').addEventListener('click', killProactive);
   $('btnWebOpen').addEventListener('click', openWebSite);
+
+  // 配置页任何控件被改动就置脏，避免后台回读把正在填的内容冲掉
+  document.querySelectorAll('.views .view[data-view^="cfg-"]').forEach((v) => {
+    const mark = () => { settingsDirty = true; };
+    v.addEventListener('input', mark);
+    v.addEventListener('change', mark);
+  });
 
   switchView('welcome');
   renderFeed();
