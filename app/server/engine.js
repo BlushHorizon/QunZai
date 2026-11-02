@@ -710,7 +710,7 @@ class QQEngine {
     return {
       enabled: engineCfg.enabled !== false,
       autoStart: engineCfg.autoStart !== false,
-      /** bundled = 用随包内置的QQ 桥接；custom = 用用户自己找的；auto = 先内置后自定义 */
+      /** bundled = 用随包内置的 QQ 桥接；custom = 用用户自己找的；auto = 老版本的「自动」，设置界面已移除，仅为旧配置兼容保留 */
       source: engineCfg.source || 'auto',
       dir: info?.dir || engineCfg.dir || '',
       account: engineCfg.account || info?.account || '',

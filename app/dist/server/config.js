@@ -38,7 +38,8 @@ const DEFAULT_CONFIG = {
     engine: {
       enabled: true,
       autoStart: true,
-      // source: bundled = 只用随包内置的那份；custom = 只用用户填的目录；auto = 内置优先，再找本机其他
+      // source: bundled = 只用随包内置的那份；custom = 只用用户填的目录；
+      //         auto = 老版本的「自动」，设置界面已移除这一项，仅为旧配置兼容保留
       source: 'auto',
       dir: '',
       account: '',

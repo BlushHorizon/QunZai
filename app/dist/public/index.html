@@ -426,17 +426,16 @@
           <h4 class="set-panel-title">QQ 桥接<span class="set-panel-desc">真正登录 QQ、把消息转给群崽的那个程序（OneBot 运行时）</span></h4>
           <div id="engineBlock">
           <p class="tip">「QQ 桥接」就是真正登录 QQ、把消息转成群崽能读的 OneBot 11 的那个程序。群崽自己不登录 QQ。安装包里已经内置了一份 NapCat，开箱即用；你也可以换成自己找的那一份。</p>
-          <p class="tip">想试试另一套运行时？这里有一份 <a href="https://snowluma.github.io/zh/" target="_blank" rel="noopener">SnowLuma 官网</a>（<a href="https://github.com/SnowLuma/SnowLuma/releases" target="_blank" rel="noopener">下载页</a>，GitHub 打不开时走官网）。它的许可不允许群崽把它打进安装包，所以这里只放官方地址——自己下载解压后，把上面的「用哪一份」选成「我自己找的」，再把解压目录填进去就能用。</p>
+          <p class="tip">想试试另一套运行时？这里有一份 <a href="https://snowluma.github.io/zh/" target="_blank" rel="noopener">SnowLuma 官网</a>（<a href="https://github.com/SnowLuma/SnowLuma/releases" target="_blank" rel="noopener">下载页</a>，GitHub 打不开时走官网）。它的许可不允许群崽把它打进安装包，所以这里只放官方地址——自己下载解压后，把上面的「用哪一份」选成「自定义」，再把解压目录填进去就能用。</p>
           <label class="field">
             <span>用哪一份</span>
             <select id="setEngineSource">
-              <option value="bundled">内置的（随群崽安装，推荐）</option>
-              <option value="custom">我自己找的（填下面的目录）</option>
-              <option value="auto">自动：先找内置的，再找你自己的</option>
+              <option value="bundled">内置</option>
+              <option value="custom">自定义</option>
             </select>
           </label>
           <label class="field column">
-            <span>自定义目录（选「我自己找的」时生效）</span>
+            <span>自定义目录（选「自定义」时生效）</span>
             <input type="text" id="setEngineDir" placeholder="例如 D:\你的OneBot运行时" />
           </label>
           <label class="field">

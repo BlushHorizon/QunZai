@@ -523,7 +523,9 @@ async function openSettings() {
   $('setQqbotSandbox').checked = !!off.sandbox;
   toggleQqMode();
   const eng = data.qq?.engine || {};
-  $('setEngineSource').value = eng.source || 'auto';
+  // 下拉框只剩「内置/自定义」两项；老配置里的 'auto'（已移除的第三项）按内置处理，
+  // 否则 value 赋不进去，下拉框会显示成空白。
+  $('setEngineSource').value = (eng.source === 'custom') ? 'custom' : 'bundled';
   // 配置里的 dir 是「自定义目录」；选内置时界面要显示内置路径而不是它。
   // 先把它记成 lastCustomEngineDir，toggleEngineDir 才有东西可以还原。
   lastCustomEngineDir = eng.dir || '';
@@ -923,7 +925,7 @@ function toggleEngineDir() {
   const bundled = src === 'bundled';
   if (wrap) wrap.style.opacity = bundled ? '.45' : '1';
   input.disabled = bundled;
-  // ★ 切到「内置的」时必须把目录栏恢复成内置那份的真实路径。
+  // ★ 切到「内置」时必须把目录栏恢复成内置那份的真实路径。
   //   老逻辑只是把输入框置灰，里面还留着用户上次填的 D:\SnowLuma-...；
   //   一保存，服务端就把这个旧目录当成「显式覆盖」，内置选项形同虚设
   //   （用户选了内置，跑的还是 SnowLuma，停止也停不掉）。
@@ -961,10 +963,12 @@ function applyEngineStatus(e) {
   }
   const who = e.account ? `账号 ${e.account}` : '未指定账号';
   const from = e.kind ? `${e.kind === 'napcat' ? 'NapCat' : e.kind}` : '未知运行时';
-  const src = e.source === 'bundled' ? '内置' : (e.source === 'custom' ? '自定义' : '自动');
+  // 下拉框只剩「内置/自定义」，老配置里的 'auto' 按内置显示，免得面板写着「内置」状态栏却写「自动」
+  const isBundledSrc = e.source !== 'custom';
+  const src = isBundledSrc ? '内置' : '自定义';
   // 选「内置」时显示内置那份的路径，而不是配置里残留的自定义目录——
   // 否则面板写着「内置」，路径却是 D:\SnowLuma-...，自相矛盾
-  const where = (e.source === 'bundled' && e.bundledDir)
+  const where = (isBundledSrc && e.bundledDir)
     ? e.bundledDir + (e.bundledAvailable ? '' : '（内置那份没找到）')
     : (e.dir ? e.dir : '未找到目录');
   // 端口被别的程序占着（例如用户自己另开了一份运行时），群崽管不了它，别说成「运行中」
@@ -1298,7 +1302,7 @@ async function saveSettings() {
       engine: {
         source: $('setEngineSource').value,
         // 选「内置」时界面里显示的是内置路径，不能把它存成「自定义目录」；
-        // 但也不能存空 —— 那会把用户以前填的路径抹掉，切回「我自己找的」就没了。
+        // 但也不能存空 —— 那会把用户以前填的路径抹掉，切回「自定义」就没了。
         // 存 lastCustomEngineDir，后端在 bundled 模式下本来就不看这个字段。
         dir: $('setEngineSource').value === 'bundled'
           ? (lastCustomEngineDir || '')
