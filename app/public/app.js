@@ -1975,9 +1975,6 @@ function init() {
   document.querySelectorAll('[data-close]').forEach((b) => {
     b.addEventListener('click', () => $(b.dataset.close).classList.add('hidden'));
   });
-  document.querySelectorAll('.modal').forEach((m) => {
-    m.addEventListener('click', (e) => { if (e.target === m) m.classList.add('hidden'); });
-  });
 
   // API Key 的语义是「留空 = 保持不变」，所以要删掉这把 Key 必须有独立入口
   if ($('btnApiKeyClear')) $('btnApiKeyClear').addEventListener('click', async () => {

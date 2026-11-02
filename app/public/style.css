@@ -472,26 +472,11 @@ html:not(.qz-host) .service-btn { display: none; }
 .cfg-body .sticker-row:hover { background: var(--card-hover); }
 
 /* ---------------- 主区 ---------------- */
-.dash { padding: 20px 22px 32px; display: flex; flex-direction: column; gap: 18px; }
-
-.cards {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-}
-
 .card {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 40%), var(--card);
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 16px 18px;
-}
-
-.card-title {
-  font-size: 12px;
-  color: var(--text-dim);
-  letter-spacing: 1px;
-  margin-bottom: 8px;
 }
 
 .card-main { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
@@ -501,13 +486,6 @@ html:not(.qz-host) .service-btn { display: none; }
 .card-main.dim { color: var(--text-faint); }
 
 .card-sub { font-size: 12px; color: var(--text-dim); word-break: break-all; }
-
-.panels {
-  display: grid;
-  grid-template-columns: minmax(300px, 0.9fr) minmax(500px, 1.9fr);
-  gap: 14px;
-  min-height: 0;
-}
 
 .panel {
   background: var(--card);
@@ -591,41 +569,6 @@ html:not(.qz-host) .service-btn { display: none; }
   overflow-y: auto;
   max-height: 460px;
   padding: 6px;
-}
-
-/* 右栏一分为二：左动态，右 DeepSeek 内嵌 */
-.feed-split {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  flex: 1;
-  min-height: 360px;
-  min-width: 0;
-}
-
-.feed-col,
-.ds-col {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-}
-
-.feed-col {
-  border-right: 1px solid var(--line);
-}
-
-.feed-split .panel-head {
-  flex: none;
-}
-
-.feed-split .feed {
-  flex: 1;
-  max-height: 62vh;
-  min-height: 0;
-}
-
-.ds-col .panel-head {
-  justify-content: space-between;
 }
 
 .ds-head-title {
@@ -800,33 +743,6 @@ html.qz-host .ds-slot-fallback {
 }
 .engine-panel-loading.hidden { display: none !important; }
 
-/* ---------------- 弹窗 ---------------- */
-.modal {
-  position: fixed; inset: 0;
-  background: rgba(4, 8, 14, 0.72);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 50;
-  backdrop-filter: blur(3px);
-}
-
-.modal-card {
-  width: min(560px, calc(100vw - 32px));
-  max-height: 88vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-soft);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
-}
-
-.modal-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--line);
-}
-.modal-head h3 { font-size: 15px; letter-spacing: 1px; }
-
 .close-btn {
   background: none; border: none;
   color: var(--text-dim);
@@ -835,15 +751,6 @@ html.qz-host .ds-slot-fallback {
 .close-btn:hover { color: var(--bad); }
 
 
-
-.modal-body h4 {
-  font-size: 12px; color: var(--accent);
-  letter-spacing: 2px;
-  margin: 16px 0 10px;
-  padding-bottom: 6px;
-  border-bottom: 1px dashed var(--line);
-}
-.modal-body h4:first-child { margin-top: 0; }
 
 .field { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .field.column { flex-direction: column; align-items: stretch; gap: 6px; }
@@ -945,12 +852,6 @@ details[open] > summary { margin-bottom: 4px; }
 .ds-status.ok { color: var(--ok); border-color: rgba(47, 212, 122, 0.35); }
 .ds-status.warn { color: var(--warn); }
 .ds-status.err { color: var(--bad); }
-
-.modal-foot {
-  display: flex; justify-content: flex-end; gap: 10px;
-  padding: 14px 18px;
-  border-top: 1px solid var(--line);
-}
 
 .ghost-btn, .primary-btn {
   border-radius: 8px;
@@ -1120,8 +1021,6 @@ html[data-theme="light"] .avatar.group { background: #ece8fb; }
 html[data-theme="light"] .ov-item .type { background: #eaf2fa; }
 html[data-theme="light"] .ov-item .type.group { background: #ece8fb; }
 html[data-theme="light"] .feed-tag { background: #eaf2fa; }
-html[data-theme="light"] .modal { background: rgba(20, 35, 52, 0.35); }
-html[data-theme="light"] .modal-card { box-shadow: 0 24px 70px rgba(30, 50, 75, 0.18); }
 html[data-theme="light"] input[type="text"],
 html[data-theme="light"] input[type="number"],
 html[data-theme="light"] input[type="password"],
