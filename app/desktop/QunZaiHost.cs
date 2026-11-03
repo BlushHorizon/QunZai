@@ -649,6 +649,20 @@ namespace QunZai
 
         private void StopServerProcess()
         {
+            // ★ 先求它自己退（会落盘状态），再考虑 Kill。
+            //   这里传 keepEngine:false —— 走到 StopServerProcess 的都是「用户明确要停」，
+            //   必须连 NapCat 一起带走；留着它继续在线收消息而界面写着「已停止」就是欺骗。
+            if (_serverPort > 0 && IsQunZai(_serverPort))
+            {
+                RequestServerQuit(_serverPort, false);
+                for (int i = 0; i < 27; i++)
+                {
+                    if (!IsQunZai(_serverPort)) return;
+                    System.Threading.Thread.Sleep(150);
+                }
+                HostLog.Write("graceful quit timed out, falling back to kill");
+            }
+
             bool killedDirect = false;
             if (_serverDirect && _serverProcess != null)
             {
@@ -759,6 +773,42 @@ namespace QunZai
         {
             try { return HttpGet("http://127.0.0.1:" + port + "/api/status", 900).Contains("\"qq\""); }
             catch { return false; }
+        }
+
+        /// <summary>
+        /// 让服务端自己体面地退出（POST /api/quit）。
+        /// Windows 上 Process.Kill() 走的是 TerminateProcess，不会触发 SIGTERM，
+        /// server.js 里的 shutdown() 永远不会执行 —— 状态文件写不下去，
+        /// 运行时也来不及收拾，用户下次启动就撞端口，体感是「退出去再进来就再也用不了」。
+        /// 所以真退出前必须先请求它自己退出，Kill 只作为超时后的兜底。
+        /// </summary>
+        /// <param name="keepEngine">
+        /// true  = 只是关窗口，QQ 运行时留在后台（登录态是进程内的，杀了就要重扫码）
+        /// false = 用户点「停止服务」，连同 QQ 运行时一起停，真正下线
+        /// </param>
+        private static bool RequestServerQuit(int port, bool keepEngine)
+        {
+            if (port <= 0) return false;
+            try
+            {
+                string url = "http://127.0.0.1:" + port + "/api/quit" + (keepEngine ? "?keepEngine=1" : "");
+                HttpWebRequest req = (HttpWebRequest)WebRequest.Create(url);
+                req.Method = "POST";
+                req.ContentLength = 0;
+                req.Timeout = 3000;
+                req.ReadWriteTimeout = 3000;
+                req.Proxy = null;
+                using (HttpWebResponse resp = (HttpWebResponse)req.GetResponse())
+                {
+                    HostLog.Write("quit request -> " + (int)resp.StatusCode);
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                HostLog.Write("quit request failed: " + ex.Message);
+                return false;
+            }
         }
 
         private static bool IsCdp(int port)
@@ -1124,6 +1174,25 @@ namespace QunZai
             try { _dashboard.Dispose(); } catch { }
             try { _deepseek.Dispose(); } catch { }
             if (!_startedServer) return;
+
+            // ★ 不管直启还是走 launcher，都要先让服务端自己退（POST /api/quit）。
+            //   理由见 RequestServerQuit 的注释：Kill 是 TerminateProcess，不触发 SIGTERM，
+            //   server.js 的 shutdown() 不会跑，状态文件落不下去。
+            //   顺带一提：NapCat 现在是刻意 detach 的（保住登录态），不走这里也照样留在后台。
+            if (_serverPort > 0 && IsQunZai(_serverPort))
+            {
+                // keepEngine:true —— 只是关窗口，不是要下线。
+                // NapCat 的登录态是进程内的，杀了就失效，下次打开得重扫码；
+                // 留在后台（占 6099/3000/3001）换来的下次秒开是值的。
+                // 要真正下线，用户会点顶栏的「停止服务」，那条走 StopServerProcess。
+                RequestServerQuit(_serverPort, true);
+                for (int i = 0; i < 20; i++)
+                {
+                    if (!IsQunZai(_serverPort)) break;
+                    System.Threading.Thread.Sleep(150);
+                }
+            }
+
             if (_serverDirect)
             {
                 // 直启模式：宿主就是服务进程的父进程，直接结束，避免再跑一遍

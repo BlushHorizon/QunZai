@@ -805,6 +805,26 @@ class QQEngine {
   }
 
   /**
+   * 「我们这份运行时」是否已经有实例活着 —— 包括「起来了但还没扫码登录」的情况。
+   *
+   * 为什么不能只用 _anyOpen：OneBot 的 3000/3001 要登录成功后才监听，未登录时
+   * 运行时只开 WebUI 面板（NapCat 的 6099）。只看 _anyOpen 会把「等你扫码」
+   * 判成「没在运行」，于是 engine 再 spawn 一份 → 两份抢 6099 → 新的起不来，
+   * 界面卡在「等你扫码登录」直到 10 分钟超时。这就是「设置完退出去再进来就用不了」。
+   *
+   * WebUI 端口开着还要确认监听者是不是我们的目录 —— 用户自己另开的 NapCat
+   * 占着同一个 6099 时，不能当成自己的实例去复用。
+   */
+  async _runtimeAlive(info) {
+    if (await this._anyOpen(info)) return true;
+    const webPort = this._webuiPort(info);
+    if (!webPort) return false;
+    if (!(await isPortOpen(webPort))) return false;
+    const owner = portOwnerOf(webPort, info.dir);
+    return owner !== 'other';
+  }
+
+  /**
    * 首启（还没扫码）时 NapCat 只会开 WebUI，OneBot 的 3000/3001 要等登录后才听。
    * 所以这里不能只看 OneBot 端口，否则会把「等你扫码」误判成「启动失败」。
    */
@@ -1009,8 +1029,15 @@ class QQEngine {
     this.lastError = '';
 
     let started = false;
-    const already = await this._anyOpen(info);
-    if (!already) {
+    // ★ 这里必须用 _runtimeAlive 而不是 _anyOpen：
+    //   运行时已经起来了、只是还没扫码登录时，OneBot 端口是关的、WebUI 是开的。
+    //   只看 _anyOpen 会再 spawn 一份，两份抢 6099，新的那份起不来，
+    //   界面就卡在「等你扫码登录」，直到 10 分钟超时 —— 用户体感就是「根本用不了」。
+    const alive = await this._runtimeAlive(info);
+    // 复用已在跑的实例（哪怕没登录）时不能直接 _sync：_sync 拿不到 login_info
+    // 也会返回 ok:true，界面就显示成「已连接」，其实 3001 根本没开。
+    // 所以这里统一按「登录没登录」再分一次流，启动和复用走同一套判定。
+    if (!alive) {
       if (!info.entry) {
         this.lastError = '找到了配置，但没有找到可启动的入口（index.js / napcat.mjs / index.mjs / launcher.bat）';
         return { ok: false, error: this.lastError, info: info.public };
@@ -1033,28 +1060,38 @@ class QQEngine {
         this.lastError = '启动 QQ 桥接失败：' + err.message;
         return { ok: false, error: this.lastError, info: info.public };
       }
-      const ready = await this._awaitReady(info);
-      if (ready.state === 'timeout') {
-        const logs = this._tailLog(info);
-        this.lastError = `QQ 桥接没有在 45 秒内监听 ${this._waitPorts(info).join(' / ')} 端口。`
-          + (info.kind === 'napcat'
-            ? '最常见的原因是本机没装桌面版 QQ（新版 NTQQ），或者 QQ 版本太新/太旧和内置那份对不上。'
-            : '')
-          + (logs ? ` 它的日志最后几行：${logs}` : '');
-        return { ok: false, error: this.lastError, info: info.public, started };
-      }
-      if (ready.state === 'needLogin') {
-        this._awaitLogin(info, started);
-        return {
-          ok: true,
-          started,
-          needLogin: true,
-          loginUrl: info.public.webuiUrl || '',
-          qr: !!ready.qr,
-          info: info.public,
-          hint: '第一次登录要扫码：用小号在手机 QQ 上扫下面的码，登录后群崽会自动接上'
-        };
-      }
+    }
+
+    // 复用已存在的实例时不必再等 45 秒：它要么早就登录好了（端口开着，
+    // _awaitReady 立刻返回 ready），要么就是卡在扫码（WebUI 立刻可探）。
+    // 等满 45 秒只会让「启动并同步」这个按钮转圈转得更久。
+    const waitMs = alive ? 8000 : 45000;
+    const ready = await this._awaitReady(info, waitMs);
+    if (ready.state === 'timeout') {
+      const logs = this._tailLog(info);
+      this.lastError = `QQ 桥接没有在 ${Math.round(waitMs / 1000)} 秒内监听 ${this._waitPorts(info).join(' / ')} 端口。`
+        + (info.kind === 'napcat'
+          ? '最常见的原因是本机没装桌面版 QQ（新版 NTQQ），或者 QQ 版本太新/太旧和内置那份对不上。'
+          : '')
+        + (logs ? ` 它的日志最后几行：${logs}` : '');
+      return { ok: false, error: this.lastError, info: info.public, started };
+    }
+    if (ready.state === 'needLogin') {
+      // 复用已有实例时 started=false，但「等你扫码」这件事本身是对的：
+      // NapCat 的二维码可能已经生成、也可能还要再等它落盘，前端拿到 qr 标记就会去拉图。
+      this._awaitLogin(info, started);
+      return {
+        ok: true,
+        started,
+        alreadyRunning: alive,
+        needLogin: true,
+        loginUrl: info.public.webuiUrl || '',
+        qr: !!ready.qr,
+        info: info.public,
+        hint: alive
+          ? 'QQ 还没登录：扫下面的码，登录后群崽会自动接上'
+          : '第一次登录要扫码：用小号在手机 QQ 上扫下面的码，登录后群崽会自动接上'
+      };
     }
 
     return this._sync(info, started);
@@ -1074,6 +1111,20 @@ class QQEngine {
     } finally {
       this.autoPromise = null;
     }
+  }
+
+  /**
+   * 只放手、不杀进程。
+   *
+   * 为什么需要这个：NapCat 的登录态是**进程内**的，重启进程就要重新扫码。
+   * 用户关掉面板（QunZaiHost 退出）时如果照常 stop()，taskkill /F 会直接掐死
+   * NapCat，下次打开面板只能重新扫码 —— 这就是「设置完退出去就不能用了」。
+   * 所以面板退出只 detach：运行时继续在后台保持登录，下次打开自动复用。
+   * 真正要结束它，走界面上的「停止本次启动」（那里仍然调 stop()）。
+   */
+  detach() {
+    this.startedProcess = null;
+    return { ok: true, detached: true };
   }
 
   stop() {

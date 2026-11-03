@@ -70,11 +70,10 @@ body {
 .brand { display: flex; align-items: center; gap: 10px; }
 
 .logo {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   flex: none;
   display: block;
-  opacity: 0.96;
 }
 
 .title { font-size: 18px; font-weight: 700; letter-spacing: 0.5px; }
@@ -1010,9 +1009,7 @@ html[data-theme="light"] body {
 html[data-theme="light"] .topbar {
   background: rgba(250, 250, 251, 0.92);
 }
-html[data-theme="light"] .logo {
-  filter: invert(1);
-}
+
 html[data-theme="light"] .ai-switch .track { background: #d2d4d8; }
 html[data-theme="light"] .ai-switch .knob { background: #ffffff; }
 html[data-theme="light"] .ai-switch input:checked + .track { background: rgba(11, 143, 77, 0.22); }
