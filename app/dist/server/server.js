@@ -883,15 +883,59 @@ async function handleApi(req, res, url) {
     try {
       const buf = fs.readFileSync(file);
       const st = fs.statSync(file);
-      if (Date.now() - st.mtimeMs > 5 * 60 * 1000) {
-        return sendJson(res, 410, { error: '二维码已过期，点「启动并同步」会重新生成' });
+      // ★ 原来是 5 分钟就判过期，但 _awaitLogin 会等 10 分钟：
+      //   用户在第 6 分钟才打开设置页时，拿到的是一句「已过期」，而他手上
+      //   明明还有一张能扫的码。QQ 侧的码大约 2 分钟就会失效，所以真正的
+      //   过期由「扫了没反应」暴露；这里只管把图给出去，同时回一个 ageMs
+      //   让前端自己提示「码有点旧了，点重新生成」。
+      const ageMs = Date.now() - st.mtimeMs;
+      if (ageMs > 10 * 60 * 1000) {
+        return sendJson(res, 410, { error: '二维码已过期，点「重新生成二维码」再扫一次', ageMs });
       }
-      res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'no-store', 'Content-Length': buf.length });
+      res.writeHead(200, {
+        'Content-Type': 'image/png',
+        'Cache-Control': 'no-store',
+        'Content-Length': buf.length,
+        'X-Qr-Age-Ms': String(ageMs)
+      });
       res.end(buf);
       return;
     } catch {
       return sendJson(res, 404, { error: '二维码读不到' });
     }
+  }
+
+  /* 重新生成二维码：QQ 的码 2 分钟左右就失效，扫慢了只能重来。
+     做法是把这个还没登录的运行时停掉再拉起来 —— 它会落一张新码。 */
+  if (p === '/api/engine/qr/new' && req.method === 'POST') {
+    try {
+      // 先删旧图：不然前端拿到的还是那张过期文件（mtime 没变，看着像新的）
+      const old = engine.qrFile(engine.lastInfo || {});
+      if (old) { try { fs.unlinkSync(old); } catch { /* noop */ } }
+      engine.stop();
+      await new Promise((r) => setTimeout(r, 1200));
+      const result = await engine.start({});
+      broadcast({ type: 'engine_status', engine: await engine.status() });
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return sendJson(res, 200, { ok: false, error: err.message });
+    }
+  }
+
+  /* 优雅退出：宿主（QunZaiHost.exe）退出前必须走这里。
+     Windows 上 Process.Kill() 是 TerminateProcess，不会触发 SIGTERM，
+     所以 shutdown() 从来没跑过 —— 状态文件（ports.json / store.json）写不进去。
+
+     两个入口语义不同，别混：
+       POST /api/quit                   = 用户点「停止服务」→ 连 QQ 运行时一起停（真下线）
+       POST /api/quit?keepEngine=1      = 只是关窗口 → 运行时留在后台保住登录态
+     登录态是进程内的，杀了就要重扫码，所以「关窗口」绝不能杀它；
+     而用户主动点「停止服务」是明确要下线，那时候必须连 NapCat 一起停。 */
+  if (p === '/api/quit' && req.method === 'POST') {
+    const keepEngine = /(?:^|[?&])keepEngine=1(?:&|$)/.test(url.search || '');
+    sendJson(res, 200, { ok: true, keepEngine });
+    setTimeout(() => { try { shutdown('api', { keepEngine }); } catch { process.exit(0); } }, 80);
+    return;
   }
 
   /* ---------------- 自动更新（只检查，下载/安装必须用户确认） ---------------- */
@@ -1387,12 +1431,30 @@ startHttpServer().catch((err) => {
 // 定时心跳事件，便于前端确认连接
 setInterval(() => broadcast({ type: 'ping', t: Date.now() }), 30000).unref?.();
 
-const shutdown = () => {
-  console.log('\n退出中…');
+let _shuttingDown = false;
+/**
+ * @param {string} why 触发原因，只用于日志
+ * @param {{keepEngine?: boolean}} [opts]
+ *   keepEngine=true  → 只关窗口，QQ 运行时留在后台（保住登录态，下次免扫码）
+ *   keepEngine=false → 用户点「停止服务」，连运行时一起停，真正下线
+ */
+const shutdown = (why, opts = {}) => {
+  // 信号和 /api/quit 可能同时到（宿主先调接口再补一刀 Kill），只跑一次
+  if (_shuttingDown) return;
+  _shuttingDown = true;
+  const keepEngine = opts.keepEngine === true;
+  console.log('\n退出中…' + (why ? '（' + why + '）' : '') + (keepEngine ? '［保留 QQ 运行时］' : '［同时停止 QQ 运行时］'));
   try { ports.writeRuntime(ROOT, { serverPort: 0, stopped: true }); } catch { /* noop */ }
-  // 服务退出必须连带把 QQ 运行时停掉：它是 detached 拉起的，不主动停就会留在后台，
-  // 用户下次启动会撞端口，或者看到一个「界面已关掉、内核还在跑」的幽灵进程。
-  try { engine.stop(); } catch { /* noop */ }
+  if (keepEngine) {
+    // 关窗口：不杀 NapCat。它的登录态是进程内的，杀掉 = 下次要重新扫码，
+    // 那正是用户抱怨的「设置里弄完之后退出去就不能用了」。
+    // 留在后台，下次面板启动 engine._runtimeAlive 会认出它并直接复用（实测 1.9 秒）。
+    try { engine.detach(); } catch { /* noop */ }
+  } else {
+    // 用户主动点「停止服务」：这是明确要下线，必须连同 NapCat 一起停，
+    // 否则界面上写着「已停止」，QQ 却在后台继续在线收消息 —— 那是欺骗。
+    try { engine.stop(); } catch { /* noop */ }
+  }
   try { adapter.close(); } catch { /* noop */ }
   try { store.save(); } catch { /* noop */ }
   try { server.close(); } catch { /* noop */ }

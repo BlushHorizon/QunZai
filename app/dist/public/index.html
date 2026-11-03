@@ -19,7 +19,7 @@
     <!-- 顶栏 -->
     <header class="topbar">
       <div class="brand">
-        <span class="logo">◉</span>
+        <img class="logo" src="logo-mark.png" alt="群崽 QunZai" />
         <span class="title">群崽 <em>QunZai</em></span>
         <span class="subtitle">QQ 智能体监控台</span>
         <span class="version" id="appVersion">v1.4.15</span>
@@ -567,9 +567,9 @@
 <label class="field">
             <span>模式</span>
             <select id="setMode">
-              <option value="mock">演示模式（模拟）</option>
-              <option value="onebot">OneBot 11（本机兼容运行时）</option>
+              <option value="onebot" selected>OneBot 11（本机兼容运行时）· 推荐</option>
               <option value="qqbot">QQ 官方机器人（开放平台）</option>
+              <option value="mock">演示模式（模拟，不连真 QQ）</option>
             </select>
           </label>
           <div id="onebotOnly">
@@ -648,8 +648,12 @@
           <div class="qr-box" id="engineQrBox" hidden>
             <img id="engineQrImg" alt="登录二维码" />
             <div class="qr-tip" id="engineQrTip">用小号在手机 QQ 上扫码登录，登录后这里会自动变成「运行中」</div>
+            <div class="row-btns">
+              <button class="mini-btn alt" id="btnEngineQrNew">重新生成二维码</button>
+            </div>
+            <div class="qr-tip" id="engineQrAge" hidden></div>
           </div>
-          <p class="tip">第一次用内置那份时，它会弹二维码让你扫码登录 QQ（只支持扫码，这是它的限制）。登录一次之后会记住，下次自动续上。</p>
+          <p class="tip">第一次用内置那份时，它会弹二维码让你扫码登录 QQ（只支持扫码，这是它的限制）。二维码大约 2 分钟就会失效，扫慢了就点「重新生成二维码」。QQ 偶尔会判定登录态失效（换设备、异地登录、长时间没上线），那种时候需要重新扫一次码——这不是群崽能绕过的。</p>
           </div>
           </div>
         </section>

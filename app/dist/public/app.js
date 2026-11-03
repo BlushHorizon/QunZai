@@ -1160,13 +1160,70 @@ function showEngineQr() {
   const box = $('engineQrBox');
   if (!box) return;
   const img = $('engineQrImg');
-  if (img) img.src = '/api/engine/qr?t=' + Date.now();
+  if (img) {
+    // 只有没加载过、或者上一张已经明确失效时才重新拉，
+    // 否则每次刷新状态都换一个 query 串，图片会一直闪。
+    if (!img.dataset.loaded) loadEngineQr();
+  }
   box.hidden = false;
 }
 
 function hideEngineQr() {
   const box = $('engineQrBox');
   if (box) box.hidden = true;
+  const age = $('engineQrAge');
+  if (age) age.hidden = true;
+  const img = $('engineQrImg');
+  if (img) delete img.dataset.loaded;
+}
+
+/** 拉一张新的二维码；顺带把「这张码多旧了」写在下边，省得用户对着过期的码干等 */
+async function loadEngineQr() {
+  const img = $('engineQrImg');
+  if (!img) return;
+  const src = '/api/engine/qr?t=' + Date.now();
+  await new Promise((resolve) => {
+    img.onload = () => { img.dataset.loaded = '1'; resolve(); };
+    img.onerror = () => {
+      delete img.dataset.loaded;
+      // 404 = 运行时还没落码；410 = 码过期，提示用户点重新生成
+      const tip = $('engineQrAge');
+      if (tip) {
+        tip.hidden = false;
+        tip.textContent = '二维码还没生成好，等几秒再试；一直不行就点「重新生成二维码」';
+      }
+      resolve();
+    };
+    img.src = src;
+  });
+}
+
+async function regenerateEngineQr() {
+  const btn = $('btnEngineQrNew');
+  if (btn) { btn.disabled = true; btn.textContent = '生成中…'; }
+  const tip = $('engineQrAge');
+  try {
+    if (tip) { tip.hidden = false; tip.textContent = '正在重新拉起运行时，请稍等…'; }
+    const r = await api('/api/engine/qr/new', { method: 'POST', body: '{}' });
+    if (!r.ok) {
+      if (tip) tip.textContent = '重新生成失败：' + (r.error || '未知原因');
+      return;
+    }
+    const img = $('engineQrImg');
+    if (img) delete img.dataset.loaded;
+    await loadEngineQr();
+    if (tip) {
+      tip.hidden = false;
+      tip.textContent = r.needLogin
+        ? '新二维码已生成，用手机 QQ 扫一次（旧码已作废）'
+        : '运行时已经登录上了，不需要再扫码';
+    }
+    await refreshEngineStatus();
+  } catch (e) {
+    if (tip) tip.textContent = '重新生成失败：' + e.message;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '重新生成二维码'; }
+  }
 }
 
 async function detectEngine() {
@@ -1895,6 +1952,8 @@ function init() {
   $('btnEngineStart').addEventListener('click', startEngine);
   $('btnEngineStop').addEventListener('click', stopEngine);
   $('btnEngineWebui').addEventListener('click', openEngineWebui);
+  const btnQrNew = $('btnEngineQrNew');
+  if (btnQrNew) btnQrNew.addEventListener('click', regenerateEngineQr);
   const panelFrame = $('enginePanelFrame');
   if (panelFrame) {
     panelFrame.addEventListener('load', () => {
