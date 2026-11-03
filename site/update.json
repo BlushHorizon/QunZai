@@ -1,13 +1,13 @@
 {
-  "version": "1.4.14",
-  "notes": "群崽 v1.4.14：新增 QQ 官方机器人（扫码绑定免填凭据，腾讯官方通道直连）；群管六件套上线（刷屏/广告/违禁词/重复/欢迎/宵禁）；主动发言素材源升级为会话历史；长期记忆功能移除；内置 NapCat 升级到 v4.18.42。OneBot 模式保留，可随时切换。",
-  "pubDate": "2026-11-01",
+  "version": "1.4.13",
+  "notes": "群崽 v1.4.13：安装器现在会自动关掉旧进程再覆盖安装。之前覆盖安装时，内置的 NapCat 监视器还在运行、占用 engine\napcat 里的文件，会报「无法写入 QQNT.dll」让安装中断。现在安装开始前会用自带的停止脚本按安装目录精准结束桌面宿主、主服务和 NapCat/SnowLuma 监视器进程（只杀本目录的，不误伤其他 Node 程序），装完再拉起。另延续 v1.4.12 的多线程下载：80 MB 包国内加速约 1 分半下完。覆盖安装保留 data/ 与 config.json，不用重新扫码。",
+  "pubDate": "2026-10-25",
   "files": [
     {
       "url": "https://blushhorizon.github.io/QunZai/assets/%E7%BE%A4%E5%B4%BDQunZai%E5%AE%89%E8%A3%85%E5%8C%85.exe",
-      "sha256": "48f4671efd844c80425b2d22695b2e387e259925df9fb2a1d39fd05050ac43dc",
-      "size": 84587873,
-      "mirror": "https://blushhorizon.github.io/QunZai/assets/QunZai-v1.4.14-win-x64.exe"
+      "sha256": "e995345d7bdba7829f77976b0d60432394e972b55fe3acf7f2e65b005b521a62",
+      "size": 84500816,
+      "mirror": "https://ghfast.top/https://github.com/BlushHorizon/QunZai/releases/download/v1.4.13/QunZai-v1.4.13-win-x64.exe"
     }
   ]
 }
