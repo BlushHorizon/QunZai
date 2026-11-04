@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -81,11 +81,13 @@ namespace QunZai
         private bool _trayTipShown;
         private bool _reallyExit;
 
-        private static readonly Color DarkBg = Color.FromArgb(10, 14, 20);
-        private static readonly Color DarkPanel = Color.FromArgb(15, 21, 32);
-        private static readonly Color DarkLine = Color.FromArgb(28, 40, 56);
-        private static readonly Color DarkText = Color.FromArgb(217, 226, 238);
-        private static readonly Color DarkDim = Color.FromArgb(125, 142, 163);
+        // 深色主题走中性纯黑，和网页端 #0b0c0e 系列对齐。
+        // 以前是 (10,14,20) / (15,21,32) 这一套带蓝的配色，窗口边框和状态栏会泛深蓝。
+        private static readonly Color DarkBg = Color.FromArgb(11, 11, 12);
+        private static readonly Color DarkPanel = Color.FromArgb(21, 21, 22);
+        private static readonly Color DarkLine = Color.FromArgb(38, 38, 40);
+        private static readonly Color DarkText = Color.FromArgb(233, 234, 235);
+        private static readonly Color DarkDim = Color.FromArgb(154, 155, 158);
         private static readonly Color LightBg = Color.FromArgb(238, 244, 250);
         private static readonly Color LightPanel = Color.FromArgb(248, 251, 255);
         private static readonly Color LightLine = Color.FromArgb(215, 227, 239);
@@ -246,11 +248,8 @@ namespace QunZai
             if (_loading != null) _loading.BringToFront();
             Shown += async delegate { await InitializeAsync(); };
             FormClosing += OnClosing;
-            Resize += delegate
-            {
-                if (WindowState != FormWindowState.Minimized) return;
-                HideToTray();
-            };
+            // 最小化就老老实实最小化到任务栏（Windows 默认行为）。
+            // 以前这里会 Hide() 进托盘，用户点一下最小化窗口就“消失”了，只能去托盘翻。
         }
 
         private void HideToTray()
@@ -272,7 +271,11 @@ namespace QunZai
                 _trayMenu = new ContextMenuStrip();
                 _trayMenu.Items.Add("显示主窗口", null, delegate { ShowFromTray(); });
                 _trayMenu.Items.Add(new ToolStripSeparator());
-                _trayMenu.Items.Add("退出群崽", null, delegate { _reallyExit = true; Close(); });
+                _trayMenu.Items.Add("停止服务并退出", null, delegate
+                {
+                    try { BeginInvoke(new MethodInvoker(delegate { CloseWithChoice(CloseChoice.StopAndExit); })); }
+                    catch { }
+                });
 
                 _tray = new NotifyIcon();
                 _tray.Icon = Icon ?? SystemIcons.Application;
@@ -1153,21 +1156,104 @@ namespace QunZai
             HostLog.Write("deepseek navigate");
         }
 
+        private enum CloseChoice { Cancel, StopAndExit, MinimizeToTray }
+
+        /// <summary>点 X、托盘菜单「停止服务并退出」都走这里：先问，再按选择做。</summary>
+        private async void CloseWithChoice(CloseChoice choice)
+        {
+            if (IsDisposed) return;
+            if (choice == CloseChoice.Cancel) return;
+            if (choice == CloseChoice.MinimizeToTray)
+            {
+                HideToTray();
+                return;
+            }
+            HostLog.Write("close choice: stop and exit");
+            // 选了「停止服务并退出」就真的把服务停掉（连 NapCat 一起），
+            // 不留后台进程；下次打开重新启动、重新扫码，用户是知情选择。
+            if (_serviceRunning && !_serviceStoppedByUser)
+            {
+                try { await StopServiceAsync(); }
+                catch (Exception ex) { HostLog.Write("stop before exit failed: " + ex.Message); }
+            }
+            _reallyExit = true;
+            try { Close(); } catch { }
+        }
+
+        private Button MakeDialogButton(Form dlg, string text, Rectangle bounds, Color fore, DialogResult dr)
+        {
+            Button b = new Button();
+            b.Text = text;
+            b.Bounds = bounds;
+            b.FlatStyle = FlatStyle.Flat;
+            b.BackColor = _bg;
+            b.ForeColor = fore;
+            b.FlatAppearance.BorderColor = _line;
+            b.DialogResult = dr;
+            dlg.Controls.Add(b);
+            return b;
+        }
+
+        private CloseChoice AskCloseChoice()
+        {
+            CloseChoice result = CloseChoice.Cancel;
+            using (Form dlg = new Form())
+            {
+                dlg.Text = "关闭群崽";
+                dlg.FormBorderStyle = FormBorderStyle.FixedDialog;
+                dlg.StartPosition = FormStartPosition.CenterParent;
+                dlg.MinimizeBox = false;
+                dlg.MaximizeBox = false;
+                dlg.ShowInTaskbar = false;
+                dlg.ClientSize = new Size(452, 200);
+                dlg.BackColor = _panel;
+                dlg.ForeColor = _text;
+                dlg.Font = new Font("Microsoft YaHei UI", 9F);
+
+                Label title = new Label();
+                title.Text = "要停止服务，还是留在后台？";
+                title.Font = new Font("Microsoft YaHei UI", 11.5F, FontStyle.Bold);
+                title.Bounds = new Rectangle(24, 20, 404, 30);
+                dlg.Controls.Add(title);
+
+                Label body = new Label();
+                body.Text = (_serviceRunning && !_serviceStoppedByUser)
+                    ? "停止服务并退出：QQ 机器人下线，群崽退出，下次打开要重新扫码登录。\r\n最小化到托盘：窗口收起，机器人在后台继续跑，双击托盘图标回来。"
+                    : "退出群崽：窗口和服务一起关掉。\r\n最小化到托盘：窗口收起，随时从托盘图标唤回。";
+                body.ForeColor = _dim;
+                body.Bounds = new Rectangle(24, 56, 404, 60);
+                dlg.Controls.Add(body);
+
+                MakeDialogButton(dlg, (_serviceRunning && !_serviceStoppedByUser) ? "停止服务并退出" : "退出群崽",
+                    new Rectangle(24, 138, 152, 36), _text, DialogResult.Yes);
+                Button tray = MakeDialogButton(dlg, "最小化到托盘",
+                    new Rectangle(188, 138, 128, 36), _text, DialogResult.No);
+                Button cancel = MakeDialogButton(dlg, "取消",
+                    new Rectangle(328, 138, 100, 36), _dim, DialogResult.Cancel);
+
+                dlg.AcceptButton = tray;
+                dlg.CancelButton = cancel;
+
+                DialogResult r = dlg.ShowDialog(this);
+                if (r == DialogResult.Yes) result = CloseChoice.StopAndExit;
+                else if (r == DialogResult.No) result = CloseChoice.MinimizeToTray;
+            }
+            return result;
+        }
+
         private void OnClosing(object sender, FormClosingEventArgs e)
         {
             HostLog.Write("form closing reason=" + e.CloseReason + " reallyExit=" + _reallyExit
                 + " serviceRunning=" + _serviceRunning + " stoppedByUser=" + _serviceStoppedByUser);
-            // 服务还在跑：点右上角 X 收进托盘，QQ 机器人继续在后台运行；
-            // 服务已经停止：没有后台任务了，点 X 直接退出，不再驻留托盘。
+            // 点右上角 X 不再自作主张：先问清楚是「停止服务并退出」还是「最小化到托盘」。
+            // 以前服务在跑就悄悄收进托盘（用户以为关不掉），服务停着就直接退出（行为不一致）。
             if (!_reallyExit && e.CloseReason == CloseReason.UserClosing)
             {
-                if (_serviceRunning && !_serviceStoppedByUser)
-                {
-                    e.Cancel = true;
-                    HideToTray();
-                    return;
-                }
-                _reallyExit = true;
+                e.Cancel = true;
+                CloseChoice choice = AskCloseChoice();
+                if (choice == CloseChoice.Cancel) return;
+                CloseWithChoice(choice);
+                return;
             }
             try { if (_tray != null) { _tray.Visible = false; _tray.Dispose(); _tray = null; } } catch { }
             try { if (_trayMenu != null) { _trayMenu.Dispose(); _trayMenu = null; } } catch { }
