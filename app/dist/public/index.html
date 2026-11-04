@@ -22,20 +22,12 @@
         <img class="logo" src="logo-mark.png" alt="群崽 QunZai" />
         <span class="title">群崽 <em>QunZai</em></span>
         <span class="subtitle">QQ 智能体监控台</span>
-        <span class="version" id="appVersion">v1.4.15</span>
+        <span class="version" id="appVersion">v1.4.16</span>
       </div>
       <div class="topbar-right">
         <div class="pill" id="qqStatusPill" title="QQ 接入状态">
           <i class="dot"></i><span id="qqStatusText">连接中…</span>
         </div>
-        <label class="ai-switch" title="AI 自动回复总开关">
-          <input type="checkbox" id="aiToggle" />
-          <span class="track"><span class="knob"></span></span>
-          <span class="ai-label">AI 自动回复</span>
-        </label>
-        <button class="service-btn" id="btnServiceStop" type="button" title="停止群崽服务">
-          <span class="service-dot"></span>停止服务
-        </button>
         <button class="icon-btn" id="btnTheme" title="切换浅色主题">☾</button>
       </div>
     </header>
@@ -98,7 +90,7 @@
                 <p class="step-desc">默认用 DeepSeek 网页版：群崽会拉起一个浏览器窗口，你在里面登录一次 DeepSeek 账号即可，不用 API Key、不花钱。想用 API 也能换。</p>
                 <div class="step-actions">
                   <button type="button" class="mini-btn primary-btn" id="btnWelcomeDs">打开 DeepSeek 登录</button>
-                  <button type="button" class="mini-btn" data-view="cfg-ai">模型设置</button>
+                  <button type="button" class="mini-btn" data-view="models">模型设置</button>
                 </div>
                 <div class="step-note" id="stepAiNote">正在读取状态…</div>
               </div>
@@ -120,11 +112,11 @@
 
           <div class="done-card" id="welcomeDone" hidden>
             <div class="done-title">✅ 都配好了，它已经能自己聊天了</div>
-            <p>接下来去「会话」看它在跟谁聊，去「实时动态」看每一句收发。人设和脾气在「配置文件 → AI 回复」里改。</p>
+            <p>接下来去「会话」看它在跟谁聊，去「实时动态」看每一句收发。人设（提示词）在「模型提供商 → 当前大脑的参数」里改，回复规则和脾气在「AI 回复」里改。</p>
             <div class="step-actions">
               <button type="button" class="mini-btn" data-view="chats">看会话</button>
               <button type="button" class="mini-btn" data-view="activity">看动态</button>
-              <button type="button" class="mini-btn" data-view="cfg-ai">改人设</button>
+              <button type="button" class="mini-btn" data-view="models">改人设</button>
             </div>
           </div>
         </section>
@@ -188,8 +180,8 @@
 
         <section class="view" data-view="models">
           <div class="view-head">
-            <h2>模型提供商</h2>
-            <p>群崽用哪个大脑回消息。同一时间只启用一种，默认是 DeepSeek 网页版。</p>
+            <div class="view-head-row"><h2>模型提供商</h2><button type="button" class="primary-btn" data-save-settings>保存</button></div>
+            <p>群崽用哪个大脑回消息。同一时间只启用一种，默认是 DeepSeek 网页版；下面那张面板填它对应的参数，填完点右上角「保存」。</p>
           </div>
           <div class="stat-strip">
             <div class="stat-cell"><span class="stat-k">大脑</span><span class="stat-v"><span class="card-main" id="cardAiMain">—</span></span></div>
@@ -230,7 +222,7 @@
                 <button class="mini-btn" id="btnCardApiNew">新建对话</button>
               </div>
               <div class="bot-actions">
-                <button type="button" class="mini-btn" data-view="cfg-ai">填 Key</button>
+                <button type="button" class="mini-btn" id="btnFillKey">填 Key</button>
               </div>
             </article>
 
@@ -248,6 +240,87 @@
             </article>
           </div>
 
+          <div class="panel" id="modelCfgPanel" style="margin-top:16px;max-width:1000px">
+            <div class="panel-head"><span id="modelCfgTitle">当前大脑的参数</span></div>
+            <div class="cfg-body" style="padding:16px 18px 22px">
+            <!-- 「用哪个大脑」统一在「模型提供商」页选，这里不再放第二个下拉。
+                 页面代码仍然需要一个 #setProvider 来读当前选中的是谁（决定下面
+                 显示网页版配置还是 API 配置），所以留一个 hidden 的镜像。 -->
+            <select id="setProvider" hidden>
+              <option value="deepseek-web">网页版 DeepSeek（推荐，免 Key）</option>
+              <option value="openai-compatible">API 接口（OpenAI 兼容）</option>
+              <option value="builtin">内置规则引擎</option>
+            </select>
+            <p class="tip" style="margin:-4px 0 14px">下面只显示当前选中的大脑对应的参数；要换大脑，点上面那张卡片上的开关。</p>
+
+            <div id="webOnly">
+              <label class="field column">
+                <span>网页版引擎</span>
+                <select id="setWebSite"></select>
+              </label>
+              <div class="row-btns">
+                <button class="mini-btn alt" id="btnWebOpen">① 打开该网站（首次需登录）</button>
+              </div>
+              <p class="tip" id="webSiteHint"></p>
+              <label class="field">
+                <span>CDP 端口</span>
+                <input type="number" id="setCdpPort" min="1024" max="65535" />
+              </label>
+              <label class="field column">
+                <span>浏览器路径（留空自动找 Edge/Chrome）</span>
+                <input type="text" id="setBrowserPath" placeholder="C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" />
+              </label>
+              <label class="field column">
+                <span>提示词（每次新建对话时自动发一次，留空=不发）</span>
+                <textarea id="setWebPrompt" rows="4" placeholder="例如：你是我的 QQ 聊天代回复，回复口语化、简短、像真人。&#10;留空则直接把对方消息原文发给 DeepSeek"></textarea>
+              </label>
+              <label class="field">
+                <span>多少轮后自动新对话</span>
+                <input type="number" id="setWebMaxRounds" min="5" max="200" />
+              </label>
+              <div class="ds-status" id="dsStatus">状态：未连接</div>
+              <div class="row-btns">
+                <button class="mini-btn alt" id="btnDsTest">③ 测试回复</button>
+              </div>
+              <p class="tip" id="dsTip">首次使用会弹出一个 Edge 窗口，请扫码登录 DeepSeek；登录一次后会长期复用。</p>
+            </div>
+            <div id="apiOnly">
+            <label class="field">
+              <span>接口地址</span>
+              <input type="text" id="setBaseUrl" placeholder="https://api.deepseek.com" />
+            </label>
+            <label class="field">
+              <span>API Key</span>
+              <input type="password" id="setApiKey" placeholder="留空则使用内置规则应答" />
+            </label>
+            <div class="row-btns" style="margin:-6px 0 10px">
+              <button class="mini-btn" id="btnApiKeyClear" type="button" hidden>清除已保存的 Key</button>
+            </div>
+            <label class="field">
+              <span>模型</span>
+              <input type="text" id="setModel" placeholder="deepseek-chat" />
+            </label>
+            <label class="field column">
+              <span>角色设定（system prompt）</span>
+              <textarea id="setPrompt" rows="4"></textarea>
+            </label>
+            <div class="row-btns">
+              <button class="mini-btn alt" id="btnApiTest">测试连接 / 测速 / 余额</button>
+              <button class="mini-btn" id="btnApiNew">新建对话（清空 AI 记忆）</button>
+            </div>
+            <label class="field column" style="margin-top:8px">
+              <span>清空哪个会话的记忆</span>
+              <select id="setApiNewTarget"></select>
+              <span class="tip">「新建对话」= 让 AI 忘掉之前的聊天记录，从头开始。聊天记录本身不会被删，只是不再喂给模型。网页版模式由 DeepSeek 站点自己管对话，不需要这个。</span>
+            </label>
+            <div class="ds-status" id="apiStatus">状态：未测试</div>
+            </div>
+            </div>
+            <div class="row-btns" style="padding:0 18px 18px;margin:0">
+              <button type="button" class="primary-btn" data-save-settings>保存</button>
+              <span class="tip" style="margin:0">填完点这里保存，下次打开还是这套参数。</span>
+            </div>
+          </div>
           <div class="panel ds-panel">
             <div class="panel-head">
               <span class="ds-head-title">DeepSeek 内嵌窗口 <span class="ds-badge">桌面版</span></span>
@@ -293,6 +366,13 @@
             <p>决定哪些消息会被回复、回复的边界和频率</p>
           </div>
           <div class="cfg-body">
+<div class="field column" style="gap:6px">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+              <input type="checkbox" id="setEnabled" />
+              <span style="font-weight:600">AI 自动回复（总开关）</span>
+            </label>
+            <p class="tip" style="margin:0">关掉之后群里 @ 它也不回；点一下立刻生效，也可以点右上角「保存」一起提交。</p>
+          </div>
 <label class="field">
             <span>回复对象</span>
             <select id="setReplyMode">
@@ -354,80 +434,6 @@
             <span>指令主人QQ</span>
             <input type="text" id="setCmdSenders" placeholder="自己的QQ号，逗号分隔；留空=禁用 /开 /暂停 /状态" />
           </label>
-          <label class="field">
-            <span>大脑来源</span>
-            <select id="setProvider">
-              <option value="deepseek-web">网页版 DeepSeek（推荐，免 Key）</option>
-              <option value="openai-compatible">API 接口（OpenAI 兼容）</option>
-              <option value="builtin">内置规则引擎</option>
-            </select>
-          </label>
-          <div id="webOnly">
-            <label class="field column">
-              <span>网页版引擎</span>
-              <select id="setWebSite"></select>
-            </label>
-            <div class="row-btns">
-              <button class="mini-btn alt" id="btnWebOpen">① 打开该网站（首次需登录）</button>
-            </div>
-            <p class="tip" id="webSiteHint"></p>
-            <label class="field">
-              <span>CDP 端口</span>
-              <input type="number" id="setCdpPort" min="1024" max="65535" />
-            </label>
-            <label class="field column">
-              <span>浏览器路径（留空自动找 Edge/Chrome）</span>
-              <input type="text" id="setBrowserPath" placeholder="C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" />
-            </label>
-            <label class="field column">
-              <span>提示词（每次新建对话时自动发一次，留空=不发）</span>
-              <textarea id="setWebPrompt" rows="4" placeholder="例如：你是我的 QQ 聊天代回复，回复口语化、简短、像真人。&#10;留空则直接把对方消息原文发给 DeepSeek"></textarea>
-            </label>
-            <label class="field">
-              <span>多少轮后自动新对话</span>
-              <input type="number" id="setWebMaxRounds" min="5" max="200" />
-            </label>
-            <div class="ds-status" id="dsStatus">状态：未连接</div>
-            <div class="row-btns">
-              <button class="mini-btn alt" id="btnDsTest">③ 测试回复</button>
-            </div>
-            <p class="tip" id="dsTip">首次使用会弹出一个 Edge 窗口，请扫码登录 DeepSeek；登录一次后会长期复用。</p>
-          </div>
-          <div id="apiOnly">
-          <label class="field">
-            <span>开启</span>
-            <input type="checkbox" id="setEnabled" />
-          </label>
-          <label class="field">
-            <span>接口地址</span>
-            <input type="text" id="setBaseUrl" placeholder="https://api.deepseek.com" />
-          </label>
-          <label class="field">
-            <span>API Key</span>
-            <input type="password" id="setApiKey" placeholder="留空则使用内置规则应答" />
-          </label>
-          <div class="row-btns" style="margin:-6px 0 10px">
-            <button class="mini-btn" id="btnApiKeyClear" type="button" hidden>清除已保存的 Key</button>
-          </div>
-          <label class="field">
-            <span>模型</span>
-            <input type="text" id="setModel" placeholder="deepseek-chat" />
-          </label>
-          <label class="field column">
-            <span>角色设定（system prompt）</span>
-            <textarea id="setPrompt" rows="4"></textarea>
-          </label>
-          <div class="row-btns">
-            <button class="mini-btn alt" id="btnApiTest">测试连接 / 测速 / 余额</button>
-            <button class="mini-btn" id="btnApiNew">新建对话（清空 AI 记忆）</button>
-          </div>
-          <label class="field column" style="margin-top:8px">
-            <span>清空哪个会话的记忆</span>
-            <select id="setApiNewTarget"></select>
-            <span class="tip">「新建对话」= 让 AI 忘掉之前的聊天记录，从头开始。聊天记录本身不会被删，只是不再喂给模型。网页版模式由 DeepSeek 站点自己管对话，不需要这个。</span>
-          </label>
-          <div class="ds-status" id="apiStatus">状态：未测试</div>
-          </div>
           </div>
         </section>
 
@@ -618,16 +624,16 @@
           <div class="cfg-body" id="engineSection">
 <div id="engineBlock">
           <p class="tip">「QQ 桥接」就是真正登录 QQ、把消息转成群崽能读的 OneBot 11 的那个程序。群崽自己不登录 QQ。安装包里已经内置了一份 NapCat，开箱即用；你也可以换成自己找的那一份。</p>
-          <p class="tip">想试试另一套运行时？这里有一份 <a href="https://snowluma.github.io/zh/" target="_blank" rel="noopener">SnowLuma 官网</a>（<a href="https://github.com/SnowLuma/SnowLuma/releases" target="_blank" rel="noopener">下载页</a>，GitHub 打不开时走官网）。它的许可不允许群崽把它打进安装包，所以这里只放官方地址——自己下载解压后，把上面的「用哪一份」选成「自定义」，再把解压目录填进去就能用。</p>
+          <p class="tip">想试试另一套运行时？这里有一份 <a href="https://snowluma.github.io/zh/" target="_blank" rel="noopener">SnowLuma 官网</a>（<a href="https://github.com/SnowLuma/SnowLuma/releases" target="_blank" rel="noopener">下载页</a>，GitHub 打不开时走官网）。它的许可不允许群崽把它打进安装包，所以这里只放官方地址——自己下载解压后，把上面的「用哪一份」选成「（自定义）」，再把解压目录填进去就能用。</p>
           <label class="field">
             <span>用哪一份</span>
             <select id="setEngineSource">
-              <option value="bundled">内置</option>
-              <option value="custom">自定义</option>
+              <option value="bundled">（内置）</option>
+              <option value="custom">（自定义）</option>
             </select>
           </label>
           <label class="field column">
-            <span>自定义目录（选「自定义」时生效）</span>
+            <span>自定义目录（选「（自定义）」时生效）</span>
             <input type="text" id="setEngineDir" placeholder="例如 D:\你的OneBot运行时" />
           </label>
           <label class="field">
@@ -689,7 +695,7 @@
           </div>
           <div class="cfg-body">
 <div class="about-box">
-            <p><b>群崽 QunZai</b> <span id="aboutVersion">v1.4.15</span> · MIT 开源 · 创建于 2026 年 10 月 · 玩具级学习作品，非生产级产品</p>
+            <p><b>群崽 QunZai</b> <span id="aboutVersion">v1.4.16</span> · MIT 开源 · 创建于 2026 年 10 月 · 玩具级学习作品，非生产级产品</p>
             <p>· 本项目<b>不是反代、没有第三方中转、没有逆向 DeepSeek 网页</b>；原理是用 Node 连接本机浏览器调试端口（CDP）模拟操作，<b>这与反代一样均违反 DeepSeek 用户协议，账号可能被临时限制或封禁</b>。</p>
             <p>· 它会把 AI 生成的内容<b>自动发到 QQ</b>，无审核无黑名单，<b>请勿用于骚扰、刷屏、恶作剧，建议使用小号</b>。</p>
             <p>· 运行时会自动拉起 Edge 并连接调试端口，<b>可能被杀软误报为木马</b>；源码公开可自行审计，确认为误报请加白名单。</p>

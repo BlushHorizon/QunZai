@@ -39,10 +39,8 @@ html[data-theme="light"] {
 html, body { height: 100%; }
 
 body {
-  background:
-    radial-gradient(1000px 500px at 85% -10%, rgba(255, 255, 255, 0.07), transparent 60%),
-    radial-gradient(800px 400px at -10% 110%, rgba(255, 255, 255, 0.04), transparent 60%),
-    var(--bg);
+  /* 深色就是纯黑底，不要叠白色光晕 —— 叠上去整块面板会发灰发蓝。 */
+  background: var(--bg);
   color: var(--text);
   font: 14px/1.55 "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
 }
@@ -59,7 +57,7 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 14px 22px;
-  background: rgba(16, 18, 21, 0.9);
+  background: rgba(14, 14, 15, 0.92);
   border-bottom: 1px solid var(--line);
   backdrop-filter: blur(8px);
   position: sticky;
@@ -112,48 +110,6 @@ body {
 .pill.off .dot { background: var(--bad); }
 .pill.off { color: var(--bad); border-color: rgba(255, 95, 86, 0.35); }
 
-/* 顶栏「停止服务」：只在桌面宿主里显示，浏览器里没有可停的服务 */
-.service-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 12px;
-  border: 1px solid rgba(255, 95, 86, 0.35);
-  border-radius: 999px;
-  background: rgba(255, 95, 86, 0.10);
-  color: var(--bad);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
-}
-.service-btn:hover { background: rgba(255, 95, 86, 0.18); border-color: rgba(255, 95, 86, 0.55); }
-.service-btn:disabled { opacity: 0.55; cursor: default; }
-.service-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-html:not(.qz-host) .service-btn { display: none; }
-
-.ai-switch { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
-.ai-switch input { display: none; }
-.ai-switch .track {
-  width: 38px; height: 20px;
-  background: #2b2f35;
-  border-radius: 999px;
-  position: relative;
-  transition: background 0.2s;
-}
-.ai-switch .knob {
-  position: absolute; top: 2px; left: 2px;
-  width: 16px; height: 16px;
-  background: #b9bec6;
-  border-radius: 50%;
-  transition: all 0.2s;
-}
-.ai-switch input:checked + .track { background: rgba(47, 212, 122, 0.35); }
-.ai-switch input:checked + .track .knob { left: 20px; background: var(--ok); }
-.ai-label { font-size: 13px; color: var(--text-dim); }
-
 .icon-btn {
   width: 32px; height: 32px;
   border: 1px solid var(--line);
@@ -183,7 +139,7 @@ html:not(.qz-host) .service-btn { display: none; }
   gap: 2px;
   padding: 12px 10px 14px;
   border-right: 1px solid var(--line);
-  background: rgba(16, 18, 21, 0.55);
+  background: rgba(14, 14, 15, 0.6);
   overflow-y: auto;
 }
 
@@ -604,9 +560,7 @@ html:not(.qz-host) .ds-expand { display: none; }
   position: relative;
   flex: 1;
   min-height: 0;
-  background:
-    radial-gradient(500px 220px at 70% 0%, rgba(255, 255, 255, 0.05), transparent 70%),
-    var(--bg-soft);
+  background: var(--bg-soft);
 }
 
 .ds-slot-fallback {
@@ -1000,19 +954,10 @@ details[open] > summary { margin-bottom: 4px; }
 .about-links a { color: var(--text-dim); }
 
 /* ---------------- 浅色主题细节 ---------------- */
-html[data-theme="light"] body {
-  background:
-    radial-gradient(1000px 500px at 85% -10%, rgba(0, 0, 0, 0.045), transparent 60%),
-    radial-gradient(800px 400px at -10% 110%, rgba(0, 0, 0, 0.03), transparent 60%),
-    var(--bg);
-}
 html[data-theme="light"] .topbar {
   background: rgba(250, 250, 251, 0.92);
 }
 
-html[data-theme="light"] .ai-switch .track { background: #d2d4d8; }
-html[data-theme="light"] .ai-switch .knob { background: #ffffff; }
-html[data-theme="light"] .ai-switch input:checked + .track { background: rgba(11, 143, 77, 0.22); }
 html[data-theme="light"] .avatar { background: #eceef0; }
 html[data-theme="light"] .avatar.group { background: #e7e9eb; }
 html[data-theme="light"] .ov-item .type { background: #eef0f2; }

@@ -278,9 +278,8 @@ function renderStatus() {
     : (qq.connected ? '已连接 OneBot' : (qq.needLogin ? '服务通了，等你扫码登录 QQ' : '等待接入…'));
 
   const ai = state.status.ai || {};
-  $('aiToggle').checked = !!ai.enabled;
-  const label = document.querySelector('.ai-label');
-  if (label) label.textContent = ai.enabled ? 'AI 自动回复' : 'AI 自动回复（关）';
+  // 总开关现在挂在「AI 回复」页里（id 还是 setEnabled），顶栏那个已经撤掉。
+  if ($('setEnabled')) $('setEnabled').checked = !!ai.enabled;
 
   $('cardAiMain').textContent = ai.enabled ? '运行中' : '已停用';
   $('cardAiMain').className = 'card-main ' + (ai.enabled ? 'ok' : 'dim');
@@ -351,7 +350,9 @@ function switchView(key) {
   // 进入配置页时刷一次服务端配置：卡片开关、顶栏开关都会改库，
   // 常驻表单不刷新的话，用户下次在配置页点「保存」会把刚改的值覆盖回旧值。
   // 有未保存的编辑时不动，免得把用户正在填的内容冲掉。
-  if (!key.startsWith('cfg-')) {
+  // 「模型提供商」页也摊着表单（大脑参数就在卡片下面），按配置页对待。
+  const isCfgPage = key.startsWith('cfg-') || key === 'models';
+  if (!isCfgPage) {
     // 离开全部配置页 = 放弃未保存的编辑。不重置的话脏标记会永久粘住，
     // 之后配置页再也不会从服务端刷新，覆盖回滚的 bug 就回来了。
     settingsDirty = false;
@@ -1912,31 +1913,6 @@ function init() {
   initQzDialog();
   initDeepSeekSlot();
   initTheme();
-  $('btnServiceStop').addEventListener('click', async () => {
-    if (!IN_DESKTOP_HOST) return;
-    const ok = await uiConfirm(
-      '停止服务后 QQ 机器人会下线；桌面窗口仍会保留，可以随时重新启动。\n\n确定停止服务吗？',
-      { title: '停止服务', okText: '停止服务', cancelText: '取消', type: 'warn' }
-    );
-    if (!ok) return;
-    const btn = $('btnServiceStop');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="service-dot"></span>停止中…';
-    try {
-      window.chrome.webview.postMessage({ type: 'service-stop' });
-      // 正常情况下服务会停掉、页面被宿主盖住；如果宿主没响应，6 秒后恢复按钮
-      setTimeout(() => {
-        try {
-          btn.disabled = false;
-          btn.innerHTML = '<span class="service-dot"></span>停止服务';
-        } catch (e) { /* 忽略 */ }
-      }, 6000);
-    } catch (err) {
-      btn.disabled = false;
-      btn.innerHTML = '<span class="service-dot"></span>停止服务';
-      uiAlert('停止失败：' + err.message, { title: '停止失败', type: 'err' });
-    }
-  });
   // 每个配置页都有自己的「保存」按钮，共用同一套取值逻辑
   document.querySelectorAll('[data-save-settings]').forEach((btn) => {
     btn.addEventListener('click', saveSettings);
@@ -1946,7 +1922,21 @@ function init() {
   $('setCooldownEnabled').addEventListener('change', () => {
     $('setCooldownSec').disabled = !$('setCooldownEnabled').checked;
   });
-  $('setProvider').addEventListener('change', () => { toggleProviderView(); refreshDsStatus(); });
+  // #setProvider 是「模型提供商」页选中项的隐藏镜像，用户点不到它；切换只走那边的卡片
+  // switchProvider()。模型参数面板就在同一页，所以这里不再需要「跳过去」的链接。
+  // 「填 Key」就地切到 API 模式并把光标放进 Key 框——以前这个按钮跳到 AI 回复页，
+  // 参数在 800px 下面，用户以为根本没有设置项（真实反馈）。
+  const fillKey = $('btnFillKey');
+  if (fillKey) fillKey.addEventListener('click', async () => {
+    if ($('setProvider').value !== 'openai-compatible') {
+      await switchProvider('openai-compatible');
+    }
+    const box = $('setApiKey');
+    if (!box) return;
+    box.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    box.focus();
+    box.select && box.select();
+  });
   $('setReplyMode').addEventListener('change', toggleTargetView);
   $('btnEngineDetect').addEventListener('click', detectEngine);
   $('btnEngineStart').addEventListener('click', startEngine);
@@ -2024,13 +2014,11 @@ function init() {
       $('dsStatus').className = 'ds-status err';
     }
   });
-  $('aiToggle').addEventListener('change', async (e) => {
+  // 「AI 回复」页的总开关点一下立刻生效；保存按钮同样会带上这个值，两路都通。
+  if ($('setEnabled')) $('setEnabled').addEventListener('change', async (e) => {
     try {
       await api('/api/ai/toggle', { method: 'POST', body: JSON.stringify({ enabled: e.target.checked }) });
       await refreshStatus();
-      // 配置页里那个同名开关必须跟着变，否则下次在配置页点「保存」
-      // 会把这里刚改的值原样写回去（表单是整段覆盖，不是补丁）。
-      if ($('setEnabled')) $('setEnabled').checked = e.target.checked;
     } catch (err) {
       e.target.checked = !e.target.checked;
       uiAlert('切换失败：' + err.message);
@@ -2154,8 +2142,9 @@ function init() {
   if ($('btnProactiveKill')) $('btnProactiveKill').addEventListener('click', killProactive);
   $('btnWebOpen').addEventListener('click', openWebSite);
 
-  // 配置页任何控件被改动就置脏，避免后台回读把正在填的内容冲掉
-  document.querySelectorAll('.views .view[data-view^="cfg-"]').forEach((v) => {
+  // 配置页任何控件被改动就置脏，避免后台回读把正在填的内容冲掉。
+  // models 页也有表单（大脑参数），同样要算进来，否则切来切去会被回读冲掉。
+  document.querySelectorAll('.views .view[data-view^="cfg-"], .views .view[data-view="models"]').forEach((v) => {
     const mark = () => { settingsDirty = true; };
     v.addEventListener('input', mark);
     v.addEventListener('change', mark);
