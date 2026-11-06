@@ -546,13 +546,15 @@ namespace QunZai
 
             try
             {
-                bool running = _serverPort > 0 && IsQunZai(_serverPort);
+                bool running = false;
+                string liveVersion = "";
+                if (_serverPort > 0 && ProbeService(_serverPort, out liveVersion) == 1) running = true;
                 if (!running)
                 {
-                    int runtimePort = ReadRuntimeInt(_root, "serverPort");
-                    if (runtimePort > 0 && IsQunZai(runtimePort))
+                    int rtPort = ReadRuntimeInt(_root, "serverPort");
+                    if (rtPort > 0 && ProbeService(rtPort, out liveVersion) == 1)
                     {
-                        _serverPort = runtimePort;
+                        _serverPort = rtPort;
                         running = true;
                     }
                 }
@@ -772,10 +774,79 @@ namespace QunZai
                 return reader.ReadToEnd();
         }
 
+        /// <summary>
+        /// 读 /api/status，除了「是不是群崽」还拿版本号。
+        /// 为什么非要版本号：安装器不一定杀得掉旧服务（见 stop-service.ps1 的注释），
+        /// 旧 1.4.15 服务还占着端口时，新宿主一探测就「连上了」，界面版本号永远是旧的，
+        /// 更新提示于是变成死循环——用户看到的正是「更新完还提示更新」。
+        /// </summary>
+        private static bool TryStatus(int port, out string version)
+        {
+            version = "";
+            try
+            {
+                string body = HttpGet("http://127.0.0.1:" + port + "/api/status", 900);
+                if (!body.Contains("\"qq\"")) return false;
+                Match m = Regex.Match(body, "\"version\"\\s*:\\s*\"([^\"]+)\"");
+                if (m.Success) version = m.Groups[1].Value;
+                return true;
+            }
+            catch { return false; }
+        }
+
         private static bool IsQunZai(int port)
         {
-            try { return HttpGet("http://127.0.0.1:" + port + "/api/status", 900).Contains("\"qq\""); }
-            catch { return false; }
+            string v;
+            return TryStatus(port, out v);
+        }
+
+        private static int CmpVersion(string a, string b)
+        {
+            string[] x = (a == null ? "" : a).Split('.');
+            string[] y = (b == null ? "" : b).Split('.');
+            int n = Math.Max(x.Length, y.Length);
+            for (int i = 0; i < n; i++)
+            {
+                int xi = 0, yi = 0;
+                if (i < x.Length) int.TryParse(x[i], out xi);
+                if (i < y.Length) int.TryParse(y[i], out yi);
+                if (xi != yi) return xi < yi ? -1 : 1;
+            }
+            return 0;
+        }
+
+        /// <summary>本机这份程序的版本号（server\version.js 里那个字符串）。</summary>
+        private string LocalVersion()
+        {
+            try
+            {
+                string js = File.ReadAllText(Path.Combine(_root, "server", "version.js"));
+                Match m = Regex.Match(js, "version\\s*:\\s*['\"]([^'\"]+)['\"]");
+                if (m.Success) return m.Groups[1].Value;
+            }
+            catch { }
+            return "";
+        }
+
+        /// <summary>
+        /// 探测 port 上是不是「可以复用的自己」。
+        /// 1 = 直接复用；2 = 是群崽但版本比本机旧，已请它退出（调用方应自己起新进程）；0 = 不是群崽。
+        /// </summary>
+        private int ProbeService(int port, out string liveVersion)
+        {
+            liveVersion = "";
+            if (port <= 0) return 0;
+            if (!TryStatus(port, out liveVersion)) return 0;
+            string local = LocalVersion();
+            if (local.Length > 0 && liveVersion.Length > 0 && CmpVersion(liveVersion, local) < 0)
+            {
+                HostLog.Write("stale service on " + port + ": live=" + liveVersion + " local=" + local + " -> quit");
+                RequestServerQuit(port, true);
+                DateTime until = DateTime.Now.AddSeconds(8);
+                while (DateTime.Now < until && !IsPortFree(port)) System.Threading.Thread.Sleep(150);
+                return 2;
+            }
+            return 1;
         }
 
         /// <summary>
@@ -848,15 +919,23 @@ namespace QunZai
                 if (int.TryParse(envCdp, out n) && n > 0) preferredCdp = n;
 
                 int runtimePort = ReadRuntimeInt(_root, "serverPort");
-                if (runtimePort > 0 && IsQunZai(runtimePort))
+                int adoptPort = 0;
+                string live = "";
+                int probe = 0;
+                if (runtimePort > 0)
                 {
-                    _serverPort = runtimePort;
-                    _status.Text = "已连接到正在运行的群崽服务";
+                    probe = ProbeService(runtimePort, out live);
+                    if (probe == 1) adoptPort = runtimePort;
                 }
-                else if (runtimePort != preferredServer && IsQunZai(preferredServer))
+                if (adoptPort <= 0 && runtimePort != preferredServer)
                 {
-                    _serverPort = preferredServer;
-                    _status.Text = "已连接到正在运行的群崽服务";
+                    probe = ProbeService(preferredServer, out live);
+                    if (probe == 1) adoptPort = preferredServer;
+                }
+                if (adoptPort > 0)
+                {
+                    _serverPort = adoptPort;
+                    _status.Text = "已连接到正在运行的群崽服务 v" + live;
                 }
                 else
                 {
@@ -962,7 +1041,11 @@ namespace QunZai
             {
                 ProcessStartInfo psi = new ProcessStartInfo();
                 psi.FileName = node;
-                psi.Arguments = "server\\server.js";
+                // 用绝对路径启动：进程命令行里才会带上安装目录。
+                // 以前写的是相对路径，命令行里只有 server\server.js，
+                // 安装器的 stop-service.ps1 按安装目录匹配就找不到它 —— 旧服务活着，
+                // 新宿主连上旧服务，版本号永远旧，更新提示死循环。
+                psi.Arguments = "\"" + Path.Combine(_root, "server", "server.js") + "\"";
                 psi.WorkingDirectory = _root;
                 psi.UseShellExecute = false;
                 psi.CreateNoWindow = true;

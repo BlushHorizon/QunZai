@@ -89,6 +89,11 @@ const DATA_DIR = resolveDataDir(ROOT);
 
 const store = new Store(ROOT, { dataDir: DATA_DIR });
 
+// 一启动就落一份运行态（含 pid）：安装器的 stop-service.ps1 靠它精确结束旧服务。
+// 以前只在 listen 成功之后写一次，于是「旧服务还活着」这种最常见的场景反而没有记录可查，
+// 安装器无从下手，旧服务就一直占着端口——用户看到的更新死循环就是这么来的。
+ports.writeRuntime(ROOT, { serverPort: Number(process.env.QUNZAI_SERVER_PORT) || 0, stopped: false });
+
 /* ---------------- SSE 客户端 ---------------- */
 const sseClients = new Set();
 
