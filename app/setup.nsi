@@ -16,7 +16,7 @@ SetCompressor /SOLID lzma
 ; 正常情况下 build-package.js --installer 会传 /DVERSION=<package.json 里的版本>，
 ; 这里的值只是不经打包脚本、手工跑 makensis 时的兜底，别当成真实版本号。
 !ifndef VERSION
-  !define VERSION "1.4.16"
+  !define VERSION "1.4.17"
 !endif
 
 Name "${APPNAME}"
