@@ -1,4 +1,5 @@
 (function () {
+  document.documentElement.classList.add("js");
   "use strict";
   var QZ = window.QZ || {};
   function $(s, r) { return (r || document).querySelector(s); }
@@ -233,12 +234,23 @@
       });
     });
   }
+  function safe(name, fn) {
+    try { fn(); } catch (e) { if (window.console) console.error("[qunzai] " + name + " failed", e); }
+  }
   function boot() {
-    applyConfig();
-    renderStats(); renderFeatures(); renderSteps(); renderFaq();
-    renderChangelog(); renderGallery(); renderChips(); renderDownload();
-    applyConfig();
-    initCopyGroup(); initNav(); initReveal(); initSwarm();
+    initReveal();
+    safe("applyConfig", applyConfig);
+    safe("stats", renderStats); safe("features", renderFeatures); safe("steps", renderSteps);
+    safe("faq", renderFaq); safe("changelog", renderChangelog); safe("gallery", renderGallery);
+    safe("chips", renderChips); safe("download", renderDownload);
+    safe("applyConfig2", applyConfig);
+    safe("copyGroup", initCopyGroup); safe("nav", initNav); safe("swarm", initSwarm);
+    // 兜底：万一 IntersectionObserver 没触发，2.5s 后强制显形，页面永不留白
+    setTimeout(function () {
+      $(".reveal").forEach(function (el) {
+        if (getComputedStyle(el).opacity === "0") el.classList.add("is-visible");
+      });
+    }, 2500);
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();

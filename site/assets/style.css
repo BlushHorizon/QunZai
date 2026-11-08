@@ -514,8 +514,8 @@ code,.mono{font-family:var(--font-mono);font-variant-ligatures:none}
 .footer-bottom .spacer{flex:1}
 
 /* ---------- reveal ---------- */
-.reveal{opacity:0;transform:translateY(16px);transition:opacity .6s var(--ease),transform .6s var(--ease);transition-delay:var(--reveal-delay,0ms)}
-.reveal.is-visible{opacity:1;transform:none}
+html.js .reveal{opacity:0;transform:translateY(16px);transition:opacity .6s var(--ease),transform .6s var(--ease);transition-delay:var(--reveal-delay,0ms)}
+html.js .reveal.is-visible{opacity:1;transform:none}
 
 /* ---------- page hero (inner pages) ---------- */
 .page-hero{padding:64px 0 44px;position:relative;overflow:hidden;border-bottom:1px solid var(--line-soft)}
