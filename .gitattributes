@@ -14,3 +14,7 @@
 *.png binary
 *.jpg binary
 *.webp binary
+
+# 安卓安装包 147 MB > GitHub 单文件 100 MB 硬限，必须走 Git LFS。
+# 放 apk/ 目录，不进 site/assets/（Pages checkout 无 lfs:true 会部署成指针文件）。
+*.apk filter=lfs diff=lfs merge=lfs -text

@@ -13,12 +13,33 @@ Windows 安装包 v1.4.17（85,204,189 字节，自带 NapCat 监视器与 Node 
 
 | 下载方式 | 地址 |
 | --- | --- |
-| **仓库内直链**（GitHub，点了就下） | [群崽QunZai安装包.exe](https://github.com/BlushHorizon/QunZai/raw/main/site/assets/%E7%BE%A4%E5%B4%BD%E5%AE%89%E8%A3%85%E5%8C%85.exe) |
+| **仓库内直链**（GitHub，点了就下） | [群崽QunZai安装包.exe](https://github.com/BlushHorizon/QunZai/raw/main/site/assets/%E7%BE%A4%E5%B4%BDQunZai%E5%AE%89%E8%A3%85%E5%8C%85.exe) |
 | 文件页面（看大小/哈希，再点 Download） | [site/assets/群崽QunZai安装包.exe](https://github.com/BlushHorizon/QunZai/blob/main/site/assets/%E7%BE%A4%E5%B4%BDQunZai%E5%AE%89%E8%A3%85%E5%8C%85.exe) |
 | 官网（GitHub Pages） | [blushhorizon.github.io/QunZai](https://blushhorizon.github.io/QunZai/) |
 | 版本发布页 Releases | [Releases](https://github.com/BlushHorizon/QunZai/releases) |
 
 校验：SHA-256 `b21c56b4fb5d4e99739436760d25f7d7e15f1a4e2e76e9fac2fd807f02c2cf0e`
+
+## 安卓最终版 · v1.4.24
+
+> **第一版，也是最后一版。** 默认已配好免费在线 API，装上就能用，不用自己买 Key。仅支持 **arm64 真机**（x86_64 模拟器会闪退）。
+
+| 下载方式 | 地址 |
+| --- | --- |
+| **直链下载**（GitHub LFS，点了就下） | [群崽QunZai-v1.4.24-安卓.apk](https://media.githubusercontent.com/media/BlushHorizon/QunZai/main/apk/%E7%BE%A4%E5%B4%BDQunZai-v1.4.24-%E5%AE%89%E5%8D%93.apk) |
+| 文件页面（看大小 / 哈希） | [site/assets/群崽QunZai-v1.4.24-安卓.apk](https://github.com/BlushHorizon/QunZai/blob/main/apk/%E7%BE%A4%E5%B4%BDQunZai-v1.4.24-%E5%AE%89%E5%8D%93.apk) |
+| 官网下载页 | [blushhorizon.github.io/QunZai/shop.html](https://blushhorizon.github.io/QunZai/shop.html) |
+| 发布说明 | [v1.4.24-android](https://github.com/BlushHorizon/QunZai/releases/tag/v1.4.24-android) |
+
+校验：SHA-256 `d44d4f8be0ac3ed4c0221c95b46152f6e0bfd100f15cda8962cd8afb5880f18e` · 147,531,547 字节（约 140.7 MB）
+
+> GitHub 直传附件受本机网络限制（`uploads.github.com` 直连被重置），APK 放在仓库 `apk/` 目录并用 Git LFS 分发（不放 `site/assets/`，避免 Pages 把 LFS 指针当文件部署），直链走 `media.githubusercontent.com`。
+
+### 安卓端声明（作者原文）
+
+> 本软件是基于开源的github项目https://github.com/MuFengDR/AstrBot-Bubble-Android-App所进行的二次修改，所以隐私政策是他们的，我知道我做的安卓版是一坨，你们可以去下载正版的，我的能力也就这样了，因为安卓版太难做了，所以这是第一版也是最后一版，如果有什么重大bug的话请尽快联系我
+>
+> 你们用安卓版是为了图便利，我当然知道，也可能是有小学生用，所以我加了一个免费的api，不需要你们花钱单独去买api，我找了很久才找到了
 
 ![监控台](site/assets/shot-dashboard.png)
 

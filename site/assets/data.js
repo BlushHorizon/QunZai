@@ -16,7 +16,11 @@ window.QZ = {
     "repo": "https://github.com/BlushHorizon/QunZai",
     "aifadian": "https://ifdian.net/a/blushhorizon",
     "napcat": "https://github.com/NapNeko/NapCatQQ",
-    "snowluma": "https://snowluma.github.io/zh/"
+    "snowluma": "https://snowluma.github.io/zh/",
+    "astrbot": "https://github.com/MuFengDR/AstrBot-Bubble-Android-App",
+    "android": "https://media.githubusercontent.com/media/BlushHorizon/QunZai/main/apk/%E7%BE%A4%E5%B4%BDQunZai-v1.4.24-%E5%AE%89%E5%8D%93.apk",
+    "androidFile": "https://github.com/BlushHorizon/QunZai/blob/main/apk/%E7%BE%A4%E5%B4%BDQunZai-v1.4.24-%E5%AE%89%E5%8D%93.apk",
+    "androidRelease": "https://github.com/BlushHorizon/QunZai/releases/tag/v1.4.24-android"
   },
   "facts": {
     "title": "Windows 安装包 · v1.4.17",
@@ -156,7 +160,7 @@ window.QZ = {
     },
     {
       "q": "有安卓版吗？",
-      "a": "有，<b>v1.4.24 是安卓最终版</b>（第一版也是最后一版）。默认配好免费 API，开箱即用；请到 <a data-href=\"releases\">Releases</a> 获取，或在本地归档目录里取 APK。"
+      "a": "有，<b>v1.4.24 是安卓最终版</b>（第一版也是最后一版）。默认配好免费 API，开箱即用；<a data-href=\"android\">直接下载 APK</a>，或看 <a data-href=\"androidRelease\">发布说明与作者声明</a>。仅支持 arm64 真机，x86_64 模拟器会闪退；它是基于上游开源项目的二次修改，隐私政策沿用上游。"
     },
     {
       "q": "开源协议与用途限制？",
@@ -194,6 +198,16 @@ window.QZ = {
     }
   ],
   "changelog": [
+    {
+      "tag": "v1.4.24",
+      "date": "2026-11-08",
+      "name": "",
+      "points": [
+        "安卓最终版 · 第一版也是最后一版",
+        "图标放大 + 默认免费 API + 删除更新功能 + 隐私政策修订",
+        "147,531,547 字节 · 仅 arm64 真机"
+      ]
+    },
     {
       "tag": "v1.4.17",
       "date": "2026-11-06",
