@@ -143,13 +143,18 @@
     el.innerHTML = list.map(function (s) {
       var name = esc(s.name || "匿名");
       var initial = esc((s.name || "匿").slice(0, 1));
+      var rawUrl = String(s.url || "").trim();
+      // 只有 http(s) 链接才做可点击卡片；QQ号/微信号等纯文本只作为联系方式展示，避免坏链
+      var link = /^https?:\/\//i.test(rawUrl) ? rawUrl : "";
+      var contact = !link && rawUrl ? esc(rawUrl) : "";
       var inner = '<span class="sponsor-avatar">' + initial + "</span>" +
         '<span class="sponsor-meta"><b>' + name + "</b>" +
         (s.tier ? '<small class="sponsor-tier">' + esc(s.tier) + "</small>" : "") +
         (s.note ? '<small class="sponsor-note-line">' + esc(s.note) + "</small>" : "") +
+        (contact ? '<small class="sponsor-contact">' + contact + "</small>" : "") +
         "</span>";
-      return s.url
-        ? '<a class="sponsor-card reveal" href="' + esc(s.url) + '" target="_blank" rel="noopener noreferrer">' + inner + "</a>"
+      return link
+        ? '<a class="sponsor-card reveal" href="' + esc(link) + '" target="_blank" rel="noopener noreferrer">' + inner + "</a>"
         : '<div class="sponsor-card reveal">' + inner + "</div>";
     }).join("");
   }
@@ -245,7 +250,7 @@
       if (loading) return;
       loading = true;
       var s = document.createElement("script");
-      s.src = "assets/swarm.js?v=20261108c";
+      s.src = "assets/swarm.js?v=20261108d";
       s.onload = function () { if (done) done(); };
       s.onerror = function () { loading = false; };
       document.head.appendChild(s);

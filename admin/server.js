@@ -239,8 +239,13 @@ async function route(req, res, url) {
     const log = [];
     const status = await sh("git", ["status", "--porcelain", "--", "site/"]);
     if (!status.out) return sendJson(res, 200, { ok: false, step: "check", log: ["site/ 下没有改动，无需发布"] });
-    await sh("git", ["add", "--", "site/"]);
-    log.push("git add site/  ok");
+    // 后台只负责改内容，不提供「删除素材」能力。工作区里若有人手动删了 site/ 下的文件，
+    // 绝不能让 git add 把删除一起发布（否则会把 HTML/data.js 仍引用的图片变成线上破图）。
+    const deleted = status.out.split("\n").filter(function (l) { return l && (l[0] === "D" || l[1] === "D"); })
+      .map(function (l) { return l.slice(3).trim(); });
+    const addArgs = ["add", "--", "site/"].concat(deleted.map(function (d) { return ":(exclude)" + d; }));
+    await sh("git", addArgs);
+    log.push("git add site/  ok" + (deleted.length ? "（已跳过 " + deleted.length + " 个外部删除，避免线上破图）" : ""));
     const commit = await sh("git", ["commit", "-m", msg]);
     log.push("git commit: " + (commit.out || commit.err).split("\n")[0]);
     if (commit.code !== 0 && !/nothing to commit/.test(commit.out + commit.err)) {

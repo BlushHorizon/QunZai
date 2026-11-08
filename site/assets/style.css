@@ -671,3 +671,5 @@ a.sponsor-card:hover{border-color:var(--line-strong);transform:translateY(-2px)}
 .sponsor-cta{margin-top:26px;text-align:center}
 .sponsor-cta .btn svg{width:15px;height:15px;margin-right:7px}
 .sponsor-note{margin-top:14px;font-size:12.4px;color:var(--ink-faint)}
+
+.sponsor-contact{margin-top:2px;font-size:12px;color:var(--ink-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

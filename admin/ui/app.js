@@ -117,7 +117,7 @@
         "</div></div>" +
         '<div class="f"><label>档位 / 日期（选填）</label><input class="input" data-f="tier" value="' + esc(sp.tier) + '" placeholder="¥50 · 2026-11"></div>' +
         '<div class="f"><label>备注（选填）</label><input class="input" data-f="note" value="' + esc(sp.note) + '" placeholder="谢谢支持"></div>' +
-        '<div class="f"><label>主页链接（选填）</label><input class="input" data-f="url" value="' + esc(sp.url) + '" placeholder="https://..."></div>' +
+        '<div class="f"><label>主页链接 / 联系方式（选填）</label><input class="input" data-f="url" value="' + esc(sp.url) + '" placeholder="https://… 才是链接；QQ号等纯文本只展示"></div>' +
         '<div class="row-r" style="margin-top:2px"><button class="sp-del">移除</button></div>' +
         "</div>";
     }).join("");
