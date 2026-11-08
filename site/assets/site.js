@@ -245,12 +245,17 @@
     safe("chips", renderChips); safe("download", renderDownload);
     safe("applyConfig2", applyConfig);
     safe("copyGroup", initCopyGroup); safe("nav", initNav); safe("swarm", initSwarm);
-    // 兜底：万一 IntersectionObserver 没触发，2.5s 后强制显形，页面永不留白
-    setTimeout(function () {
-      $(".reveal").forEach(function (el) {
-        if (getComputedStyle(el).opacity === "0") el.classList.add("is-visible");
+    // 兜底：只救「已经进了视口却还是透明」的，避免整页空白；滚动动画照常
+    function rescue() {
+      var vh = window.innerHeight || 800;
+      document.querySelectorAll(".reveal:not(.is-visible)").forEach(function (el) {
+        var r = el.getBoundingClientRect();
+        if (r.top < vh && r.bottom > 0) el.classList.add("is-visible");
       });
-    }, 2500);
+    }
+    setTimeout(rescue, 1200);
+    setTimeout(rescue, 3000);
+    window.addEventListener("load", rescue);
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
