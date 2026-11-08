@@ -59,3 +59,6 @@ desktop.ini
 # Android 原生库（jniLibs）：由 tools/strip_so_versions.py 从 Termux 运行时
 # 生成，体积大且可由脚本重建，不进 Git 仓库。
 android/app/src/main/jniLibs/
+
+# 官网后台：本机自动备份的 data.js 快照，不进仓库
+admin/.backup/

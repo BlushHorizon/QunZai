@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>群崽官网后台</title>
+<link rel="stylesheet" href="/ui/app.css">
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <img src="/preview/assets/logo-64.png" alt="" width="34" height="34">
+      <div class="brand-txt"><b>群崽官网后台</b><span>QunZai Site Admin</span></div>
+    </div>
+    <nav class="nav" id="nav">
+      <button class="nav-item is-on" data-go="home"><i>▤</i>概览</button>
+      <button class="nav-item" data-go="sponsors"><i>♡</i>鸣谢名单<span class="pill" id="pill-sp">0</span></button>
+      <button class="nav-item" data-go="images"><i>▣</i>图片素材<span class="pill" id="pill-img">0</span></button>
+      <button class="nav-item" data-go="text"><i>✎</i>文字内容</button>
+      <button class="nav-item" data-go="publish"><i>⇪</i>上传发布</button>
+    </nav>
+    <div class="side-foot">
+      <a class="mini-btn" href="/preview/index.html" target="_blank" rel="noopener">预览官网 ↗</a>
+      <a class="mini-btn" href="https://blushhorizon.github.io/QunZai/" target="_blank" rel="noopener">线上官网 ↗</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="top">
+      <div class="top-l">
+        <h1 id="page-title">概览</h1>
+        <p class="top-sub" id="page-sub">本机运行的后台控制台</p>
+      </div>
+      <div class="top-r">
+        <span class="dot" id="dirty-dot"></span>
+        <span class="dirty" id="dirty-txt">没有未保存的改动</span>
+        <button class="btn btn-ghost" id="btn-save" disabled>保存到本地</button>
+        <button class="btn btn-primary" id="btn-pub-top">上传并发布</button>
+      </div>
+    </header>
+
+    <section class="view" data-view="home">
+      <div class="cards" id="home-cards"></div>
+      <div class="panel">
+        <div class="panel-h"><h2>最近提交</h2><button class="link" id="btn-refresh">刷新</button></div>
+        <div id="home-log" class="loglist"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><h2>最近一次部署</h2></div>
+        <div id="home-deploy" class="deploy"></div>
+      </div>
+    </section>
+
+    <section class="view" data-view="sponsors" hidden>
+      <div class="hint">爱发电赞助者的鸣谢名单。空着的时候官网显示「还没有人上榜」。改完点右上角保存，再到「上传发布」推上线。</div>
+      <div class="sp-toolbar">
+        <button class="btn btn-outline" id="sp-add">＋ 添加一位赞助者</button>
+        <span class="sp-count" id="sp-count">共 0 人</span>
+      </div>
+      <div class="sponsors" id="sp-list"></div>
+      <div class="panel" id="sp-json-wrap">
+        <div class="panel-h"><h2>批量导入</h2><span class="panel-note">一行一位，格式：名字 | 档位 | 备注 | 链接</span></div>
+        <textarea id="sp-bulk" rows="5" placeholder="小明 | ¥50 · 2026-11 | 谢谢支持 | https://afdian.com/u/xxx"></textarea>
+        <div class="row-r"><button class="btn btn-outline" id="sp-bulk-add">追加导入</button></div>
+      </div>
+    </section>
+
+    <section class="view" data-view="images" hidden>
+      <div class="hint">点图片可看大图，点「替换」直接换成你电脑里的新图。文件名必须一致——官网靠文件名引用。</div>
+      <div class="img-toolbar">
+        <label class="btn btn-outline">＋ 上传新图<input type="file" id="img-file" accept="image/*,video/*" hidden></label>
+        <select id="img-target" class="sel"></select>
+        <span class="panel-note" id="img-note"></span>
+      </div>
+      <div class="grid-img" id="img-grid"></div>
+    </section>
+
+    <section class="view" data-view="text" hidden>
+      <div class="hint">官网上的所有文案都在这里。改完点右上角「保存到本地」。</div>
+      <div id="text-root"></div>
+    </section>
+
+    <section class="view" data-view="publish" hidden>
+      <div class="panel">
+        <div class="panel-h"><h2>待发布的改动</h2></div>
+        <div id="pub-changes" class="loglist"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><h2>提交说明</h2></div>
+        <input class="input" id="pub-msg" placeholder="一句话说明这次改了什么（可留空）">
+        <div class="row-r">
+          <button class="btn btn-primary btn-lg" id="btn-pub">上传到 GitHub 并发布</button>
+        </div>
+        <div class="hint hint-sm">上传后 GitHub Pages 大约 30–60 秒自动更新线上官网。</div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><h2>运行日志</h2></div>
+        <pre class="out" id="pub-out">等待操作…</pre>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal" id="modal" hidden>
+  <div class="modal-box">
+    <div class="modal-h"><h3 id="modal-title"></h3><button class="x" id="modal-x">×</button></div>
+    <div class="modal-b" id="modal-body"></div>
+  </div>
+</div>
+
+<script src="/ui/app.js"></script>
+</body>
+</html>
