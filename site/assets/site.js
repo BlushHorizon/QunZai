@@ -174,7 +174,7 @@
     });
   }
   function initCopyGroup() {
-    $("[data-copy-group]").forEach(function (el) {
+    $$("[data-copy-group]").forEach(function (el) {
       if (el._boundGroup) return; el._boundGroup = true;
       el.addEventListener("click", function () {
         var t = (QZ.config && QZ.config.qqGroup) || "1128593359";
