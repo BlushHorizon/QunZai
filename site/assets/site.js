@@ -238,13 +238,12 @@
     try { fn(); } catch (e) { if (window.console) console.error("[qunzai] " + name + " failed", e); }
   }
   function boot() {
-    initReveal();
     safe("applyConfig", applyConfig);
     safe("stats", renderStats); safe("features", renderFeatures); safe("steps", renderSteps);
     safe("faq", renderFaq); safe("changelog", renderChangelog); safe("gallery", renderGallery);
     safe("chips", renderChips); safe("download", renderDownload);
     safe("applyConfig2", applyConfig);
-    safe("copyGroup", initCopyGroup); safe("nav", initNav); safe("swarm", initSwarm);
+    safe("copyGroup", initCopyGroup); safe("nav", initNav); safe("reveal", initReveal); safe("swarm", initSwarm);
     // 兜底：只救「已经进了视口却还是透明」的，避免整页空白；滚动动画照常
     function rescue() {
       var vh = window.innerHeight || 800;
