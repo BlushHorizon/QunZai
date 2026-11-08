@@ -219,7 +219,7 @@
       if (loading) return;
       loading = true;
       var s = document.createElement("script");
-      s.src = "assets/swarm.js";
+      s.src = "assets/swarm.js?v=20261108";
       s.onload = function () { if (done) done(); };
       s.onerror = function () { loading = false; };
       document.head.appendChild(s);
