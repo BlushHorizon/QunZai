@@ -1509,6 +1509,7 @@
 .badge{position:absolute;transform:translate(-50%);padding:1px 4px;border-radius:2px;color:#fff;font:600 11px/16px Inter,system-ui,-apple-system,"Segoe UI",sans-serif;white-space:nowrap;font-variant-numeric:tabular-nums}
 .cursor{position:absolute;left:0;top:0;will-change:transform}
 .cursor svg{position:absolute;overflow:visible;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.28))}
+.cursor .cd{position:absolute;left:0;top:0;width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 34% 28%,#fff 0%,rgba(255,255,255,.92) 5%,#05060a 17%,#000 46%,#000 76%,rgba(255,255,255,.66) 91%,#fff 100%);box-shadow:0 0 0 1px rgba(0,0,0,.9),0 0 0 2px rgba(255,255,255,.14),0 2px 9px rgba(0,0,0,.6),0 0 calc(3px + var(--sw,0)*13px) rgba(255,255,255,calc(.05 + var(--sw,0)*.26));filter:brightness(calc(1 - var(--sw,0)*.45)) contrast(calc(1 + var(--sw,0)*.3)) saturate(calc(1 - var(--sw,0)*.3));transition:filter .12s linear,box-shadow .12s linear}
 .rulers{position:absolute;inset:0;pointer-events:none}
 .ruler{position:absolute;background:#141C28;pointer-events:none}
 .ruler svg{display:block}
@@ -1522,26 +1523,6 @@
 .intro.gone{opacity:0;transform:translate(-50%,-50%) scale(.9)}
 .intro img{display:block;width:60px;height:60px;object-fit:contain;filter:grayscale(1);opacity:.42;border-radius:14px}
 .intro .mono{width:60px;height:60px;border-radius:16px;background:#D7DADE;color:#fff;font:700 30px/60px Inter,system-ui,sans-serif;text-align:center}
-.hud{position:absolute;left:50%;bottom:20px;transform:translate(-50%,18px);opacity:0;display:flex;align-items:center;gap:10px;padding:6px 6px 6px 10px;background:rgba(12,17,25,.94);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);color:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.28),inset 0 0 0 1px rgba(255,255,255,.07);font:500 12px/1 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;pointer-events:auto;transition:opacity .45s ease,transform .45s cubic-bezier(.2,.8,.2,1);white-space:nowrap;user-select:none;z-index:5}
-.hud.on{opacity:1;transform:translate(-50%,0)}
-.hud .dots{display:none}
-.hud .dots i{display:block;width:18px;height:18px;margin-left:-5px;border-radius:50%;border:2px solid #0C1119;font:700 9px/14px Inter,system-ui,sans-serif;font-style:normal;text-align:center;color:#fff;transition:background .3s}
-.hud .txt,.hud .status{display:flex;align-items:center;gap:7px;color:#cfcfcf;font-variant-numeric:tabular-nums}
-.hud .txt b{color:#fff;font-weight:600}
-.hud .sep{width:1px;height:12px;background:#444}
-.hud .bar{width:64px;height:3px;border-radius:2px;background:#243040;overflow:hidden}
-.hud .bar i{display:block;height:100%;width:0;background:#e9ebee;transition:width .35s ease}
-.hud button{all:unset;cursor:pointer;padding:7px 10px;border-radius:8px;background:#141C28;color:#fff;font:500 12px/1 Inter,system-ui,-apple-system,sans-serif;transition:background .15s}
-.hud button:hover{background:#243040}
-.hud button.pri{background:#e9ebee;color:#0b0c0e}
-.hud button.pri:hover{background:#ffffff}
-.hud button.on{background:rgba(255,255,255,.14);color:#e9ebee}
-.hud button[hidden]{display:none}
-.hud .x{padding:7px 9px;color:#aaa}
-.hud button.snd{display:flex;align-items:center;gap:6px;padding:6px 8px}
-.hud button.snd.off{color:#8a8a8a}
-.hud button.snd.tap{background:#e9ebee;animation:hudpulse 1.6s ease-in-out infinite}
-@keyframes hudpulse{50%{box-shadow:0 0 0 4px rgba(255,255,255,.22)}}
 `;
 
   // -------------------------------------------------------------------- env
@@ -1636,17 +1617,7 @@
 <svg class="ov"></svg>
 <div class="badges"></div>
 <div class="cursors"></div>
-<div class="rulers"></div>
-<div class="hud">
-  <div class="dots"></div>
-  <div class="txt"><span class="status">正在扫描页面…</span></div>
-  <div class="bar"><i></i></div>
-  <button data-a="tour" title="边滚动边重建">巡游</button>
-  <button data-a="sound" class="snd" title="声音 (M)"></button>
-  <button data-a="live" class="pri" title="淡回真实页面">回到页面</button>
-  <button data-a="replay" title="清空后重新搭建">重播</button>
-  <button data-a="close" class="x" title="退出 (Esc)">✕</button>
-</div>`;
+<div class="rulers"></div>`;
       const $ = (s) => root.querySelector(s);
       this.bg = $(".bg");
       this.under = $(".under");
@@ -1658,10 +1629,6 @@
       this.badges = $(".badges");
       this.cursorsEl = $(".cursors");
       this.rulers = $(".rulers");
-      this.hud = $(".hud");
-      this.status = $(".status");
-      this.barFill = $(".bar i");
-      this.dots = $(".dots");
       this.cursorEls = new Map();
       this._ovS = "";
       this._ovB = "";
@@ -1913,8 +1880,42 @@
     }
 
     renderCursors(E) {
-      // 按需求删除光标：不再渲染任何鼠标指针，只保留页面被逐步搭建的动画
-      return;
+      const vp = E.vp;
+      const seen = new Set();
+      for (const c of E.cursors) {
+        seen.add(c.id);
+        let el = this.cursorEls.get(c.id);
+        if (!el) {
+          el = document.createElement("div");
+          el.className = "cursor";
+          this.cursorsEl.appendChild(el);
+          this.cursorEls.set(c.id, el);
+          el._shape = "";
+        }
+        const X = c.sticky ? c.x : c.x - vp.sx + vp.ox;
+        const Y = c.sticky ? c.y : c.y - vp.sy + vp.oy;
+        el.style.transform = `translate(${f1(X)}px,${f1(Y)}px)`;
+        if (el._shape !== "dot") {
+          el._shape = "dot";
+          el.innerHTML = '<i class="cd"></i>';
+          el._hx = 9;
+          el._hy = 9;
+        }
+        // 移动时自动加深：速度归一化后写进 --sw，由 .cd 的渐变/对比度消费
+        const sp = Math.min(1, Math.hypot(c.vx, c.vy) / 900);
+        el.style.setProperty("--sw", sp.toFixed(3));
+        const inner = el.firstChild;
+        if (inner) {
+          const sc = 1 - c.press * 0.12;
+          const rot = c.shape === "dot" ? "" : ` rotate(${f1(c.angle)}deg)`;
+          inner.style.transform = `translate(${-el._hx}px,${-el._hy}px)${rot} scale(${sc})`;
+        }
+      }
+      for (const [id, el] of this.cursorEls)
+        if (!seen.has(id)) {
+          el.remove();
+          this.cursorEls.delete(id);
+        }
     }
 
     renderOverlay(E) {
@@ -1980,10 +1981,9 @@
         this.ov.innerHTML = s;
         this._ovS = s;
       }
-      // 测量标签原本挂在光标旁边，光标去掉了就一起清掉，避免出现无主浮标
-      if (this._ovB !== "") {
-        this.badges.innerHTML = "";
-        this._ovB = "";
+      if (b !== this._ovB) {
+        this.badges.innerHTML = b;
+        this._ovB = b;
       }
     }
 
@@ -2118,7 +2118,7 @@
         id, x, y, home,
         name: NAMES[id % NAMES.length],
         color: COLORS[id % COLORS.length],
-        shape: "arrow", press: 0, task: null, gen: null, ov: null,
+        shape: "dot", press: 0, task: null, gen: null, ov: null,
         idleFor: 0, leaving: false, worked: false, sticky: false,
         vx: 0, vy: 0, angle: 0,
         speed: fast ? rand(1000, 1500) : rand(300, 750),
@@ -2386,7 +2386,7 @@
     }
 
     flockTarget() {
-      // 不再跟随鼠标：目标恒为视口中心附近的缓慢轨迹（搭建完成后交给 lineup()）。
+      // 不跟随鼠标：目标恒为视口中心附近的缓慢轨迹，光标绕着它转圈。
       const t = this.time;
       const vp = this.vp;
       return this.fromViewport(vp.ox + vp.vw * (0.5 + 0.28 * Math.sin(t * 0.37)), vp.oy + vp.vh * (0.5 + 0.25 * Math.sin(t * 0.53 + 1)));
@@ -2413,32 +2413,9 @@
       this.lineup(dt);
     }
 
-    // 搭建完成后：光标平滑停到视口左右两列，并排、不围着鼠标或中心转。
+    // 搭建完成后：光标继续围着视口中心转圈（不再是左右两列并排）。
     lineup(dt) {
-      const vp = this.vp;
-      const list = this.cursors.filter((c) => !c.leaving).sort((a, b) => a.id - b.id);
-      const n = list.length;
-      if (!n) return;
-      const half = Math.ceil(n / 2);
-      const mx = clamp(vp.vw * 0.055, 34, 84);
-      const e = 1 - Math.exp(-dt * 3.4);
-      for (let i = 0; i < n; i++) {
-        const c = list[i];
-        const left = i < half;
-        const k = left ? i : i - half;
-        const cnt = left ? half : n - half;
-        const sx = left ? vp.ox + mx : vp.ox + vp.vw - mx;
-        const sy = vp.oy + (vp.vh * (k + 1)) / (cnt + 1);
-        const p = this.fromViewport(sx, sy);
-        c.x += (p.x - c.x) * e;
-        c.y += (p.y - c.y) * e;
-        c.vx *= 0.82;
-        c.vy *= 0.82;
-        c.angle *= 0.88;
-        c.press = 0;
-        c.shape = "arrow";
-        c.follow = true;
-      }
+      this.follow(dt, this.cursors.filter((c) => !c.leaving), this.flockTarget(), 0.9);
     }
 
     // Boids-ish orbit around a target, ported from the original.
@@ -3059,7 +3036,6 @@
   const E2 = 40;
   const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
   let soundPref = false;
-  const SPK_ICON = '<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6v4h2.5l3.5 3V3L5 6z" fill="currentColor"/>';
 
   class Sound {
     constructor() {
@@ -3460,12 +3436,10 @@
     constructor() {
       this.dead = false;
       this.t0 = performance.now();
-      // 默认开启「巡游」：边滚动边把整页搭完，不需要用户手动滚动
-      this.tour = true;
-      this.tourV = 0;
-      this.tourAcc = 0;
-      // 官网默认两倍速（重建整体节奏 x2），速度切换按钮按需求去掉
-      this.speeds = [2];
+      // 巡游按需求去掉：不自动滚动，划到哪就只搭哪一段
+      this.tour = false;
+      // 默认 1 倍速
+      this.speeds = [1];
       this.speedIx = 0;
       this.complete = false;
       this.timing = {};
@@ -3493,7 +3467,7 @@
       const shotP = this.loadShot();
       this.view = new View(this.env);
       this.engine = new Engine(this.view);
-      this.engine.speed = 2; // 默认两倍速
+      this.engine.speed = 1; // 默认 1 倍速
       this.sfx = new Sound();
       this.sfx.init();
       this.engine.sfx = this.sfx;
@@ -3503,13 +3477,9 @@
       this.last = performance.now();
       this.raf = requestAnimationFrame((t) => this.frame(t));
       await nextFrame();
-      this.renderSoundBtn();
       this.sfx.intro();
       this.view.bg.classList.add("on");
       this.view.intro.classList.add("on");
-      this.view.hud.classList.add("on");
-      const tourBtn = this.view.root.querySelector('[data-a="tour"]');
-      if (tourBtn && this.tour) { tourBtn.classList.add("on"); tourBtn.textContent = "巡游中"; }
       const mark = (k) => (this.timing[k] = Math.round(performance.now() - this.t0));
       await sleep(120);
       await unhidePage();
@@ -3579,14 +3549,13 @@
       on(window, "wheel", () => {
         if (this.engine.ready) this.engine.start();
       }, { passive: true });
-      // 光标不再跟随鼠标：搭建完成后并排在视口左右两侧（见 lineup()）。
+      // 光标不跟随鼠标：始终围着视口中心转圈（见 follow/flockTarget）。
       on(window, "keydown", (e) => {
         if (e.key === "Escape") {
           e.stopPropagation();
           stop(false);
         } else if ((e.key === "m" || e.key === "M") && !e.metaKey && !e.ctrlKey && !e.altKey) {
           this.sfx.setOn(!this.sfx.on);
-          this.renderSoundBtn();
         }
         this.unlockSound();
       }, true);
@@ -3598,49 +3567,11 @@
           this.env.scroller.scrollBy({ top: e.deltaY, left: e.deltaX, behavior: "instant" });
         }, { passive: false });
       }
-      on(this.view.hud, "click", (e) => {
-        const b = e.target.closest("button");
-        if (!b) return;
-        const a = b.dataset.a;
-        if (a === "close") stop(false);
-        else if (a === "live") stop(true);
-        else if (a === "replay") restart();
-        else if (a === "tour") {
-          this.tour = !this.tour;
-          b.classList.toggle("on", this.tour);
-          b.textContent = this.tour ? "巡游中" : "巡游";
-          if (this.tour) this.engine.start();
-        } else if (a === "sound") {
-          if (this.sfx.on && this.sfx.blocked) this.sfx.resume();
-          else this.sfx.setOn(!this.sfx.on);
-          setTimeout(() => this.renderSoundBtn(), 60);
-        } else if (a === "speed") {
-          this.speedIx = (this.speedIx + 1) % this.speeds.length;
-          this.engine.speed = this.speeds[this.speedIx];
-          b.textContent = this.speeds[this.speedIx] + "×";
-        }
-      });
     }
 
     unlockSound() {
       if (this.dead || !this.sfx || !this.sfx.blocked) return;
       this.sfx.resume();
-      setTimeout(() => this.renderSoundBtn(), 80);
-    }
-
-    renderSoundBtn() {
-      const b = this.view.root.querySelector('[data-a="sound"]');
-      if (!b || !this.sfx) return;
-      const tap = this.sfx.on && this.sfx.blocked;
-      const key = this.sfx.on ? (tap ? "tap" : "on") : "off";
-      if (b._k === key) return;
-      b._k = key;
-      b.classList.toggle("off", key === "off");
-      b.classList.toggle("tap", tap);
-      const waves = '<path d="M11 5.5a3.5 3.5 0 0 1 0 5M12.8 3.6a6 6 0 0 1 0 8.8"/>';
-      const mute = '<path d="M11 6l4 4M15 6l-4 4"/>';
-      b.innerHTML = `${SPK_ICON}${key === "off" ? mute : waves}</svg>${tap ? "<span>点一下开声音</span>" : ""}`;
-      b.title = key === "off" ? "声音已关 (M)" : "声音已开 (M)";
     }
 
     frame(now) {
@@ -3649,81 +3580,16 @@
       this.last = now;
       try {
         this.engine.step(dt);
-        if (this.tour) this.tourStep(dt);
         this.view.render(this.engine);
-        if (!this._hudT || now - this._hudT > 200) {
-          this._hudT = now;
-          this.updateHud();
-          this.renderSoundBtn();
-        }
       } catch (err) {
         console.error("[swarm-rebuild]", err);
       }
       this.raf = requestAnimationFrame((t) => this.frame(t));
     }
 
-    tourStep(dt) {
-      const E = this.engine;
-      if (!E.started) return;
-      const g = this.env.geom();
-      const maxY = this.env.scrollHeight() - g.vh;
-      if (g.sy >= maxY - 1) {
-        this.tourV = 0;
-        return;
-      }
-      const crew = Math.max(MIN_AGENTS, E.cursors.filter((c) => !c.leaving).length);
-      const backlog = E.backlog();
-      const target = backlog <= Math.max(4, crew * 0.6) ? 430 : backlog <= crew * 1.5 ? 240 : 0;
-      this.tourV += (target - this.tourV) * Math.min(1, dt * 2.5);
-      this.tourAcc += this.tourV * dt;
-      if (this.tourAcc >= 1) {
-        const d = Math.floor(this.tourAcc);
-        this.tourAcc -= d;
-        this.env.scrollBy(d);
-      }
-    }
-
-    updateHud() {
-      const E = this.engine;
-      const v = this.view;
-      if (!E.ready) return;
-      const workers = E.cursors.filter((c) => c.worked).length + E.retired;
-      const total = E.tasks.length;
-      const done = E.doneCount;
-      if (this.complete) return;
-      if (!E.started) v.status.innerHTML = `正在准备<span class="sep"></span>${total.toLocaleString()} 层`;
-      else {
-        const pend = E.tasks.length - done;
-        const below = E.tasks.some((t) => t.state === "wait" && t.layer === "world" && t.gate > E.frontier);
-        v.status.innerHTML =
-          `正在搭建<span class="sep"></span><b>${done.toLocaleString()}</b> / ${total.toLocaleString()} 层` +
-          (below && pend && !this.tour && E.backlog() === 0 ? `<span class="sep"></span>继续滚动以搭建更多` : "");
-      }
-      v.barFill.style.width = total ? `${(done / total) * 100}%` : "0%";
-      const busy = E.cursors.filter((c) => c.task).slice(-5);
-      const key = busy.map((c) => c.id).join(",");
-      if (key !== this._dots) {
-        this._dots = key;
-        v.dots.innerHTML = busy.map((c) => `<i style="background:${c.color}" title="${c.name}">${c.name[0]}</i>`).join("");
-      }
-    }
-
     onComplete() {
       this.complete = true;
-      // 搭完整页后回到顶部，光标在这里并排收尾
-      try { this.env.scrollTo(0); } catch (_) {}
       if (this.sfx) this.sfx.finale();
-      const E = this.engine;
-      const v = this.view;
-      const workers = E.cursors.filter((c) => c.worked).length + E.retired;
-      const secs = (E.endTime - E.startTime).toFixed(1);
-      v.status.innerHTML = `重新搭建完成<span class="sep"></span><b>${secs}s</b>`;
-      v.barFill.style.width = "100%";
-      v.dots.innerHTML = "";
-      v.root.querySelector('[data-a="live"]').hidden = false;
-      v.root.querySelector('[data-a="replay"]').hidden = false;
-      v.root.querySelector('[data-a="tour"]').hidden = true;
-      this.tour = false;
     }
 
     destroy(reveal) {
@@ -3745,7 +3611,6 @@
           c.gen = null;
           c.follow = false;
         }
-        this.view.hud.classList.remove("on");
         setTimeout(() => {
           this.view.host.style.setProperty("opacity", "0", "important");
         }, 450);
