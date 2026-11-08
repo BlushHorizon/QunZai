@@ -652,3 +652,21 @@ code.inline{padding:2px 6px;border-radius:5px;font-size:12.6px;background:rgba(2
 .qr-num .btn{margin-left:4px}
 .qr-note{margin-top:14px;font-size:13px;color:var(--ink-faint)}
 @media (max-width:760px){.qr-num{margin-top:16px}}
+
+/* ---------- 赞助者鸣谢 ---------- */
+.sponsor-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:14px}
+.sponsor-card{display:flex;align-items:center;gap:13px;padding:14px 16px;border:1px solid var(--line);border-radius:var(--radius-m);background:var(--card);text-decoration:none;color:inherit;transition:border-color .2s var(--ease),transform .2s var(--ease)}
+a.sponsor-card:hover{border-color:var(--line-strong);transform:translateY(-2px)}
+.sponsor-avatar{flex:none;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-size:16px;font-weight:600;color:var(--ink);background:var(--card-2);border:1px solid var(--line-strong)}
+.sponsor-meta{display:flex;flex-direction:column;min-width:0}
+.sponsor-meta b{font-size:14.5px;color:var(--ink);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sponsor-tier{margin-top:3px;font-size:11.5px;color:var(--ink-faint);letter-spacing:.06em}
+.sponsor-note-line{margin-top:2px;font-size:12px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sponsor-empty{max-width:520px;margin:0 auto;padding:38px 28px;text-align:center;border:1px dashed var(--line-strong);border-radius:var(--radius-l);background:rgba(255,255,255,.014)}
+.sponsor-empty-mark{width:44px;height:44px;margin:0 auto 14px;color:var(--ink-faint)}
+.sponsor-empty-mark svg{width:100%;height:100%}
+.sponsor-empty-t{font-size:16px;color:var(--ink);margin:0 0 7px}
+.sponsor-empty-s{font-size:13px;line-height:1.75;color:var(--ink-faint);margin:0}
+.sponsor-cta{margin-top:26px;text-align:center}
+.sponsor-cta .btn svg{width:15px;height:15px;margin-right:7px}
+.sponsor-note{margin-top:14px;font-size:12.4px;color:var(--ink-faint)}

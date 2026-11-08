@@ -128,6 +128,31 @@
         "<p>" + esc(g.body) + "</p></div></article>";
     }).join("");
   }
+  function renderSponsors() {
+    var el = $("[data-render=sponsors]");
+    if (!el) return;
+    var list = (QZ.sponsors || []).slice();
+    if (!list.length) {
+      el.className = "sponsor-empty";
+      el.innerHTML = '<div class="sponsor-empty-mark">' + ICONS.heart + "</div>" +
+        '<p class="sponsor-empty-t">还没有人上榜</p>' +
+        '<p class="sponsor-empty-s">这里是第一名的位置 —— 也许就是你的名字。</p>';
+      return;
+    }
+    el.className = "sponsor-grid";
+    el.innerHTML = list.map(function (s) {
+      var name = esc(s.name || "匿名");
+      var initial = esc((s.name || "匿").slice(0, 1));
+      var inner = '<span class="sponsor-avatar">' + initial + "</span>" +
+        '<span class="sponsor-meta"><b>' + name + "</b>" +
+        (s.tier ? '<small class="sponsor-tier">' + esc(s.tier) + "</small>" : "") +
+        (s.note ? '<small class="sponsor-note-line">' + esc(s.note) + "</small>" : "") +
+        "</span>";
+      return s.url
+        ? '<a class="sponsor-card reveal" href="' + esc(s.url) + '" target="_blank" rel="noopener noreferrer">' + inner + "</a>"
+        : '<div class="sponsor-card reveal">' + inner + "</div>";
+    }).join("");
+  }
   function renderChips() {
     var el = $("[data-render=chips]");
     if (!el || !QZ.chips) return;
@@ -220,7 +245,7 @@
       if (loading) return;
       loading = true;
       var s = document.createElement("script");
-      s.src = "assets/swarm.js?v=20261108";
+      s.src = "assets/swarm.js?v=20261108b";
       s.onload = function () { if (done) done(); };
       s.onerror = function () { loading = false; };
       document.head.appendChild(s);
@@ -241,7 +266,7 @@
     safe("applyConfig", applyConfig);
     safe("stats", renderStats); safe("features", renderFeatures); safe("steps", renderSteps);
     safe("faq", renderFaq); safe("changelog", renderChangelog); safe("gallery", renderGallery);
-    safe("chips", renderChips); safe("download", renderDownload);
+    safe("chips", renderChips); safe("download", renderDownload); safe("sponsors", renderSponsors);
     safe("applyConfig2", applyConfig);
     safe("copyGroup", initCopyGroup); safe("nav", initNav); safe("reveal", initReveal); safe("swarm", initSwarm);
     // 兜底：只救「已经进了视口却还是透明」的，避免整页空白；滚动动画照常
