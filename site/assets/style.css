@@ -46,8 +46,8 @@
   --max-w:1180px;
   --header-h:66px;
   --notice-h:0px;
-  --font:'Segoe UI','Microsoft YaHei',system-ui,-apple-system,'PingFang SC',sans-serif;
-  --font-mono:'Cascadia Mono',Consolas,'Courier New',monospace;
+  --font:'Microsoft YaHei','微软雅黑','MSYH',system-ui,-apple-system,'PingFang SC',sans-serif;
+  --font-mono:'Microsoft YaHei','微软雅黑','MSYH','Cascadia Mono',Consolas,monospace;
   --ease:cubic-bezier(.22,.61,.36,1);
 }
 
@@ -252,7 +252,7 @@ code,.mono{font-family:var(--font-mono);font-variant-ligatures:none}
 }
 .hero-lead{font-size:16px;line-height:1.85;color:var(--ink-soft);max-width:33em;margin-bottom:30px}
 .hero-actions{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:34px}
-.hero-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;max-width:520px}
+.hero-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;max-width:560px}
 .hero-stat{
   padding:14px 14px 12px;border-radius:var(--radius-s);
   background:rgba(255,255,255,.028);
