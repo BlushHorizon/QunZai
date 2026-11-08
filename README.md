@@ -7,6 +7,19 @@
 > ☕ 如果群崽帮到了你，可以在这里请作者喝杯咖啡：**[爱发电 · BlushHorizon](https://ifdian.net/a/blushhorizon)**  
 > 软件仍然免费开源，发电完全自愿，不发电也完全不影响使用。
 
+## 下载安装包
+
+Windows 安装包 v1.4.17（85,204,189 字节，自带 NapCat 监视器与 Node 运行时，双击即用）。三条路任选，都是同一个文件：
+
+| 下载方式 | 地址 |
+| --- | --- |
+| **仓库内直链**（GitHub，点了就下） | [群崽QunZai安装包.exe](https://github.com/BlushHorizon/QunZai/raw/main/site/assets/%E7%BE%A4%E5%B4%BD%E5%AE%89%E8%A3%85%E5%8C%85.exe) |
+| 文件页面（看大小/哈希，再点 Download） | [site/assets/群崽QunZai安装包.exe](https://github.com/BlushHorizon/QunZai/blob/main/site/assets/%E7%BE%A4%E5%B4%BDQunZai%E5%AE%89%E8%A3%85%E5%8C%85.exe) |
+| 官网（GitHub Pages） | [blushhorizon.github.io/QunZai](https://blushhorizon.github.io/QunZai/) |
+| 版本发布页 Releases | [Releases](https://github.com/BlushHorizon/QunZai/releases) |
+
+校验：SHA-256 `b21c56b4fb5d4e99739436760d25f7d7e15f1a4e2e76e9fac2fd807f02c2cf0e`
+
 ![监控台](site/assets/shot-dashboard.png)
 
 ## 它适合什么群
@@ -91,7 +104,7 @@
 
 ## 安装与使用
 
-1. 从 [Releases](https://github.com/BlushHorizon/QunZai/releases/latest) 下载最新安装包（当前 v1.4.17，约 81.3 MB，自带监视器与 Node），默认装到 `D:\群崽`，覆盖安装不丢数据
+1. 下载最新安装包（当前 v1.4.17，85,204,189 字节，自带监视器与 Node）——仓库内直链：[点此下载](https://github.com/BlushHorizon/QunZai/raw/main/site/assets/%E7%BE%A4%E5%B4%BDQunZai%E5%AE%89%E8%A3%85%E5%8C%85.exe)；也可走 [Releases](https://github.com/BlushHorizon/QunZai/releases/latest) 或 [官网](https://blushhorizon.github.io/QunZai/)。默认装到 `D:\群崽`，覆盖安装不丢数据
 2. 打开设置页 →「监视器（QQ 运行时）」，选「内置的」→ 点「启动并同步」，用手机 QQ 扫面板上弹出的二维码登录一次（小号即可）。不用另外下载 NapCat，也不用装 Node.js
 3. 双击桌面「群崽 QunZai」打开监控台 → 点「① 打开该网站」扫码登录一次 DeepSeek 网页版，之后它自己开工；服务启停在窗口右上角
 
