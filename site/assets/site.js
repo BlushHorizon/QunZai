@@ -173,6 +173,17 @@
       });
     });
   }
+  function initCopyGroup() {
+    $("[data-copy-group]").forEach(function (el) {
+      if (el._boundGroup) return; el._boundGroup = true;
+      el.addEventListener("click", function () {
+        var t = (QZ.config && QZ.config.qqGroup) || "1128593359";
+        var ok = function () { el.textContent = "已复制"; setTimeout(function () { el.textContent = "复制"; }, 1800); };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok, function () { legacy(t); ok(); });
+        else { legacy(t); ok(); }
+      });
+    });
+  }
   function initNav() {
     var page = document.body.getAttribute("data-page");
     $$("[data-nav]").forEach(function (a) { if (a.getAttribute("data-nav") === page) a.classList.add("is-active"); });
@@ -227,7 +238,7 @@
     renderStats(); renderFeatures(); renderSteps(); renderFaq();
     renderChangelog(); renderGallery(); renderChips(); renderDownload();
     applyConfig();
-    initNav(); initReveal(); initSwarm();
+    initCopyGroup(); initNav(); initReveal(); initSwarm();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();

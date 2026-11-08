@@ -6,7 +6,8 @@ window.QZ = {
     "name": "群崽 QunZai",
     "tagline": "让群热闹，也把群管好",
     "since": "2026",
-    "license": "MIT"
+    "license": "MIT",
+    "qqGroup": "1128593359"
   },
   "links": {
     "download": "https://github.com/BlushHorizon/QunZai/raw/main/site/assets/%E7%BE%A4%E5%B4%BDQunZai%E5%AE%89%E8%A3%85%E5%8C%85.exe",

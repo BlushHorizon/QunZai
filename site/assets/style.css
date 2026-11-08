@@ -638,4 +638,17 @@ code.inline{padding:2px 6px;border-radius:5px;font-size:12.6px;background:rgba(2
   .notice-icon{display:none}
   .site-notice-link{white-space:nowrap}
 }
-
+
+
+/* ---------- QQ 交流群 ---------- */
+.group-band{display:grid;grid-template-columns:1fr 288px;gap:44px;align-items:center}
+@media (max-width:760px){.group-band{grid-template-columns:1fr;gap:28px}}
+.qr-box{width:288px;max-width:100%;margin:0 auto;padding:13px;background:#fff;border:1px solid var(--line-strong);border-radius:var(--radius-l);box-shadow:var(--shadow-l)}
+.qr-box img{display:block;width:100%;height:auto;border-radius:6px}
+.qr-cap{margin-top:12px;text-align:center;font-size:12.4px;color:var(--ink-faint);letter-spacing:.04em}
+.qr-num{display:inline-flex;align-items:center;gap:12px;margin-top:20px;padding:11px 16px;border:1px solid var(--line);border-radius:var(--radius-s);background:var(--card)}
+.qr-num > span{font-size:12.5px;color:var(--ink-faint);letter-spacing:.08em}
+.qr-num b{font-size:19px;letter-spacing:.07em;color:var(--ink);font-weight:600}
+.qr-num .btn{margin-left:4px}
+.qr-note{margin-top:14px;font-size:13px;color:var(--ink-faint)}
+@media (max-width:760px){.qr-num{margin-top:16px}}
