@@ -1509,7 +1509,7 @@
 .badge{position:absolute;transform:translate(-50%);padding:1px 4px;border-radius:2px;color:#fff;font:600 11px/16px Inter,system-ui,-apple-system,"Segoe UI",sans-serif;white-space:nowrap;font-variant-numeric:tabular-nums}
 .cursor{position:absolute;left:0;top:0;will-change:transform}
 .cursor svg{position:absolute;overflow:visible;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.28))}
-.cursor .cd{position:absolute;left:0;top:0;width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 50% 50%,#ffffff 0%,#ffffff 14%,#fdfeff 22%,#f4f7fb 30%,#e2e8f1 38%,#cbd4e1 46%,#adb8c8 54%,#8c96a8 62%,#6a7384 70%,#4c5362 78%,#333945 85%,#21252d 91%,#14171c 96%,#0a0c11 100%);box-shadow:0 2px 8px rgba(0,0,0,.5),0 0 calc(6px + var(--sw,0)*16px) rgba(255,255,255,calc(.05 + var(--sw,0)*.22));filter:brightness(calc(1 - var(--sw,0)*.30)) contrast(calc(1 + var(--sw,0)*.20));transition:filter .14s linear,box-shadow .14s linear}
+.cursor .cd{position:absolute;left:0;top:0;width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 50% 50%,#ffffff 0%,#ffffff 14%,#fdfeff 22%,#f4f7fb 30%,#e2e8f1 38%,#cbd4e1 46%,#adb8c8 54%,#8c96a8 62%,#6a7384 70%,#4c5362 78%,#333945 85%,#21252d 91%,#14171c 96%,#0a0c11 100%);box-shadow:0 2px 8px rgba(0,0,0,.5),0 0 calc(6px + var(--sw,0)*16px) rgba(255,255,255,calc(.05 + var(--sw,0)*.22));filter:brightness(calc(1 - var(--sw,0)*.30)) contrast(calc(1 + var(--sw,0)*.20));transition:filter .14s linear,box-shadow .14s linear}
 .rulers{position:absolute;inset:0;pointer-events:none}
 .ruler{position:absolute;background:#141C28;pointer-events:none}
 .ruler svg{display:block}
@@ -1898,8 +1898,8 @@
         if (el._shape !== "dot") {
           el._shape = "dot";
           el.innerHTML = '<i class="cd"></i>';
-          el._hx = 9;
-          el._hy = 9;
+          el._hx = 7;
+          el._hy = 7;
         }
         // 移动时自动加深：速度归一化后写进 --sw，由 .cd 的渐变/对比度消费
         const sp = Math.min(1, Math.hypot(c.vx, c.vy) / 900);
