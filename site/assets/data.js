@@ -18,7 +18,7 @@ window.QZ = {
     "napcat": "https://github.com/NapNeko/NapCatQQ",
     "snowluma": "https://snowluma.github.io/zh/",
     "astrbot": "https://github.com/MuFengDR/AstrBot-Bubble-Android-App",
-    "android": "https://media.githubusercontent.com/media/BlushHorizon/QunZai/main/apk/%E7%BE%A4%E5%B4%BDQunZai-v1.4.24-%E5%AE%89%E5%8D%93.apk",
+    "android": "https://media.githubusercontent.com/media/BlushHorizon/QunZai/6cee21d5989755b067f48de38f654c40a7f1621e/apk/%E7%BE%A4%E5%B4%BDQunZai-v1.4.24-%E5%AE%89%E5%8D%93.apk",
     "androidFile": "https://github.com/BlushHorizon/QunZai/blob/main/apk/%E7%BE%A4%E5%B4%BDQunZai-v1.4.24-%E5%AE%89%E5%8D%93.apk",
     "androidRelease": "https://github.com/BlushHorizon/QunZai/releases/tag/v1.4.24-android"
   },

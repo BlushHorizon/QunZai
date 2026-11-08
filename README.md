@@ -26,8 +26,8 @@ Windows 安装包 v1.4.17（85,204,189 字节，自带 NapCat 监视器与 Node 
 
 | 下载方式 | 地址 |
 | --- | --- |
-| **直链下载**（GitHub LFS，点了就下） | [群崽QunZai-v1.4.24-安卓.apk](https://media.githubusercontent.com/media/BlushHorizon/QunZai/main/apk/%E7%BE%A4%E5%B4%BDQunZai-v1.4.24-%E5%AE%89%E5%8D%93.apk) |
-| 文件页面（看大小 / 哈希） | [site/assets/群崽QunZai-v1.4.24-安卓.apk](https://github.com/BlushHorizon/QunZai/blob/main/apk/%E7%BE%A4%E5%B4%BDQunZai-v1.4.24-%E5%AE%89%E5%8D%93.apk) |
+| **直链下载**（GitHub LFS，点了就下） | [群崽QunZai-v1.4.24-安卓.apk](https://media.githubusercontent.com/media/BlushHorizon/QunZai/6cee21d5989755b067f48de38f654c40a7f1621e/apk/%E7%BE%A4%E5%B4%BDQunZai-v1.4.24-%E5%AE%89%E5%8D%93.apk) |
+| 文件页面（看大小 / 哈希） | [apk/群崽QunZai-v1.4.24-安卓.apk](https://github.com/BlushHorizon/QunZai/blob/main/apk/%E7%BE%A4%E5%B4%BDQunZai-v1.4.24-%E5%AE%89%E5%8D%93.apk) |
 | 官网下载页 | [blushhorizon.github.io/QunZai/shop.html](https://blushhorizon.github.io/QunZai/shop.html) |
 | 发布说明 | [v1.4.24-android](https://github.com/BlushHorizon/QunZai/releases/tag/v1.4.24-android) |
 
