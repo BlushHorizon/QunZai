@@ -1524,7 +1524,7 @@
 .intro .mono{width:60px;height:60px;border-radius:16px;background:#D7DADE;color:#fff;font:700 30px/60px Inter,system-ui,sans-serif;text-align:center}
 .hud{position:absolute;left:50%;bottom:20px;transform:translate(-50%,18px);opacity:0;display:flex;align-items:center;gap:10px;padding:6px 6px 6px 10px;background:rgba(12,17,25,.94);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);color:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.28),inset 0 0 0 1px rgba(255,255,255,.07);font:500 12px/1 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;pointer-events:auto;transition:opacity .45s ease,transform .45s cubic-bezier(.2,.8,.2,1);white-space:nowrap;user-select:none;z-index:5}
 .hud.on{opacity:1;transform:translate(-50%,0)}
-.hud .dots{display:flex;padding-left:5px}
+.hud .dots{display:none}
 .hud .dots i{display:block;width:18px;height:18px;margin-left:-5px;border-radius:50%;border:2px solid #0C1119;font:700 9px/14px Inter,system-ui,sans-serif;font-style:normal;text-align:center;color:#fff;transition:background .3s}
 .hud .txt,.hud .status{display:flex;align-items:center;gap:7px;color:#cfcfcf;font-variant-numeric:tabular-nums}
 .hud .txt b{color:#fff;font-weight:600}
@@ -1642,7 +1642,6 @@
   <div class="txt"><span class="status">正在扫描页面…</span></div>
   <div class="bar"><i></i></div>
   <button data-a="tour" title="边滚动边重建">巡游</button>
-  <button data-a="speed" title="重建速度">1×</button>
   <button data-a="sound" class="snd" title="声音 (M)"></button>
   <button data-a="live" class="pri" title="淡回真实页面">回到页面</button>
   <button data-a="replay" title="清空后重新搭建">重播</button>
@@ -1914,39 +1913,8 @@
     }
 
     renderCursors(E) {
-      const vp = E.vp;
-      const seen = new Set();
-      for (const c of E.cursors) {
-        let el = this.cursorEls.get(c.id);
-        if (!el) {
-          el = document.createElement("div");
-          el.className = "cursor";
-          el.innerHTML = '<svg width="28" height="28" viewBox="0 0 28 28"></svg>';
-          this.cursorsEl.appendChild(el);
-          this.cursorEls.set(c.id, el);
-          el._shape = "";
-        }
-        seen.add(c.id);
-        const X = c.sticky ? c.x : c.x - vp.sx + vp.ox;
-        const Y = c.sticky ? c.y : c.y - vp.sy + vp.oy;
-        el.style.transform = `translate(${f1(X)}px,${f1(Y)}px)`;
-        const svg = el.firstChild;
-        if (el._shape !== c.shape) {
-          svg.innerHTML = cursorSVG(c.shape, c.color);
-          el._shape = c.shape;
-          const [hx, hy] = HOT[c.shape];
-          el._hx = hx;
-          el._hy = hy;
-          svg.style.transformOrigin = `${hx}px ${hy}px`;
-        }
-        const s = 1 - c.press * 0.12;
-        svg.style.transform = `translate(${-el._hx}px,${-el._hy}px) rotate(${f1(c.angle)}deg) scale(${s})`;
-      }
-      for (const [id, el] of this.cursorEls)
-        if (!seen.has(id)) {
-          el.remove();
-          this.cursorEls.delete(id);
-        }
+      // 按需求删除光标：不再渲染任何鼠标指针，只保留页面被逐步搭建的动画
+      return;
     }
 
     renderOverlay(E) {
@@ -2012,9 +1980,10 @@
         this.ov.innerHTML = s;
         this._ovS = s;
       }
-      if (b !== this._ovB) {
-        this.badges.innerHTML = b;
-        this._ovB = b;
+      // 测量标签原本挂在光标旁边，光标去掉了就一起清掉，避免出现无主浮标
+      if (this._ovB !== "") {
+        this.badges.innerHTML = "";
+        this._ovB = "";
       }
     }
 
@@ -3495,7 +3464,8 @@
       this.tour = true;
       this.tourV = 0;
       this.tourAcc = 0;
-      this.speeds = [1, 2, 3];
+      // 官网默认两倍速（重建整体节奏 x2），速度切换按钮按需求去掉
+      this.speeds = [2];
       this.speedIx = 0;
       this.complete = false;
       this.timing = {};
@@ -3523,6 +3493,7 @@
       const shotP = this.loadShot();
       this.view = new View(this.env);
       this.engine = new Engine(this.view);
+      this.engine.speed = 2; // 默认两倍速
       this.sfx = new Sound();
       this.sfx.init();
       this.engine.sfx = this.sfx;
@@ -3540,7 +3511,7 @@
       const tourBtn = this.view.root.querySelector('[data-a="tour"]');
       if (tourBtn && this.tour) { tourBtn.classList.add("on"); tourBtn.textContent = "巡游中"; }
       const mark = (k) => (this.timing[k] = Math.round(performance.now() - this.t0));
-      await sleep(520);
+      await sleep(120);
       await unhidePage();
       mark("blank");
       if (this.dead) return;
@@ -3548,7 +3519,7 @@
       mark("scan");
       if (this.dead) return;
       try {
-        await Promise.race([document.fonts.ready, sleep(1200)]);
+        await Promise.race([document.fonts.ready, sleep(650)]);
       } catch (_) {}
       mark("fonts");
       this.view.measure();
@@ -3570,7 +3541,7 @@
       this.engine.setModel(model);
       this.model = model;
       mark("mount");
-      const wait = 1500 - (performance.now() - this.t0);
+      const wait = 400 - (performance.now() - this.t0);
       if (wait > 0) await sleep(wait);
       if (this.dead) return;
       this.engine.start();
@@ -3586,11 +3557,11 @@
       for (let i = 1; i <= steps && !this.dead; i++) {
         env.scrollTo(Math.min(H, (H / steps) * i));
         await nextFrame();
-        await sleep(30);
+        await sleep(16);
       }
       env.scrollTo(g.sy, g.sx);
       await nextFrame();
-      await sleep(750);
+      await sleep(380);
       env.scrollTo(g.sy, g.sx);
       this.view.frozen = null;
     }
@@ -3720,12 +3691,12 @@
       const total = E.tasks.length;
       const done = E.doneCount;
       if (this.complete) return;
-      if (!E.started) v.status.innerHTML = `<b>${E.cursors.length}</b> 个光标就位<span class="sep"></span>${total.toLocaleString()} 层`;
+      if (!E.started) v.status.innerHTML = `正在准备<span class="sep"></span>${total.toLocaleString()} 层`;
       else {
         const pend = E.tasks.length - done;
         const below = E.tasks.some((t) => t.state === "wait" && t.layer === "world" && t.gate > E.frontier);
         v.status.innerHTML =
-          `<b>${workers}</b> 个光标<span class="sep"></span><b>${done.toLocaleString()}</b> / ${total.toLocaleString()} 层` +
+          `正在搭建<span class="sep"></span><b>${done.toLocaleString()}</b> / ${total.toLocaleString()} 层` +
           (below && pend && !this.tour && E.backlog() === 0 ? `<span class="sep"></span>继续滚动以搭建更多` : "");
       }
       v.barFill.style.width = total ? `${(done / total) * 100}%` : "0%";
@@ -3746,13 +3717,12 @@
       const v = this.view;
       const workers = E.cursors.filter((c) => c.worked).length + E.retired;
       const secs = (E.endTime - E.startTime).toFixed(1);
-      v.status.innerHTML = `由 <b>${workers}</b> 个光标用 <b>${secs}s</b> 重新搭建`;
+      v.status.innerHTML = `重新搭建完成<span class="sep"></span><b>${secs}s</b>`;
       v.barFill.style.width = "100%";
       v.dots.innerHTML = "";
       v.root.querySelector('[data-a="live"]').hidden = false;
       v.root.querySelector('[data-a="replay"]').hidden = false;
       v.root.querySelector('[data-a="tour"]').hidden = true;
-      v.root.querySelector('[data-a="speed"]').hidden = true;
       this.tour = false;
     }
 
