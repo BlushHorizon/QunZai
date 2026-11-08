@@ -1509,7 +1509,7 @@
 .badge{position:absolute;transform:translate(-50%);padding:1px 4px;border-radius:2px;color:#fff;font:600 11px/16px Inter,system-ui,-apple-system,"Segoe UI",sans-serif;white-space:nowrap;font-variant-numeric:tabular-nums}
 .cursor{position:absolute;left:0;top:0;will-change:transform}
 .cursor svg{position:absolute;overflow:visible;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.28))}
-.cursor .cd{position:absolute;left:0;top:0;width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 34% 28%,#fff 0%,rgba(255,255,255,.92) 5%,#05060a 17%,#000 46%,#000 76%,rgba(255,255,255,.66) 91%,#fff 100%);box-shadow:0 0 0 1px rgba(0,0,0,.9),0 0 0 2px rgba(255,255,255,.14),0 2px 9px rgba(0,0,0,.6),0 0 calc(3px + var(--sw,0)*13px) rgba(255,255,255,calc(.05 + var(--sw,0)*.26));filter:brightness(calc(1 - var(--sw,0)*.45)) contrast(calc(1 + var(--sw,0)*.3)) saturate(calc(1 - var(--sw,0)*.3));transition:filter .12s linear,box-shadow .12s linear}
+.cursor .cd{position:absolute;left:0;top:0;width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 50% 50%,#ffffff 0%,#fbfcfe 7%,#e9eef6 14%,#cfd7e3 22%,#aeb8c8 30%,#8a94a6 39%,#666f80 48%,#474e5c 58%,#2e333e 68%,#1c2029 78%,#12151b 87%,#0d1015 94%,#0a0c11 100%);box-shadow:0 2px 8px rgba(0,0,0,.5),0 0 calc(6px + var(--sw,0)*16px) rgba(255,255,255,calc(.05 + var(--sw,0)*.22));filter:brightness(calc(1 - var(--sw,0)*.30)) contrast(calc(1 + var(--sw,0)*.20));transition:filter .14s linear,box-shadow .14s linear}
 .rulers{position:absolute;inset:0;pointer-events:none}
 .ruler{position:absolute;background:#141C28;pointer-events:none}
 .ruler svg{display:block}
