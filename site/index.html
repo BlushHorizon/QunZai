@@ -1,507 +1,173 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>群崽 QunZai — QQ 群里多了一个 AI 群友</title>
-<meta name="description" content="群崽 QunZai：本地运行的 QQ 群 AI 助手。不用敲指令、会看上下文、有分寸。网页版 DeepSeek 免 API Key，81 MB 双击即用，数据只在你自己的电脑上。" />
-<meta name="theme-color" content="#04060a" />
-<link rel="canonical" href="https://blushhorizon.github.io/QunZai/" />
-<meta property="og:type" content="website" />
-<meta property="og:site_name" content="群崽 QunZai" />
-<meta property="og:locale" content="zh_CN" />
-<meta property="og:title" content="群崽 QunZai — QQ 群里多了一个 AI 群友" />
-<meta property="og:description" content="不用敲指令、会看上下文、有分寸。网页版 DeepSeek 免 API Key，81 MB 双击即用。" />
-<meta property="og:url" content="https://blushhorizon.github.io/QunZai/" />
-<meta property="og:image" content="https://blushhorizon.github.io/QunZai/assets/og-cover.jpg" />
-<meta name="twitter:card" content="summary_large_image" />
-<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
-<link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
-<link rel="stylesheet" href="assets/deck.css?v=3" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>让群热闹，也把群管好 · 群崽 QunZai</title>
+<meta name="description" content="住进 QQ 群的 AI 搭子 · 免 API Key · 自己发表情包 · 数据只留在本机">
+<meta property="og:title" content="让群热闹，也把群管好 · 群崽 QunZai">
+<meta property="og:description" content="住进 QQ 群的 AI 搭子 · 免 API Key · 自己发表情包 · 数据只留在本机">
+<meta property="og:image" content="https://blushhorizon.github.io/QunZai/assets/og-cover.png">
+<meta name="theme-color" content="#0b0c0e">
+<link rel="icon" href="assets/favicon.ico">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/style.css">
 </head>
-<body>
-
-<div id="bgfx" aria-hidden="true"></div>
-<div class="prog"><i id="progFill"></i></div>
-
-<header class="top">
-  <a class="brand" href="#s0">
-    <span class="mark">群</span>
-    <span class="bname">群崽 <b>QunZai</b></span>
-  </a>
-  <nav class="nav">
-    <a href="#s1">是什么</a>
-    <a href="#s3">怎么开始</a>
-    <a href="#s10">面板</a>
-    <a href="#s14">开源</a>
-  </nav>
-  <a class="btn sm" href="#s19">下载</a>
+<body data-page="home">
+<a class="skip-link" href="#main">跳到正文</a>
+<header class="site-header">
+  <div class="site-notice">
+    <span class="notice-icon">★</span>
+    <span>安卓最终版 <b>v1.4.24</b> 已发布 · 桌面版 <b>v1.4.17</b> 持续维护</span>
+    <a class="site-notice-link" data-href="releases">查看全部版本 →</a>
+    <button class="notice-close" type="button" aria-label="关闭提示">✕</button>
+  </div>
+  <div class="wrap header-inner">
+    <a class="brand" href="index.html">
+      <img class="brand-logo" src="assets/logo-64.png" alt="群崽 QunZai">
+      <span class="brand-text">群崽 QunZai<small>QQ GROUP COMPANION</small></span>
+    </a>
+    <nav class="site-nav">
+      <ul class="nav-list">
+        <li><a class="nav-link" data-nav="home" href="index.html">首页</a></li>
+        <li><a class="nav-link" data-nav="features" href="gameplay.html">功能</a></li>
+        <li><a class="nav-link" data-nav="guide" href="guide.html">上手</a></li>
+        <li><a class="nav-link" data-nav="changelog" href="status.html">更新</a></li>
+        <li><a class="nav-link" data-nav="about" href="about.html">关于</a></li>
+        <li><a class="nav-link nav-cta" data-nav="download" href="shop.html">下载</a></li>
+      </ul>
+    </nav>
+    <button class="nav-toggle" type="button" aria-label="打开菜单" aria-expanded="false"><span></span></button>
+  </div>
 </header>
+<main id="main">
 
-<main>
+<section class="hero"><div class="wrap hero-inner">
+  <div class="hero-copy">
+    <div class="hero-eyebrow"><span class="dot"></span>住进 QQ 群的 AI 搭子 · 免费开源</div>
+    <h1>让群热闹，<br>也把群<span class="accent">管好</span></h1>
+    <p class="hero-lead">群崽通过 OneBot 11 接入你的 QQ，用网页版大模型当大脑。它干两件事：把群盘活（接梗、斗图、自己发表情包），也把群管好（@ 才回、关键词、指定会话、免打扰、主人远程指令）。内置网页监控台，连接状态、回复记录、表情包素材全部可视化。</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" data-href="download">下载 Windows 安装包</a>
+      <a class="btn btn-ghost" href="gameplay.html">看看它能做什么</a>
+    </div>
+    <div data-render="stats"></div>
+  </div>
+  <div class="hero-shot reveal">
+    <div class="shot-frame">
+      <div class="shot-bar"><span></span><span></span><span></span><b>群崽 QunZai · 监控台</b></div>
+      <img src="assets/shot-dashboard.jpg" alt="群崽 QunZai 监控台 · 欢迎向导实拍">
+    </div>
+  </div>
+</div></section>
+<hr class="pixel-strip">
 
-  <!-- 0 封面 -->
-  <section class="hero" id="s0">
-    <div class="grid g75">
-      <div>
-        <p class="kicker" data-rise>QUNZAI · 群崽</p>
-        <h1 data-rise style="--d:.06s">QQ 群里<br><span class="hl">多了一个 AI 群友</span></h1>
-        <div class="rule" data-wipe style="--d:.14s"></div>
-        <p class="lede" data-rise style="--d:.18s">会接话、会发表情、懂分寸的群成员。<br>装在你自己电脑上，跑在你自己建的群里。</p>
-        <div class="cta" data-rise style="--d:.26s">
-          <a class="btn" href="#s19">下载 · 81 MB</a>
-          <a class="btn ghost" href="#s1">它是什么</a>
-        </div>
-        <p class="note" data-fade style="--d:.36s">本地运行 · 自己的 QQ 号 · 自己的电脑</p>
-      </div>
-      <div data-rise style="--d:.20s" data-para="14">
-        <div class="card hero-card">
-          <div class="chat-head">
-            <span class="avatar">群</span>
-            <span class="cname">摸鱼小分队</span>
-            <span class="online">群崽 在线</span>
-          </div>
-          <div class="chat" data-stagger data-step="0.18">
-            <div class="msg in"><b>小林</b>今晚谁打本？</div>
-            <div class="msg out"><b>群崽</b>我可以，几点？</div>
-            <div class="msg in"><b>阿哲</b>这谁啊，反应好快</div>
-          </div>
-          <div class="hero-stk" data-stagger data-step="0.1">
-            <img src="assets/stk/q03.webp" alt="" />
-            <img src="assets/stk/q05.webp" alt="" />
-            <img src="assets/stk/q09.webp" alt="" />
-          </div>
-        </div>
-      </div>
-    </div>
-    <p class="scroll-hint">向下滚动</p>
-  </section>
+<section class="section"><div class="wrap">
+  <div class="section-head is-center reveal">
+    <div class="eyebrow">WHAT IT DOES</div>
+    <h2 class="section-title">一个搭子，两件事</h2>
+    <p class="section-sub">盘活和管理不是二选一。接得住梗，也守得住边界。</p>
+  </div>
+  <div data-render="features"></div>
+</div></section>
 
-  <!-- 1 它是什么 -->
-  <section class="sec" id="s1">
-    <div class="grid g75">
-      <div>
-        <p class="kicker" data-rise>它是什么</p>
-        <h2 data-rise style="--d:.06s">装在你自己的电脑上<br><span class="hl">跑在你自己建的群里</span></h2>
-        <p data-rise style="--d:.12s">群崽 QunZai 是一个本地运行的 AI 群聊助手。接一个 QQ 号，接一个大模型，它就能参与群聊。</p>
-        <div class="stats" data-stagger data-step="0.1">
-          <div class="stat"><div class="v">1 个</div><div class="l">QQ 号</div></div>
-          <div class="stat"><div class="v">1 台</div><div class="l">电脑</div></div>
-          <div class="stat"><div class="v">0 元</div><div class="l">起步</div></div>
-        </div>
-        <p class="note" data-fade style="--d:.3s">不需要服务器、公网 IP、数据库。</p>
-      </div>
-      <div data-zoom style="--d:.1s" data-para="20">
-        <div class="frame"><img src="assets/shots/01-overview.webp" alt="群崽面板总览" loading="lazy" /></div>
-      </div>
-    </div>
-  </section>
+<section class="section section--alt section--edge"><div class="wrap">
+  <div class="section-head is-center reveal">
+    <div class="eyebrow">GET STARTED</div>
+    <h2 class="section-title">三步，就能开工</h2>
+    <p class="section-sub">不用自己装 Node.js，不用另外下载 NapCat，登录态覆盖安装也不丢。</p>
+  </div>
+  <div data-render="steps"></div>
+  <div class="section-actions" style="justify-content:center"><a class="btn btn-ghost" href="guide.html">读完整上手指南 →</a></div>
+</div></section>
 
-  <!-- 2 不一样 -->
-  <section class="sec" id="s2">
-    <div class="grid g75">
-      <div>
-        <p class="kicker" data-rise>和普通机器人不一样</p>
-        <h2 data-rise style="--d:.06s">别人是命令<br><span class="hl">它是聊天</span></h2>
-        <div class="bullets" data-stagger data-step="0.09">
-          <div class="bullet"><i>01</i><div><div class="t">不用敲指令</div><div class="s">正常说话就行</div></div></div>
-          <div class="bullet"><i>02</i><div><div class="t">会看上下文</div><div class="s">记得刚才聊到哪</div></div></div>
-          <div class="bullet"><i>03</i><div><div class="t">有分寸感</div><div class="s">不该说的时候不说</div></div></div>
-        </div>
-        <p class="note" data-fade style="--d:.34s">回复频率、插话概率都能在面板里调。</p>
-      </div>
-      <div data-rise style="--d:.12s" data-para="16">
-        <div class="card">
-          <div class="chat" data-stagger data-step="0.2">
-            <div class="msg in"><b>周周</b>这段为啥一直报错啊</div>
-            <div class="msg out"><b>群崽</b>第 12 行少个右括号</div>
-            <div class="msg in"><b>周周</b>神了，谢了</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
+<section class="section"><div class="wrap split">
+  <div class="reveal">
+    <div class="eyebrow">BUILT DIFFERENT</div>
+    <h2>不是反代，不是中转，就是「像人一样点网页」</h2>
+    <p>群崽用 Node 连接本机浏览器调试端口（CDP），在页面里执行 JS 模拟输入与发送，驱动网页版大模型。<b>不需要任何 API Key，不产生任何 API 账单</b>；也不是逆向 DeepSeek 网页、没有第三方中转。</p>
+    <p>群崽自身零 npm 依赖（Node ≥ 22 内置能力就够），随包附带 Node 运行时与 NapCat 监视器。聊天记录、表情包库、浏览器登录态、日志全部只在本机 <code class="inline">data</code> 目录，无任何遥测与联网上传。</p>
+    <ul class="note-list">
+      <li>表情包引擎：来信表情自动留本地副本，回复里写 [表情] 就自动发，多个表情打包成一条消息</li>
+      <li>长期记忆：人设 / 近况 / 群梗 / 偏好 / 关系五类，记进 data/memory.json 并检索进提示词</li>
+      <li>看图回复、免打扰时段、QQ 里发 /状态 /暂停 /帮助 远程管理</li>
+    </ul>
+    <div class="section-actions"><a class="btn btn-primary" href="gameplay.html">全部功能 →</a><a class="btn btn-ghost" href="rules.html">先看风险须知</a></div>
+  </div>
+  <div class="reveal">
+    <video class="video-frame" src="assets/qunzai-mv.mp4" poster="assets/mv-poster.jpg" controls muted loop playsinline preload="none"></video>
+  </div>
+</div></section>
 
-  <!-- 3 三步 -->
-  <section class="sec" id="s3">
-    <div class="grid g75">
-      <div>
-        <p class="kicker" data-rise>怎么开始</p>
-        <h2 data-rise style="--d:.06s">三步，五分钟</h2>
-        <div class="bullets" data-stagger data-step="0.09">
-          <div class="bullet"><i>①</i><div><div class="t">下载安装包</div><div class="s">一个 exe，内置运行时</div></div></div>
-          <div class="bullet"><i>②</i><div><div class="t">扫码登录 QQ</div><div class="s">面板里点一下，用手机扫</div></div></div>
-          <div class="bullet"><i>③</i><div><div class="t">群里 @ 它</div><div class="s">就这一句，开始聊</div></div></div>
-        </div>
-        <p class="note" data-fade style="--d:.34s">装在哪由你决定：自己的电脑、家里的小主机都行。</p>
-      </div>
-      <div data-zoom style="--d:.12s" data-para="20">
-        <div class="frame"><img src="assets/shots/03-settings-open.webp" alt="设置界面" loading="lazy" /></div>
-      </div>
-    </div>
-  </section>
+<section class="section section--alt"><div class="wrap">
+  <div class="section-head reveal"><div class="eyebrow">TECH STACK</div><h2 class="section-title">小而干净的一套东西</h2></div>
+  <div data-render="chips"></div>
+  <div class="mini-facts">
+    <div class="card"><b>OneBot 11</b><span>任意实现都能接：内置 NapCat，也支持 SnowLuma / LLOneBot。</span></div>
+    <div class="card"><b>D:群崽data</b><span>所有数据只在这一个目录，覆盖安装不丢，删掉即彻底清空。</span></div>
+    <div class="card"><b>MIT 协议</b><span>随便 fork、随便改；软件免费开源，所有功能都不会锁进付费档。</span></div>
+  </div>
+</div></section>
 
-  <!-- 4 接入 -->
-  <section class="sec" id="s4">
-    <div class="grid g75">
-      <div>
-        <p class="kicker" data-rise>接入方式</p>
-        <h2 data-rise style="--d:.06s">标准 OneBot 11 协议</h2>
-        <p data-rise style="--d:.12s">和 NapCat、SnowLuma、LLOneBot 这些主流框架都能对接，换框架不用改代码，填个地址就行。</p>
-        <div class="card accent" data-rise style="--d:.18s;margin-top:clamp(20px,2.6vw,30px)">
-          <div class="lbl">连接地址</div>
-          <div class="mono big">ws://127.0.0.1:3001</div>
-        </div>
-        <p class="note" data-fade style="--d:.28s"><span>内置 NapCat 引擎，装完就能连，不用另外配。想换 <a href="https://snowluma.github.io/zh/" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">SnowLuma</a> 也行，填它解压后的目录即可——它的许可不允许第三方打进安装包，所以群崽只放官方地址、不分发它的文件。</span></p>
-      </div>
-      <div data-rise style="--d:.14s" data-para="14">
-        <div class="card">
-          <div class="lbl">支持框架</div>
-          <div class="fw">NapCat</div>
-          <div class="fw">SnowLuma</div>
-          <div class="fw">Lagrange</div>
-          <div class="fw">LLOneBot</div>
-        </div>
-      </div>
-    </div>
-  </section>
+<section class="section"><div class="wrap">
+  <div class="section-head reveal"><div class="eyebrow">IN THE WILD</div><h2 class="section-title">界面实拍</h2><p class="section-sub">连接状态、回复记录、表情包素材，都摆在你看得见的地方。</p></div>
+  <div data-render="gallery"></div>
+</div></section>
 
-  <!-- 5 大脑 -->
-  <section class="sec" id="s5">
-    <div class="grid g2">
-      <div>
-        <p class="kicker" data-rise>它的大脑</p>
-        <h2 data-rise style="--d:.06s">两种模式，随便切</h2>
-        <p data-rise style="--d:.12s">不想折腾 Key、不想绑卡，也能让群先活起来。</p>
-        <p class="note" data-fade style="--d:.2s">同一份配置里切换，不用重装。</p>
-      </div>
-      <div class="stack" data-stagger data-step="0.12">
-        <div class="card accent">
-          <h3 class="mint">网页版 DeepSeek</h3>
-          <p>不用 API Key<br>登录一次长期可用</p>
-        </div>
-        <div class="card">
-          <h3 class="blue">API 接口</h3>
-          <p>OpenAI 兼容<br>更快更稳可量化</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 6 API -->
-  <section class="sec" id="s6">
-    <div class="grid g75">
-      <div>
-        <p class="kicker" data-rise>想要更好</p>
-        <h2 data-rise style="--d:.06s">切到 API 就行</h2>
-        <div class="bullets" data-stagger data-step="0.09">
-          <div class="bullet"><i>·</i><div><div class="t">测速</div><div class="s">实时延迟，多少毫秒</div></div></div>
-          <div class="bullet"><i>·</i><div><div class="t">检查可用</div><div class="s">通不通、返不返回</div></div></div>
-          <div class="bullet"><i>·</i><div><div class="t">查余额</div><div class="s">还剩多少钱，一次看清</div></div></div>
-        </div>
-        <p class="note" data-fade style="--d:.34s">面板里直接测，不用去别处翻。</p>
-      </div>
-      <div data-rise style="--d:.14s" data-para="18">
-        <div class="card accent">
-          <div class="mono big mint">latency 412ms</div>
-          <div class="mono big mint" style="margin-top:8px">balance ¥18.60</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 7 说话方式 -->
-  <section class="sec" id="s7">
-    <div class="grid g75">
-      <div>
-        <p class="kicker" data-rise>它在群里怎么说话</p>
-        <h2 data-rise style="--d:.06s">不是每句都接</h2>
-        <div class="bullets" data-stagger data-step="0.09">
-          <div class="bullet"><i>·</i><div><div class="t">被 @ 或收到私聊</div><div class="s">必回</div></div></div>
-          <div class="bullet"><i>·</i><div><div class="t">话题转到它在行的事</div><div class="s">会接</div></div></div>
-          <div class="bullet"><i>·</i><div><div class="t">群里在吵架或刷屏</div><div class="s">不插嘴</div></div></div>
-        </div>
-        <p class="note" data-fade style="--d:.34s">它不会一直刷存在感，只在合适的时候说话。</p>
-      </div>
-      <div data-rise style="--d:.12s" data-para="16">
-        <div class="card">
-          <div class="chat" data-stagger data-step="0.2">
-            <div class="msg in"><b>土豆</b>这动画怎么这么丝滑</div>
-            <div class="msg out"><b>群崽</b>transform，别动 layout</div>
-            <div class="msg in"><b>土豆</b>学到了</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 8 表情包 -->
-  <section class="sec" id="s8">
-    <div class="grid g57">
-      <div>
-        <p class="kicker" data-rise>表情包</p>
-        <h2 data-rise style="--d:.06s">113 张<br><span class="hl">随取随用</span></h2>
-        <p data-rise style="--d:.12s">表情和语气匹配，不会发错场合。图库在本地，不联网也能用，也能自己加。</p>
-        <p class="note" data-fade style="--d:.2s">发图频率可控，不会刷屏。</p>
-      </div>
-      <div data-zoom style="--d:.08s">
-        <div class="stk-wall" data-stagger data-step="0.05">
-          <img src="assets/stk/q00.webp" alt="" /><img src="assets/stk/q01.webp" alt="" />
-          <img src="assets/stk/q02.webp" alt="" /><img src="assets/stk/q03.webp" alt="" />
-          <img src="assets/stk/q04.webp" alt="" /><img src="assets/stk/q05.webp" alt="" />
-          <img src="assets/stk/q06.webp" alt="" /><img src="assets/stk/q07.webp" alt="" />
-          <img src="assets/stk/q08.webp" alt="" /><img src="assets/stk/q09.webp" alt="" />
-          <img src="assets/stk/q10.webp" alt="" /><img src="assets/stk/q11.webp" alt="" />
-          <img src="assets/stk/q12.webp" alt="" /><img src="assets/stk/q13.webp" alt="" />
-          <img src="assets/stk/q14.webp" alt="" /><img src="assets/stk/q15.webp" alt="" />
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 9 群规 -->
-  <section class="sec" id="s9">
-    <div>
-      <p class="kicker" data-rise>群规</p>
-      <h2 data-rise style="--d:.06s">违规，它当场处理</h2>
-      <div class="rule-grid" data-stagger data-step="0.07">
-        <div class="chip"><span>✓</span>刷屏限流</div>
-        <div class="chip"><span>✓</span>广告 / 拉人拦截</div>
-        <div class="chip"><span>✓</span>违禁词预警</div>
-        <div class="chip"><span>✓</span>重复消息合并</div>
-        <div class="chip"><span>✓</span>新人自动欢迎</div>
-        <div class="chip"><span>✓</span>深夜宵禁提醒</div>
-      </div>
-      <p class="note" data-fade style="--d:.5s">命中先提醒，再犯才禁言，误伤可以手动撤。</p>
-    </div>
-  </section>
-
-  <!-- 10 面板 -->
-  <section class="sec" id="s10">
-    <div class="grid g57">
-      <div>
-        <p class="kicker" data-rise>监控台</p>
-        <h2 data-rise style="--d:.06s">一个页面<br><span class="hl">看全部</span></h2>
-        <p data-rise style="--d:.12s">实时动态、群列表、会话、运行状态，都在同一个网页面板里，本地 8787 端口。</p>
-        <p class="note" data-fade style="--d:.2s">不需要外网访问，局域网内打开就行。</p>
-      </div>
-      <div data-zoom style="--d:.08s" data-para="22">
-        <div class="frame"><img src="assets/shots/01-overview.webp" alt="监控台" loading="lazy" /></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 11 记录 -->
-  <section class="sec" id="s11">
-    <div class="grid g75">
-      <div>
-        <p class="kicker" data-rise>可观测</p>
-        <h2 data-rise style="--d:.06s">每条回复都有记录</h2>
-        <div class="bullets" data-stagger data-step="0.09">
-          <div class="bullet"><i>·</i><div><div class="t">谁触发的</div><div class="s">群号、QQ、原话</div></div></div>
-          <div class="bullet"><i>·</i><div><div class="t">它怎么想的</div><div class="s">命中哪条规则</div></div></div>
-          <div class="bullet"><i>·</i><div><div class="t">花了多久</div><div class="s">延迟、tokens、错误原因</div></div></div>
-        </div>
-        <p class="mint-line" data-fade style="--d:.3s">出问题时不用猜，翻记录就知道卡在哪。</p>
-        <p class="note" data-fade style="--d:.36s">记录只写本地文件，按天分，方便翻。</p>
-      </div>
-      <div data-zoom style="--d:.12s" data-para="20">
-        <div class="frame"><img src="assets/shots/02-feed.webp" alt="实时动态" loading="lazy" /></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 12 本地 -->
-  <section class="sec" id="s12">
-    <div class="grid g75">
-      <div>
-        <p class="kicker" data-rise>数据在哪</p>
-        <h2 data-rise style="--d:.06s">不出这台机器</h2>
-        <p data-rise style="--d:.12s">聊天记录、群成员、表情包、配置，全部存在本地。没有云端账号，没有上传，卸载就是删干净。</p>
-        <div class="card accent" data-rise style="--d:.18s;margin-top:clamp(20px,2.6vw,30px)">
-          <div class="mono big mint">D:\群崽\data</div>
-          <div class="lbl2">所有数据都在这个目录</div>
-        </div>
-        <p class="note" data-fade style="--d:.28s">想搬走，整个目录拷过去就行。</p>
-      </div>
-      <div data-zoom style="--d:.12s" data-para="20">
-        <div class="frame"><img src="assets/shots/05-settings-quiet.webp" alt="免打扰设置" loading="lazy" /></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 13 安装 -->
-  <section class="sec" id="s13">
-    <div class="grid g75">
-      <div>
-        <p class="kicker" data-rise>安装</p>
-        <h2 data-rise style="--d:.06s">双击，下一步，完成</h2>
-        <div class="stats" data-stagger data-step="0.1">
-          <div class="stat"><div class="v">81 MB</div><div class="l">安装包</div></div>
-          <div class="stat"><div class="v">0</div><div class="l">第三方依赖</div></div>
-          <div class="stat"><div class="v">秒级</div><div class="l">启动</div></div>
-        </div>
-        <p data-rise style="--d:.2s">Node 运行时直接打包在里面，不用装 Python、不用装 Node、不用配环境变量。支持 Windows 10 / 11 64 位。</p>
-        <p class="note" data-fade style="--d:.3s">第一次启动会引导你扫码登录 QQ。</p>
-      </div>
-      <div data-zoom style="--d:.12s" data-para="18">
-        <div class="frame"><img src="assets/shots/04-settings-reply.webp" alt="回复设置" loading="lazy" /></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 14 开源 -->
-  <section class="sec" id="s14">
-    <div class="grid g2">
-      <div>
-        <p class="kicker" data-rise>开源</p>
-        <h2 data-rise style="--d:.06s">MIT 协议<br><span class="hl">代码都在</span></h2>
-        <p data-rise style="--d:.12s">
-          <a class="link mono" href="https://github.com/BlushHorizon/QunZai" target="_blank" rel="noopener">github.com/BlushHorizon/QunZai</a><br>
-          想加功能自己改，想改界面自己调，不喜欢的直接删。
-        </p>
-        <p class="mint-line" data-fade style="--d:.2s">没有黑箱，没有偷偷联网。</p>
-        <p class="note" data-fade style="--d:.26s">提 issue、提 PR 都欢迎，文档也在仓库里。</p>
-      </div>
-      <div class="center" data-rise style="--d:.14s" data-para="14">
-        <img class="big-stk" src="assets/stk/q07.webp" alt="" />
-      </div>
-    </div>
-  </section>
-
-  <!-- 15 场景 -->
-  <section class="sec" id="s15">
-    <div class="grid g75">
-      <div>
-        <p class="kicker" data-rise>它能干什么</p>
-        <h2 data-rise style="--d:.06s">冷场接一句<br><span class="hl">随口就答</span></h2>
-        <div class="bullets" data-stagger data-step="0.09">
-          <div class="bullet"><i>·</i><div><div class="t">考研自习室</div><div class="s">出题 + 记错题</div></div></div>
-          <div class="bullet"><i>·</i><div><div class="t">摄影交流</div><div class="s">参数建议</div></div></div>
-          <div class="bullet"><i>·</i><div><div class="t">公司吐槽群</div><div class="s">半夜也在</div></div></div>
-        </div>
-        <p class="note" data-fade style="--d:.34s">群越热闹它越有用；冷清的群它也会自己找话题。</p>
-      </div>
-      <div data-rise style="--d:.12s" data-para="16">
-        <div class="card">
-          <div class="chat" data-stagger data-step="0.16">
-            <div class="msg in"><b>小林</b>今晚谁打本？</div>
-            <div class="msg in"><b>阿哲</b>我我我</div>
-            <div class="msg in"><b>小林</b>还差一个</div>
-            <div class="msg out"><b>群崽</b>我可以，几点？</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 16 脾气 -->
-  <section class="sec" id="s16">
-    <div class="grid g75">
-      <div>
-        <p class="kicker" data-rise>它的脾气</p>
-        <h2 data-rise style="--d:.06s">不知道<br><span class="hl">就说不知道</span></h2>
-        <p data-rise style="--d:.12s">不瞎编、不硬答、不为了讨好你编一个答案。这一点比「显得聪明」重要。</p>
-        <p class="note" data-fade style="--d:.2s">拿不准的事情，它会说「我不确定」，而不是编。</p>
-      </div>
-      <div data-rise style="--d:.12s" data-para="16">
-        <div class="card">
-          <div class="chat" data-stagger data-step="0.2">
-            <div class="msg in"><b>青禾</b>这周读哪本</div>
-            <div class="msg out"><b>群崽</b>上本没聊完，先收尾吧</div>
-            <div class="msg in"><b>青禾</b>有道理</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 17 对比 -->
-  <section class="sec" id="s17">
-    <div>
-      <p class="kicker" data-rise>对比一下</p>
-      <h2 data-rise style="--d:.06s">它不是另一种客服</h2>
-      <table class="cmp" data-rise style="--d:.12s">
-        <thead><tr><th></th><th>客服机器人</th><th>群崽</th></tr></thead>
-        <tbody>
-          <tr><td>触发</td><td>关键词 / 菜单</td><td>自然对话</td></tr>
-          <tr><td>说话</td><td>模板话术</td><td>自己组织</td></tr>
-          <tr><td>在群里</td><td>格格不入</td><td>像个群友</td></tr>
-          <tr><td>数据</td><td>在别人服务器</td><td>在你自己硬盘</td></tr>
-        </tbody>
-      </table>
-      <p class="note" data-fade style="--d:.24s">一句话：它是群友，不是工单系统。</p>
-    </div>
-  </section>
-
-  <!-- 18 限制 -->
-  <section class="sec" id="s18">
-    <div class="grid g75">
-      <div>
-        <p class="kicker" data-rise>也说说限制</p>
-        <h2 data-rise style="--d:.06s">它不是万能的</h2>
-        <div class="bullets" data-stagger data-step="0.09">
-          <div class="bullet"><i>·</i><div><div class="t">要一个 QQ 号</div><div class="s">小号更安全</div></div></div>
-          <div class="bullet"><i>·</i><div><div class="t">要一台常开的电脑</div><div class="s">或一台小主机</div></div></div>
-          <div class="bullet"><i>·</i><div><div class="t">网页版大脑有风控</div><div class="s">长期挂要注意</div></div></div>
-        </div>
-        <p class="mint-line" data-fade style="--d:.3s">这些我都写在 README 里了，没有藏着。</p>
-        <p class="note" data-fade style="--d:.36s">这些限制不是 bug，是它的使用前提。</p>
-      </div>
-      <div data-zoom style="--d:.12s" data-para="20">
-        <div class="frame"><img src="assets/shots/06-settings-engine.webp" alt="引擎设置" loading="lazy" /></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 19 下载 -->
-  <section class="sec center" id="s19">
-    <div>
-      <p class="kicker center" data-rise>开始</p>
-      <h2 class="huge" data-rise style="--d:.06s">下一个群<br><span class="hl">等它上线</span></h2>
-      <div class="rule center" data-wipe style="--d:.14s"></div>
-      <div class="cta center" data-rise style="--d:.2s">
-        <a class="btn" href="assets/群崽QunZai安装包.exe" download>下载安装包 · 81 MB</a>
-        <a class="btn ghost" href="https://github.com/BlushHorizon/QunZai" target="_blank" rel="noopener">GitHub 源码</a>
-      </div>
-      <p class="fine" data-fade style="--d:.3s">
-        Windows 10 / 11 · 双击即用 · 数据只在本机<br>
-        MIT 开源 · 免费 · 本地运行
-      </p>
-      <p class="fine dim" data-fade style="--d:.36s">
-        直连慢？<a class="link" href="https://ghfast.top/https://raw.githubusercontent.com/BlushHorizon/QunZai/main/site/assets/%E7%BE%A4%E5%B4%BDQunZai%E5%AE%89%E8%A3%85%E5%8C%85.exe" target="_blank" rel="noopener">走国内加速镜像</a>
-      </p>
-    </div>
-  </section>
-
-  <!-- 页脚 -->
-  <footer class="foot">
-    <div class="foot-in">
-      <div class="foot-brand">
-        <span class="mark">群</span>
-        <div>
-          <div class="fb-name">群崽 QunZai</div>
-          <div class="fb-sub">本地运行的 QQ 群 AI 助手</div>
-        </div>
-      </div>
-      <div class="foot-links">
-        <a href="#s1">是什么</a>
-        <a href="#s3">怎么开始</a>
-        <a href="#s10">面板</a>
-        <a href="#s14">开源</a>
-        <a href="https://github.com/BlushHorizon/QunZai" target="_blank" rel="noopener">GitHub</a>
-        <a href="mailto:1413214574@QQ.com">1413214574@QQ.com</a>
-      </div>
-    </div>
-    <div class="foot-bot">
-      <span>MIT License · 数据只在本机 · 不上传任何聊天内容</span>
-      <span>问题反馈：<a href="mailto:1413214574@QQ.com" style="color:inherit">1413214574@QQ.com</a></span>
-      <span class="foot-ver">v1.4.17</span>
-    </div>
-  </footer>
+<section class="section section--alt"><div class="wrap">
+  <div class="section-head reveal"><div class="eyebrow">FAQ</div><h2 class="section-title">你大概会问这些</h2></div>
+  <div data-render="faq"></div>
+  <p class="faq-more">还有疑问？去看 <a href="rules.html">使用须知与隐私</a>，或到 <a data-href="releases">Releases</a> 看每个版本改了什么。</p>
+</div></section>
 
 </main>
-
-<script src="assets/deck.js?v=3"></script>
+<section class="cta-band"><div class="wrap cta-inner">
+  <h2>让它住进你的群</h2>
+  <p>下载安装包，扫一次码，剩下的交给群崽。免费开源，所有功能都不会锁进付费档。</p>
+  <div class="cta-actions">
+    <a class="btn btn-primary" data-href="download">下载 Windows 安装包</a>
+    <a class="btn btn-outline" data-href="repo">去 GitHub 看看</a>
+  </div>
+  <div class="cta-meta">
+    <span>◆ 免 API Key</span><span>◆ 零 npm 依赖</span>
+    <span>◆ 数据只在本机</span><span>◆ MIT 开源</span>
+  </div>
+</div></section>
+<footer class="site-footer"><div class="wrap">
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <a class="brand" href="index.html">
+        <img class="brand-logo" src="assets/logo-64.png" alt="群崽 QunZai">
+        <span class="brand-text">群崽 QunZai<small>QQ GROUP COMPANION</small></span>
+      </a>
+      <p class="footer-tagline">
+        <span>让群热闹，也把群管好 —— 住进 QQ 群的 AI 搭子。</span>
+        <span>免 API Key · 自己发表情包 · 数据只留在本机。</span>
+        <span>MIT © 2026 QunZai contributors · 创建于 2026 年 10 月</span>
+      </p>
+    </div>
+    <div class="footer-col"><h4>产品</h4><ul>
+      <li><a href="gameplay.html">功能亮点</a></li><li><a href="guide.html">上手指南</a></li>
+      <li><a href="status.html">更新日志</a></li><li><a href="shop.html">下载安装包</a></li>
+    </ul></div>
+    <div class="footer-col"><h4>资源</h4><ul>
+      <li><a data-href="repo">GitHub 仓库</a></li><li><a data-href="releases">Releases</a></li>
+      <li><a data-href="pages">官网首页</a></li><li><a href="rules.html">使用须知与隐私</a></li>
+    </ul></div>
+    <div class="footer-col"><h4>社区</h4><ul>
+      <li><a data-href="aifadian">爱发电 · 请作者喝咖啡</a></li>
+      <li><a data-href="napcat">NapCat</a></li><li><a data-href="snowluma">SnowLuma</a></li>
+      <li><a href="about.html">关于群崽</a></li>
+    </ul></div>
+  </div>
+  <div class="footer-bottom">
+    <span>本项目与 QQ / DeepSeek 官方无关 · 仅供学习交流</span>
+    <span class="spacer"></span>
+    <button class="swarm-btn" type="button" data-swarm><span class="icon">✦</span>让页面自己长出来</button>
+    <span>· v1.4.17</span>
+  </div>
+</div></footer>
+<script src="assets/data.js"></script>
+<script src="assets/site.js"></script>
 </body>
 </html>

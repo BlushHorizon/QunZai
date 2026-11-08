@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>上手指南 · 群崽 QunZai</title>
+<meta name="description" content="三步开工：装包、扫 QQ、登录网页版大模型">
+<meta property="og:title" content="上手指南 · 群崽 QunZai">
+<meta property="og:description" content="三步开工：装包、扫 QQ、登录网页版大模型">
+<meta property="og:image" content="https://blushhorizon.github.io/QunZai/assets/og-cover.png">
+<meta name="theme-color" content="#0b0c0e">
+<link rel="icon" href="assets/favicon.ico">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="guide">
+<a class="skip-link" href="#main">跳到正文</a>
+<header class="site-header">
+  <div class="site-notice">
+    <span class="notice-icon">★</span>
+    <span>安卓最终版 <b>v1.4.24</b> 已发布 · 桌面版 <b>v1.4.17</b> 持续维护</span>
+    <a class="site-notice-link" data-href="releases">查看全部版本 →</a>
+    <button class="notice-close" type="button" aria-label="关闭提示">✕</button>
+  </div>
+  <div class="wrap header-inner">
+    <a class="brand" href="index.html">
+      <img class="brand-logo" src="assets/logo-64.png" alt="群崽 QunZai">
+      <span class="brand-text">群崽 QunZai<small>QQ GROUP COMPANION</small></span>
+    </a>
+    <nav class="site-nav">
+      <ul class="nav-list">
+        <li><a class="nav-link" data-nav="home" href="index.html">首页</a></li>
+        <li><a class="nav-link" data-nav="features" href="gameplay.html">功能</a></li>
+        <li><a class="nav-link" data-nav="guide" href="guide.html">上手</a></li>
+        <li><a class="nav-link" data-nav="changelog" href="status.html">更新</a></li>
+        <li><a class="nav-link" data-nav="about" href="about.html">关于</a></li>
+        <li><a class="nav-link nav-cta" data-nav="download" href="shop.html">下载</a></li>
+      </ul>
+    </nav>
+    <button class="nav-toggle" type="button" aria-label="打开菜单" aria-expanded="false"><span></span></button>
+  </div>
+</header>
+<main id="main">
+<section class="page-hero"><div class="wrap page-hero-inner">
+  <div class="breadcrumb"><a href="index.html">首页</a><span class="sep">/</span><span>上手指南</span></div>
+  <div class="eyebrow">GET STARTED</div>
+  <h1>三步，就能开工</h1><p>从双击安装包到它自己在群里接梗，大概只需要扫两次码。</p>
+</div></section>
+
+<section class="section"><div class="wrap">
+  <div class="banner"><span class="icon">!</span><span><b>先读一遍</b> <a href="rules.html" style="color:var(--brand-3)">使用须知与隐私</a>：这是玩具 / 学习项目，会违反 DeepSeek 用户协议、有 QQ 风控风险、建议用小号。</span></div>
+  <div class="section-head"><div class="eyebrow">THREE STEPS</div><h2 class="section-title">照着做就行</h2></div>
+  <div data-render="steps"></div>
+</div></section>
+
+<section class="section section--alt"><div class="wrap"><div class="section-head"><div class="eyebrow">REQUIREMENTS</div><h2 class="section-title">系统要求</h2></div>
+  <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>项目</th><th>要求</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><b>操作系统</b></td><td>Windows 10 / 11</td><td>桌面版；安卓另有最终版 v1.4.24</td></tr>
+      <tr><td><b>QQ</b></td><td>桌面版 QQ（NTQQ）+ 一台 QQ 小号</td><td>建议用小号，别拿主号试</td></tr>
+      <tr><td><b>浏览器</b></td><td>Edge / Chrome</td><td>用于驱动网页版大模型（CDP）</td></tr>
+      <tr><td><b>运行时</b></td><td>Node ≥ 22</td><td>已随安装包附带，不用自己装</td></tr>
+      <tr><td><b>协议端</b></td><td>任意 OneBot 11 实现</td><td>内置 NapCat；也可填 SnowLuma / LLOneBot 目录</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout"><span class="icon">i</span><span>想用自己那份 OneBot 运行时，就在设置页「监视器（QQ 运行时）」选「我自己找的」填目录。<a data-href="snowluma">SnowLuma</a> 的许可不允许把它打进别人的安装包，所以群崽只内置 <a data-href="napcat">NapCat</a>。</span></div>
+</div></section>
+
+<section class="section"><div class="wrap"><div class="prose">
+  <h2>写进回复里的几个标记</h2>
+  <ul>
+    <li><code>[表情]</code> —— 从已收藏的素材里自动挑一张发出去</li>
+    <li><code>[表情:关键词]</code> —— 按关键词 / 描述匹配，本地挑不到就到在线图库找</li>
+    <li>一条回复里可以放多个标记，会被打包成同一条消息</li>
+    <li><code>/状态</code> <code>/暂停</code> <code>/帮助</code> <code>/记忆 关键词</code> —— 主人在 QQ 里直接发的远程指令</li>
+  </ul>
+  <h2>覆盖安装会丢数据吗？</h2>
+  <p>不会。安装器只结束落在安装目录内的旧进程，保留 <code>data</code> 与 <code>config.json</code>。聊天记录、五类记忆、表情包库、浏览器登录态全都还在。想彻底清空，删掉 <code>D:群崽data</code> 即可。</p>
+</div></div></section>
+
+<section class="section section--alt"><div class="wrap"><div class="section-head"><div class="eyebrow">FAQ</div><h2 class="section-title">上手时最常问的</h2></div><div data-render="faq"></div></div></section>
+
+</main>
+<section class="cta-band"><div class="wrap cta-inner">
+  <h2>让它住进你的群</h2>
+  <p>下载安装包，扫一次码，剩下的交给群崽。免费开源，所有功能都不会锁进付费档。</p>
+  <div class="cta-actions">
+    <a class="btn btn-primary" data-href="download">下载 Windows 安装包</a>
+    <a class="btn btn-outline" data-href="repo">去 GitHub 看看</a>
+  </div>
+  <div class="cta-meta">
+    <span>◆ 免 API Key</span><span>◆ 零 npm 依赖</span>
+    <span>◆ 数据只在本机</span><span>◆ MIT 开源</span>
+  </div>
+</div></section>
+<footer class="site-footer"><div class="wrap">
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <a class="brand" href="index.html">
+        <img class="brand-logo" src="assets/logo-64.png" alt="群崽 QunZai">
+        <span class="brand-text">群崽 QunZai<small>QQ GROUP COMPANION</small></span>
+      </a>
+      <p class="footer-tagline">
+        <span>让群热闹，也把群管好 —— 住进 QQ 群的 AI 搭子。</span>
+        <span>免 API Key · 自己发表情包 · 数据只留在本机。</span>
+        <span>MIT © 2026 QunZai contributors · 创建于 2026 年 10 月</span>
+      </p>
+    </div>
+    <div class="footer-col"><h4>产品</h4><ul>
+      <li><a href="gameplay.html">功能亮点</a></li><li><a href="guide.html">上手指南</a></li>
+      <li><a href="status.html">更新日志</a></li><li><a href="shop.html">下载安装包</a></li>
+    </ul></div>
+    <div class="footer-col"><h4>资源</h4><ul>
+      <li><a data-href="repo">GitHub 仓库</a></li><li><a data-href="releases">Releases</a></li>
+      <li><a data-href="pages">官网首页</a></li><li><a href="rules.html">使用须知与隐私</a></li>
+    </ul></div>
+    <div class="footer-col"><h4>社区</h4><ul>
+      <li><a data-href="aifadian">爱发电 · 请作者喝咖啡</a></li>
+      <li><a data-href="napcat">NapCat</a></li><li><a data-href="snowluma">SnowLuma</a></li>
+      <li><a href="about.html">关于群崽</a></li>
+    </ul></div>
+  </div>
+  <div class="footer-bottom">
+    <span>本项目与 QQ / DeepSeek 官方无关 · 仅供学习交流</span>
+    <span class="spacer"></span>
+    <button class="swarm-btn" type="button" data-swarm><span class="icon">✦</span>让页面自己长出来</button>
+    <span>· v1.4.17</span>
+  </div>
+</div></footer>
+<script src="assets/data.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>
