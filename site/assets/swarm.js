@@ -1509,7 +1509,7 @@
 .badge{position:absolute;transform:translate(-50%);padding:1px 4px;border-radius:2px;color:#fff;font:600 11px/16px Inter,system-ui,-apple-system,"Segoe UI",sans-serif;white-space:nowrap;font-variant-numeric:tabular-nums}
 .cursor{position:absolute;left:0;top:0;will-change:transform}
 .cursor svg{position:absolute;overflow:visible;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.28))}
-.cursor .cd{position:absolute;left:0;top:0;width:2px;height:2px;border-radius:50%;background:radial-gradient(circle at 50% 50%,#ffffff 0%,#ffffff 50%,#e8edf4 68%,#b9c2cf 84%,#7d8796 100%);box-shadow:0 0 1px rgba(0,0,0,.55),0 0 calc(2px + var(--sw,0)*7px) rgba(255,255,255,calc(.10 + var(--sw,0)*.30));filter:brightness(calc(1 - var(--sw,0)*.30)) contrast(calc(1 + var(--sw,0)*.20));transition:filter .14s linear,box-shadow .14s linear}
+.cursor .cd{position:absolute;left:0;top:0;width:1px;height:1px;border-radius:50%;background:#ffffff;box-shadow:0 0 calc(1px + var(--sw,0)*7px) rgba(255,255,255,calc(.22 + var(--sw,0)*.45));filter:brightness(calc(1 - var(--sw,0)*.30)) contrast(calc(1 + var(--sw,0)*.20));transition:filter .14s linear,box-shadow .14s linear}
 .rulers{position:absolute;inset:0;pointer-events:none}
 .ruler{position:absolute;background:#141C28;pointer-events:none}
 .ruler svg{display:block}
@@ -1898,8 +1898,8 @@
         if (el._shape !== "dot") {
           el._shape = "dot";
           el.innerHTML = '<i class="cd"></i>';
-          el._hx = 1;
-          el._hy = 1;
+          el._hx = 0;
+          el._hy = 0;
         }
         // 移动时自动加深：速度归一化后写进 --sw，由 .cd 的渐变/对比度消费
         const sp = Math.min(1, Math.hypot(c.vx, c.vy) / 900);
